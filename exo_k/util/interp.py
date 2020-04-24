@@ -1,0 +1,376 @@
+# -*- coding: utf-8 -*-
+"""
+@author: jeremy leconte
+Library of useful functions for interpolation
+"""
+import numpy as np
+import numba
+
+@numba.njit(nogil=True,fastmath=True)
+def bilinear_interpolation(z00, z10, z01, z11, x, y):
+    """
+    2D interpolation
+    Applies linear interpolation across x and y between xmin,xmax and ymin,ymax
+    Parameters
+    ----------
+    z00: array
+        Array corresponding to xmin,ymin
+    z10: array
+        Array corresponding to xmax,ymin
+    z01: array
+        Array corresponding to xmin,ymax
+    z11: array
+        Array corresponding to xmax,ymax
+    x: float
+        weight on x coord
+    y: float
+        weight on y coord
+    """
+    xy = x*y
+    res = np.zeros_like(z00)
+    for i in range(z00.shape[0]):
+        res[i] = (z11[i]-z01[i]+z00[i]-z10[i])*xy +(z01[i]-z00[i])*y +(z10[i]-z00[i])*x +z00[i]
+    return res
+
+@numba.njit(nogil=True,fastmath=True)
+def linear_interpolation(z00, z10, x):
+    """
+    1D interpolation
+    Applies linear interpolation in x between xmin,xmax
+    Parameters
+    ----------
+    z00: array
+        Array corresponding to xmin
+    z10: array
+        Array corresponding to xmax
+    x: float
+        weight on x coord
+    """
+    res = np.zeros_like(z00)
+    for i in range(z00.shape[0]):
+#        res[i] = z10[i]*x+z00[i]*x2
+        tmp1=z00[i]
+        tmp2=z10[i]
+        tmp2-=tmp1
+        tmp1+=tmp2*x
+        res[i] = tmp1
+    return res
+
+
+def interp_ind_weights(x_to_interp,x_grid):
+    """Finds the indices and weights to interpolate from a x_grid to a x_to_interp.
+    """
+    xmin=x_grid.min()
+    xmax=x_grid.max()
+    used_x=np.where(x_to_interp>xmax,xmax,x_to_interp)
+    used_x=np.where(used_x<xmin,xmin,used_x)
+    indices=np.searchsorted(x_grid,used_x)
+    indices=np.where(indices==0,1,indices)
+    return indices,(used_x-x_grid[indices-1])/(x_grid[indices]-x_grid[indices-1])
+
+def rebin_ind_weights(old_bin_grid,new_bin_grid):
+    """Computes the indices and weights to be used when
+       rebinning an array of values f of size N in the bins delimited by old_bin_grid (of size N+1)
+       onto new bins delimited by new_bin_grid (of size Nnew+1)
+       Returns indices, weights to be used as follows to proceed with the rebinning
+       f_rebinned=[np.dot(f[indicestosum[ii]-1:indicestosum[ii+1]],final_weights[ii])
+          for ii in range(Nnew)]
+       """
+#    new_bin_grid_used=np.where(new_bin_grid<old_bin_grid[0],old_bin_grid[0],new_bin_grid)
+    indicestosum=np.searchsorted(old_bin_grid,new_bin_grid,side='right')
+    if indicestosum[-1]==old_bin_grid.size : indicestosum[-1]-=1
+    dg=old_bin_grid[1:]-old_bin_grid[:-1]
+    final_weights=[]
+    for ig in range(new_bin_grid.size-1):
+        if indicestosum[ig+1]>indicestosum[ig]:
+            weights=np.concatenate((old_bin_grid[[indicestosum[ig]]]-new_bin_grid[[ig]],\
+                dg[indicestosum[ig]:indicestosum[ig+1]-1],  \
+                new_bin_grid[[ig+1]]-old_bin_grid[[indicestosum[ig+1]-1]]))
+        else:
+            weights=np.array([new_bin_grid[ig+1]-new_bin_grid[ig]])
+        weights=weights/np.sum(weights)
+        final_weights.append(weights)
+    return indicestosum,final_weights
+
+@numba.njit()
+def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
+    """Computes the convolution of two kdata tables.
+    Parameters:
+        kdata1,kdata2: the two ktabke.kdata tables to convolve
+        shape          : shape of the ktabke.kdata tables to convolve (last size is Ng)
+        kdataconv     : result table where the last dimension as a length equal to Ng^2
+    """
+    Ng=shape[-1]
+    for i in range(shape[0]):
+     for j in range(shape[1]):
+      for k in range(shape[2]):
+       for l in range(Ng):
+        for m in range(Ng):
+            kdataconv[i,j,k,l*Ng+m]=kdata1[i,j,k,m]+kdata2[i,j,k,l]
+
+@numba.njit(nogil=True,fastmath=True)
+def kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng):
+    """Computes the convolution of two atmospheric kdata profiles.
+    Parameters:
+        kdata1,kdata2: the two ktabke.kdata tables to convolve
+        Nlay          : Number of atmospheric layers
+        Nw            : Number of wavenumber points
+        Ng            : Number of g-points
+        kdataconv     : result table where the last dimension as a length equal to Ng^2
+    """
+    for i in range(Nlay):
+        for j in range(Nw):
+            for l in range(Ng):
+                for m in range(Ng):
+                    kdataconv[i,j,l*Ng+m]=kdata1[i,j,m]+kdata2[i,j,l]
+
+@numba.njit(fastmath=True)
+def rebin(f_fine,fine_grid,coarse_grid):
+    """Computes the binned version of a function on a coarser grid.
+    The two grids do not need to have the same boundaries.
+    Parameters:
+        f_fine: function to be rebinned, given on the fine_grid
+        fine_grid: the high resolution grid edges we start with
+        coarse_grid: the coarser resolution grid edges inside which we want to bin the function f
+       """
+    indicestosum=np.searchsorted(fine_grid,coarse_grid,side='right')
+    if indicestosum[-1]==fine_grid.size : indicestosum[-1]-=1
+    if not is_sorted(indicestosum): print('not sorted')
+    dgrid=np.diff(fine_grid)
+    Nn=coarse_grid.size-1
+    f_coarse=np.zeros(Nn)
+    ifine=indicestosum[0]-1
+    for ii in range(Nn):
+      if indicestosum[ii+1]>indicestosum[ii]:
+        tmp_w=fine_grid[ifine+1]-coarse_grid[ii]
+        tmp_f=f_fine[ifine]*tmp_w
+        for iifine in range(indicestosum[ii],indicestosum[ii+1]-1):
+          tmp_f+=dgrid[iifine]*f_fine[iifine]
+          tmp_w+=dgrid[iifine]
+        ifine=indicestosum[ii+1]-1
+        tmp_dw=(coarse_grid[ii+1]-fine_grid[ifine])
+        #print(ifine,tmp_dw,f_fine[ifine])
+        tmp_f+=f_fine[ifine]*tmp_dw
+        tmp_w+=tmp_dw
+        f_coarse[ii]=tmp_f/tmp_w
+      else:
+        f_coarse[ii]=f_fine[ifine]
+    return f_coarse
+
+#@numba.njit(nogil=True,fastmath=True)
+def RandOverlap_2_kdata_prof(Nlay,Nw,Ng,kdata1,kdata2,weights,ggrid):
+    """Function to randomely mix the opacities of 2 species.
+    Parameters:
+    Output    :
+       kcoeff table of the mix.
+    """
+    kdataconv=np.zeros((Nlay,Nw,Ng**2))
+    weightsconv=np.zeros(Ng**2)
+    newkdata=np.zeros((Nlay,Nw,Ng))
+
+    for jj in range(Ng):
+        for ii in range(Ng):
+            weightsconv[ii*Ng+jj]=weights[jj]*weights[ii]
+
+    kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng)
+
+    for ilay in range(Nlay):
+        for iW in range(Nw):
+            tmp=kdataconv[ilay,iW,:]
+            indices=np.argsort(tmp)
+            kdatasort=tmp[indices]
+            weightssort=weightsconv[indices]
+            newggrid=np.cumsum(weightssort)
+            #ind=np.searchsorted(newggrid,ggrid,side='left')
+            #newkdata[ilay,iW,:]=kdatasort[ind]
+            newkdata[ilay,iW,:]=np.interp(ggrid,newggrid,kdatasort)
+    return newkdata
+
+def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out='unspecified'):
+    """Chooses the final unit to use and the conversion factor to apply.
+    Parameters:
+        quantity: str
+            The name of the pysical quantity handled for potential error messages
+        unit_file, unit_in, unit_out: str
+            Respectively:
+            - String with the unit of the initial data,
+            - The unit we think the initial data are in if unit_file is 'unspecified'
+              or (we believe) wrong,
+            - The unit we want to convert to. If unspecified, we do not convert.
+    Output:
+        unit_to_write: str
+            Resulting unit
+        conversion_factor: float
+            A multiplicating factor for the data to proceed to the conversion.
+    """
+    import astropy.units as u
+    if unit_in!='unspecified':
+      if((unit_file!='unspecified') and (unit_file!=unit_in)):
+        print('Be careful, you are assuming that '+quantity+' is '+unit_in)
+        print('but the input file says that it is '+unit_file+'. The former will be used')
+      starting_unit=unit_in
+    else:
+      if unit_file=='unspecified':
+        raise NotImplementedError("""I could not find the {quantity} used in the file.
+            So you should tell me what unit you think is used by specifying 
+            the keyword argument: {quantity}_in= a unit recognized by the astropy.units library.
+            If you want to convert to another unit, add the {quantity}_out keyword
+            with the desired unit.""".format(quantity=quantity))
+      else:
+        starting_unit=unit_file
+    if unit_out=='unspecified':
+        unit_to_write=starting_unit
+    else:
+        unit_to_write=unit_out
+    return unit_to_write,u.Unit(starting_unit).to(u.Unit(unit_to_write))
+
+def rm_molec(unit_name):
+    """Remove "/molecule" or "/molec" for a unit string.
+    Parameter:
+        unit_name: str
+            string to be changed
+    """
+    return unit_name.replace('/molecule','').replace('/molec','')
+
+@numba.njit
+def is_sorted(a):
+    """Finds out if an array is sorted. Return True if it is.
+    """
+    for i in range(a.size-1):
+         if a[i+1] < a[i] :
+               return False
+    return True
+
+
+def gauss_legendre(order):
+    """Computes the weights and abscissa for a Gauss Legendre quadrature of order oerder
+    Parameters:
+        order: Integer
+            Order of the quadrature wanted
+    Output:
+        weights: Array(order)
+            Weights to be used in the quadrature
+        ggrid: Array(order)
+            Abscissa to be used for the quadrature
+        gedges: Array(order+1)
+            Cumulative sum of the weights. Goes from 0 to 1.
+       """ 
+    from numpy.polynomial.legendre import leggauss
+    ggrid,weights=leggauss(order)
+    weights=weights/2.
+    ggrid=(ggrid+1.)/2.
+    gedges=np.insert(np.cumsum(weights),0,0.)
+    return weights,ggrid,gedges
+
+def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
+    """Creates the k-distribution from a single high resolution spectrum
+    Parameters:
+        k_hr    : Array
+            spectrum
+        wn_hr   : Array
+            wavenumber grid
+        dwn_hr  : Array
+            width of the high resolution wavenumber bins
+        wnedges : Array
+            Lower resolution wavenumber bin edges inside which the k-dist will be computed
+        ggrid   : Array
+            Grid of g-point abscissas
+    Output:
+        kdata  : Array
+            k coefficients for each (Wn,g) bin
+    """
+    pos=np.searchsorted(wn_hr,wnedges)
+    kdata=np.zeros((wnedges.size-1,ggrid.size))
+    for ib in range(wnedges.size-1):
+        if pos[ib+1]==pos[ib]:
+            continue
+        tmp_k=k_hr[pos[ib]:pos[ib+1]]
+        totwg=np.sum(dwn_hr[pos[ib]:pos[ib+1]])
+        wg=dwn_hr[pos[ib]:pos[ib+1]]/totwg
+        sort_ind=np.argsort(tmp_k)
+        newgfine=np.cumsum(wg[sort_ind])
+        # choosing the line below or the two after actually makes a significant difference
+        kdata[ib]=np.interp(ggrid,newgfine,tmp_k[sort_ind])
+        #g_pos=np.searchsorted(newgfine,ggrid,side='right')
+        #kdata[ib]=tmp_k[sort_ind[g_pos]] 
+        # an interpolation between tmp_k[sort_ind[g_pos]] and tmp_k[sort_ind[g_pos-1]] 
+        # would probably be cleaner.
+    return kdata
+
+
+## OLD FUNCTIONS
+
+@numba.njit()
+def kdata_conv(kdata1,kdata2,kdataconv,Ng):
+    """Performs the convolution of the kdata over g-space.
+    """
+    for jj in range(Ng):
+        for ii in range(Ng):
+            kdataconv[:,:,:,ii*Ng+jj]=kdata1[:,:,:,jj]+kdata2[:,:,:,ii]
+
+@numba.njit()
+def kdata_conv_loop_bad(kdata1,kdata2,kdataconv,shape):
+    """Performs the convolution of the kdata over g-space.
+    But the loop is in bad order. Keep for test. 
+    """
+    Ng=shape[-1]
+    for jj in range(Ng):
+     for ii in range(Ng):
+      for k in range(shape[2]):
+       for l in range(shape[1]):
+        for m in range(shape[0]):
+            kdataconv[m,l,k,ii*Ng+jj]=kdata1[m,l,k,jj]+kdata2[m,l,k,ii]
+
+#@numba.njit(fastmath=True)
+def g_interp(logk,Nw,Ng,Num,ggrid,wl_weights,indices):
+    """Interpolates logk on a new g-grid. 
+    """
+    #write = False
+    #if write : print(logk);print(Nw,Ng,Num);print(ggrid);print(wl_weights);print(indices)
+    lkmin=logk[0,0]
+    for iW in range(1,Nw):
+        if logk[iW,0] < lkmin : lkmin = logk[iW,0]
+    lkmax=logk[0,-1]
+    for iW in range(1,Nw):
+        if logk[iW,-1] > lkmax : lkmax = logk[iW,-1]
+    dlk=(lkmax-lkmin)/(Num-3)
+    logkgrid=np.zeros(Num)
+    Ovgedges=1./np.diff(ggrid)
+    newg=np.zeros(Num)
+    lk=lkmin-dlk
+    logkgrid[0]=lk
+    for iN in range(1,Num):
+        lk+=dlk
+        logkgrid[iN]=lk
+        tmpg=0.
+        for iW in range(Nw):
+            ind=indices[iW]
+            #if write : print(ind,iW,lk,logk[iW,ind])
+            if lk < logk[iW,ind]:
+                #if write : print('lk<logk')
+                if ind!=0 :
+                    #if write: print('ind!=0')
+                    #if write: print( \
+                    # (ggrid[ind]*(lk-logk[iW,ind-1])+ggrid[ind-1]*(logk[iW,ind]-lk))\
+                    #   *Ovgedges[ind-1]*wl_weights[iW])
+                    tmpg+=(ggrid[ind]*(lk-logk[iW,ind-1])+ggrid[ind-1]*(logk[iW,ind]-lk))  \
+                        *Ovgedges[ind-1]*wl_weights[iW]
+            else:
+                #if write : print('lk>logk')
+                if ind!=Ng-1:
+                    #if write : print('ind!=Ng-1')
+                    ind+=1
+                    indices[iW]=ind
+                    #if write : print(  \
+                    # (ggrid[ind]*(lk-logk[iW,ind-1])+ggrid[ind-1]*(logk[iW,ind]-lk)) \
+                    # *Ovgedges[ind-1]*wl_weights[iW])
+                    tmpg+=(ggrid[ind]*(lk-logk[iW,ind-1])+ggrid[ind-1]*(logk[iW,ind]-lk)) \
+                        *Ovgedges[ind-1]*wl_weights[iW]
+                else:
+                    #if write : print('ind=Ng-1')
+                    tmpg+=wl_weights[iW]
+        newg[iN]=tmpg
+    #if write : print(newg);print(logkgrid)
+
+    return newg,logkgrid
+
