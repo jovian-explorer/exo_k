@@ -19,27 +19,58 @@ class Atm_profile(object):
     (gravity, Molar mass, etc.)
     """
     
-    def __init__(self,composition={},psurf=None,ptop=None,
-            Tsurf=None,Tstrat=None,grav=None,Rp=None,Mgas=None,rcp=0.28,Nlev=20):
+    def __init__(self, composition={}, psurf=None, ptop=None, logplev=None, tlev=None,
+            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlev=20):
         """Initializes atmospheric profiles
         Parameters:
+            composition: dict
+                Keys are molecule names and values the vmr.
+                Vmr can be arrays of size Nlev-1 (i.e. the number of layers).
+            There are two routes to define the profile.
+            Tither define:
+                Nlev: int
+                    Number of level interfaces (Number of layers is Nlev-1)
+                psurf, Tsurf: float
+                    Surface pressure (Pa) and temperature 
+                ptop: float
+                    Pressure at the top of the model (Pa) 
+                Tstrat: float
+                    Stratospheric temperature
+            or:
+                logplev: array
+                tlev: array (same size)
+                    These will become the pressures (Pa) and temperatures at the level interfaces.
+                    This will be used to define the surface and top pressures.
+                    Nlev becomes the size of the arrays. 
+            grav: float
+                Planet surface gravity (gravity constant with altitude for now).
+            Rp: float of Astropy.unit quantity
+                Planet radius. If float, Jupiter radii are assumed.
+            rcp: float
+                Adiabatic lapse rate for the gas (R/cp)
+            Mgas: float, optional
+                Molar mass of the gas (kg/mol). If given, overrides the molar mass computed
+                from composition.
         Option:
         """
         self.gas_mix=gas_mix(composition)
         self.rcp=rcp
-        self.psurf=psurf
-        self.ptop=ptop
-        self.Nlev=Nlev
-        self.Nlay=Nlev-1
-        self.logplev=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlev)
-        self.plev=10**self.logplev
-        self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
-        self.play=10**self.logplay
+        if logplev is None:
+            self.psurf=psurf
+            self.ptop=ptop
+            self.Nlev=Nlev
+            self.Nlay=Nlev-1
+            self.logplev=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlev)
+            self.plev=10**self.logplev
+            self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
+            self.play=10**self.logplay
+            self.set_adiab_profile(Tsurf=Tsurf,Tstrat=Tstrat,rcp=rcp)
+            self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
+        else:
+            self.set_logPT_profile(logplev,tlev)
+        self.set_grav(grav,compute_col_dens=False)
         self.set_Mgas(Mgas)
-        self.set_grav(grav)
         self.set_Rp(Rp)        
-        self.set_adiab_profile(Tsurf=Tsurf,Tstrat=Tstrat,rcp=rcp)
-        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
 
     def set_logPT_profile(self,log_plev,tlev):
         """Set the logP-T profile of the atmosphere with a new one
@@ -52,6 +83,7 @@ class Atm_profile(object):
         self.logplev=log_plev
         self.plev=10**self.logplev
         self.psurf=self.plev[-1]
+        self.ptop=self.plev[0]
         self.tlev=tlev
         self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
         self.play=10**self.logplay
@@ -59,6 +91,7 @@ class Atm_profile(object):
         self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
         self.Nlev=log_plev.size
         self.Nlay=self.Nlev-1
+        self.compute_layer_col_density()
 
     def set_adiab_profile(self,Tsurf=None,Tstrat=None,rcp=0.28):
         """Initializes atmospheric the logP-T profile with an adiabat with index R/cp=rcp
@@ -73,17 +106,22 @@ class Atm_profile(object):
         self.tlev=Tsurf*(self.plev/self.psurf)**rcp
         self.tlev=np.where(self.tlev<Tstrat,Tstrat,self.tlev)
 
-    def set_grav(self,grav=None):
+    def set_grav(self, grav=None, compute_col_dens=True):
         """Sets the surface gravity of the planet
         Parameters:
             grav: float
                 surface gravity (m/s^2)
+    
+            compute_col_dens: boolean (optional, default=True)
+                If True, the column density per layer of the atmosphere is recomputed.
+                This si mostly to save time when we know this will be done later on.
         """
         if grav is None: raise RuntimeError('A planet needs a gravity!')
         self.grav=grav
         self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
+        if compute_col_dens: self.compute_layer_col_density()
     
-    def set_gas(self,composition_dict):
+    def set_gas(self, composition_dict, compute_col_dens=True):
         """Sets the composition of the atmosphere
         Parameters:
             composition_dict: dictionary
@@ -91,20 +129,29 @@ class Atm_profile(object):
                 A 'background' value means that the gas will be used to fill up to vmr=1
                 If they do not add up to 1 and there is no background gas_mix,
                 the rest of the gas_mix is considered transparent.
+    
+            compute_col_dens: boolean (optional, default=True)
+                If True, the column density per layer of the atmosphere is recomputed.
+                This si mostly to save time when we know this will be done later on.
         """
         self.gas_mix=gas_mix(composition_dict)
-        self.set_Mgas()
+        self.set_Mgas(Mgas=None, compute_col_dens=compute_col_dens)
 
-    def set_Mgas(self,Mgas=None):
+    def set_Mgas(self, Mgas=None, compute_col_dens=True):
         """Sets the mean molecular weight of the atmosphere
         Parameters:
-            Mgas: float
+            Mgas: float or array of size Nlay
                 mean molecular weight (kg/mol)
+
+            compute_col_dens: boolean (optional, default=True)
+                If True, the column density per layer of the atmosphere is recomputed.
+                This si mostly to save time when we know this will be done later on.
         """
         if Mgas is not None:
             self.Mgas=Mgas
         else:
             self.Mgas=self.gas_mix.molar_mass()
+        if compute_col_dens: self.compute_layer_col_density()
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -142,11 +189,15 @@ class Atm_profile(object):
         else:
             self.Rstar=Rstar*RSOL
 
-
     def compute_density(self):
         """Computes the number density (m^-3) profile of the atmosphere
         """
         self.density=self.play/(KBOLTZ*self.tlay)
+
+    def compute_layer_col_density(self):
+        """Computes the column number density (molecules/m^-2) per layer of the atmosphere
+        """
+        self.dcol_density=self.dmass*N_A/(self.Mgas)
 
     def compute_altitudes(self):
         """Compute altitudes of the level surfaces (zlev) and mid layers (zlay).
@@ -273,6 +324,10 @@ class RadAtm(Atm_profile):
         if not self.kdatabase.consolidated_wn_grid: raise RuntimeError("""
            All tables in the database should have the same wavenumber grid to proceed.
            You should probably use bin_down().""")
+        if self.CIAdatabase is not None and \
+            (not np.array_equal(self.CIAdatabase.wns,self.kdatabase.wns)):
+            raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
+            You should probably run something like CIAdatabase.sample(Kdatabase.wns).""")
         kdatabase=self.kdatabase
         first_mol=True
         molecs=self.gas_mix.keys()
@@ -290,26 +345,30 @@ class RadAtm(Atm_profile):
         self.wnedges=kdatabase.wnedges[self.iw_min:self.iw_max+1]
         self.wns=kdatabase.wns[self.iw_min:self.iw_max]
         self.Nw=self.wns.size
+        vmr_prof, cst_prof=self.gas_mix.get_vmr_array((self.Nlay,))
         for mol in mol_to_be_done:
-            tmp_kdata=kdatabase.ktables[mol].interpolate_kdata( \
-                logp_array=self.logplay,t_array=self.tlay,wngrid_limit=self.wn_range,**kwargs)
+            tmp_kdata=kdatabase[mol].interpolate_kdata(logp_array=self.logplay, \
+                t_array=self.tlay, x_array=vmr_prof[mol], wngrid_limit=self.wn_range, **kwargs)
             if first_mol:
-                self.kdata=self.gas_mix[mol]*tmp_kdata
+                self.kdata=tmp_kdata
                 first_mol=False
             else:
                 if random_overlap and (self.Ng is not None):
                     self.kdata=RandOverlap_2_kdata_prof(self.Nlay,self.Nw,self.Ng, \
-                        self.kdata,self.gas_mix[mol]*tmp_kdata,self.kdatabase.weights,
+                        self.kdata,tmp_kdata,self.kdatabase.weights,
                         self.kdatabase.ggrid)
                 else:
-                    self.kdata+=self.gas_mix[mol]*tmp_kdata
+                    self.kdata+=tmp_kdata
         if rayleigh or (self.CIAdatabase is not None):
             cont_sig=np.zeros((self.Nlay,self.Nw))
             if self.CIAdatabase is not None:
                 cont_sig+=self.CIAdatabase.cia_cross_section( \
-                    self.logplay,self.tlay,self.gas_mix,wngrid_limit=self.wn_range)
+                    self.logplay, self.tlay, vmr_prof, wngrid_limit=self.wn_range)
             if rayleigh:
-                cont_sig+=Rayleigh().sigma(self.wns,self.gas_mix)
+                if cst_prof:
+                    cont_sig+=Rayleigh().sigma(self.wns, self.gas_mix)
+                else:
+                    cont_sig+=Rayleigh().sigma_array(self.wns, vmr_prof)
             if self.Ng is None:
                 self.kdata+=cont_sig
             else:
@@ -331,7 +390,6 @@ class RadAtm(Atm_profile):
         #if self.dtau is None:
         #    self.rad_prop(**kwargs)
         self.opacity(rayleigh=False, **kwargs)
-        NaOvMuMg=N_A/(mu0*self.Mgas)
         if integral:
             #JL2020 What is below is slightly faster for very large resolutions
             #dw=np.diff(self.wnedges)
@@ -345,9 +403,9 @@ class RadAtm(Atm_profile):
             piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
         self.SurfFlux=piBatm[-1]
         if self.Ng is None:
-            self.tau,dtau=rad_prop_xsec(self.dmass,self.kdata,NaOvMuMg)
+            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
         else:
-            self.tau,dtau=rad_prop_corrk(self.dmass,self.kdata,NaOvMuMg)
+            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu0)
             weights=self.kdatabase.weights
         expdtau=np.exp(-dtau)
         expdtauminone=np.where(dtau<1.e-14,-dtau,expdtau-1.)
@@ -451,19 +509,18 @@ class RadAtm(Atm_profile):
         else:
             return res+(PI*self.Rp**2)
 
-    def heating_rate(self, Fin=1., Tstar=5570., szangle=60., cp=1000., **kwargs):
+    def heating_rate(self, Fin=1., Tstar=5570., szangle=60., **kwargs):
         """Computes the heating rate in the atmosphere
         """
         mu0=np.cos(szangle*PI/180.)
         self.opacity(rayleigh=False, **kwargs)
-        NaOvMuMg=N_A/(mu0*self.Mgas)
         Fstar=Fin*PI*Bnu_integral_array(self.wnedges,[Tstar],self.Nw,1)/(SIG_SB*Tstar**4)
         print(np.sum(Fstar))
         if self.Ng is None:
-            self.tau, _ =rad_prop_xsec(self.dmass,self.kdata,NaOvMuMg)
+            self.tau, _ =rad_prop_xsec(self.dcol_density,self.kdata,mu0)
             #the second returned variable is ignored
         else:
-            self.tau, _ =rad_prop_corrk(self.dmass,self.kdata,NaOvMuMg)
+            self.tau, _ =rad_prop_corrk(self.dcol_density,self.kdata,mu0)
             weights=self.kdatabase.weights
         exptau=np.exp(-self.tau)
         if self.Ng is None:
@@ -475,7 +532,7 @@ class RadAtm(Atm_profile):
             tmp_heat_rate[:-1]-=tmp_heat_rate[1:]
             heat_rate=np.sum(tmp_heat_rate[:-1]*weights,axis=2)
         heat_rate=np.sum(heat_rate,axis=1)
-        heat_rate=heat_rate/self.dmass/cp
+        heat_rate=heat_rate*N_A*self.rcp/(self.dcol_density*RGP)
         return heat_rate
 
 

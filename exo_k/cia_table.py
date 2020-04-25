@@ -207,7 +207,8 @@ class Cia_table(object):
         #return self.interpolate_cia( \
         # T,wngrid_limit=wngrid_limit)*n_density[:,None]*n_density[:,None]*x_mol1*x_mol2
         tmp=self.interpolate_cia(t_array=T,wngrid_limit=wngrid_limit)
-        return tmp*x_x_n_density[:,None]
+        return (x_x_n_density*tmp.transpose()).transpose() 
+        # trick for the broadcasting to work whether x_x_n_density is a float or an array
 
     def plot_spectrum(self, ax, t=200., x_axis='wls', xscale=None, yscale=None, **kwarg):
         """Plot the spectrum for a given point
@@ -285,3 +286,14 @@ class Cia_table(object):
         """Overrides getitem.
         """
         return self.abs_coeff[key]
+
+    def effective_cross_section2(self, logP, T, x_mol1, x_mol2, wngrid_limit=None):
+        """Computes the total cross section for a molecule pair
+        (in m^2 per total number of molecules; assumes data in MKS).
+        """
+        x_x_n_density=10**logP/(KBOLTZ*T)*x_mol1*x_mol2
+        #return self.interpolate_cia( \
+        # T,wngrid_limit=wngrid_limit)*n_density[:,None]*n_density[:,None]*x_mol1*x_mol2
+        tmp=self.interpolate_cia(t_array=T,wngrid_limit=wngrid_limit)
+        return x_x_n_density[:,None]*tmp
+

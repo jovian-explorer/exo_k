@@ -33,9 +33,10 @@ def Bnu(nu,T):
 def Bnu_integral(nu_edges,T):
     """Computes the integral of the Planck function in wavenumber bins.
     nu_edges is an array of the edges of the wavenumber bins in cm^-1.
-    sigma*T**4=sum of Bnu_integral
+    sigma*T**4/PI=sum of Bnu_integral
     Bnu_integral is in W/m^2/str
     """
+    nu_edges=np.array(nu_edges)
     res=np.empty(nu_edges.size-1)
     for ii in range(nu_edges.size-1):
         res[ii]=integrate.quad(lambda nu: Bnu(nu,T),nu_edges[ii],nu_edges[ii+1])[0]
@@ -55,7 +56,7 @@ def Bnu_integral_num(nu_edges,T,n=30):
     Output:
         Bnu_integral_num: Array of size nu_edges.size-1
             Integral of the source function at temperature T inside the bins in W/m^2/str
-            sigma*T**4=sum of Bnu_integral_num
+            sigma*T**4/PI=sum of Bnu_integral_num
     """
     kp=PLANCK_CST2/T
     res=np.zeros(nu_edges.size)
@@ -170,7 +171,7 @@ def wavenumber_grid_R(nu_min,nu_max,R):
     return np.append(np.exp(np.arange(np.log(nu_min),np.log(nu_max),1./R)),nu_max)
 
 @numba.njit
-def rad_prop_corrk(dmass,opacity_prof,NaOvMuMg):
+def rad_prop_corrk(dcol_density, opacity_prof, mu0):
     """Computes the optical depth of each of the layers
     for the opacity given for every wavelength and g point.
     Parameters:
@@ -184,18 +185,19 @@ def rad_prop_corrk(dmass,opacity_prof,NaOvMuMg):
             cumulative optical depth from the top (with zeros at the top of the first layer)
     """
     Nlev,Nw,Ng=opacity_prof.shape
+    OvMu=1./mu0
     dtau=np.empty((Nlev,Nw,Ng))
     tau=np.zeros((Nlev+1,Nw,Ng))
     for lev in range(Nlev):
         for iW in range(Nw):
             for ig in range(Ng):
-                dtau_tmp=dmass[lev]*opacity_prof[lev,iW,ig]*NaOvMuMg
+                dtau_tmp=dcol_density[lev]*opacity_prof[lev,iW,ig]*OvMu
                 dtau[lev,iW,ig]=dtau_tmp
                 tau[lev+1,iW,ig]=tau[lev,iW,ig]+dtau_tmp
     return tau,dtau
 
 @numba.njit
-def rad_prop_xsec(dmass,opacity_prof,NaOvMuMg):
+def rad_prop_xsec(dcol_density, opacity_prof, mu0):
     """Computes the optical depth of each of the layers
     for the opacity given for every wavelength and g point.
     Parameters:
@@ -209,11 +211,12 @@ def rad_prop_xsec(dmass,opacity_prof,NaOvMuMg):
             cumulative optical depth from the top (with zeros at the top of the first layer)
     """
     Nlev,Nw=opacity_prof.shape
+    OvMu=1./mu0
     dtau=np.empty((Nlev,Nw))
     tau=np.zeros((Nlev+1,Nw))
     for lev in range(Nlev):
         for iW in range(Nw):
-            dtau_tmp=dmass[lev]*opacity_prof[lev,iW]*NaOvMuMg
+            dtau_tmp=dcol_density[lev]*opacity_prof[lev,iW]*OvMu
             dtau[lev,iW]=dtau_tmp
             tau[lev+1,iW]=tau[lev,iW]+dtau_tmp
     return tau,dtau

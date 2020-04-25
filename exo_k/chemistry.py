@@ -74,7 +74,6 @@ class EquChemTable(object):
         with open(filename, 'r') as file:
             molecules=file.readline().split()[2:]
         molecules[0]=molecules[0].replace('[mol/mol]','')
-        print(molecules)
         data = np.loadtxt(filename,skiprows=skiprows,unpack=True)
         self.pgrid=np.sort(np.array(list(set(data[0]))))
         self.logpgrid=np.log10(self.pgrid)
@@ -85,8 +84,6 @@ class EquChemTable(object):
             self.vol_mix_ratio[mol]=data[ii+2].reshape((self.Np,self.Nt))[:,-1::-1]
         if remove_zeros:
             self.remove_zeros()
-        print(self.pgrid)
-        print(self.tgrid)
 
     def remove_zeros(self,deltalog_min_value=30.):
         """Finds zeros in the chem data and set them to (10.**-deltalog_min_value)
@@ -202,6 +199,25 @@ class gas_mix(object):
                 vmr_active_gases+=vmr
         mol_mass=mol_mass_active_gases/vmr_active_gases     
         return mol_mass
+
+    def get_vmr_array(self, sh=None):
+        """Returns a dictionary with an array of vol. mix. ratios for each species. 
+        Parameters:
+            sh: set or list
+                shape of the array wanted if all the vmr are floats.
+                If some are already arrays, check whether the shape is the correct one. 
+        """
+        res=dict()
+        cst_array=True
+        for mol,vmr in self.composition.items():
+            if isinstance(vmr,(float,int)):
+                res[mol]=np.ones(sh)*vmr
+            else:
+                cst_array=False
+                res[mol]=np.array(vmr)
+                if not np.array_equal(res[mol].shape, sh):
+                    raise RuntimeError('Wrong shape in get_gas_array')
+        return res, cst_array
     
     def mix_with(self, other_gas, vmr_other_gas):
         """Mix with other gas_mix.

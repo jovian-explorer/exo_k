@@ -63,13 +63,16 @@ class CIAdatabase(object):
         (assumes data in MKS).
         Parameters:
             logP_array: array
+
             T_array   : array
                 log10 Pressure and temperature profile
+
             gas_comp  : chemistry.gas_mix object
                 behaves like a dict with mol names as keys and vmr as values
-        Options:
-            wngrid_limit: array
+
+            wngrid_limit: array, optional
                 Smaller and bigger wavenumbers inside which to perform the calculation
+
         Returns:
             array:
                 The cia effective cross section coefficient profile for the whole gas (in m^2).
