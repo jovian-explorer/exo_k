@@ -5,6 +5,7 @@
 A class to handle continuum absorption (CIA)
 """
 
+import os.path
 import h5py
 import numpy as np
 from .util.filenames import EndOfFile
@@ -17,7 +18,7 @@ class Cia_table(object):
     """A class to handle CIA opacity data tables.
     """
 
-    def __init__(self,filename=None, mks=False, remove_zeros=False):
+    def __init__(self,filename=None, mks=False, remove_zeros=False, old_cia_unit='cm^5'):
         self.filename=filename
         self.mol1=None
         self.mol2=None
@@ -33,7 +34,9 @@ class Cia_table(object):
             if filename.lower().endswith(('h5','hdf5')):
                 self.read_hdf5(filename)
             elif filename.lower().endswith('cia'):
-                self.read_hitran_cia(filename)
+                self.read_hitran_cia(filename, old_cia_unit=old_cia_unit)
+            elif filename.lower().endswith('.dat'):
+                self.read_CKD_cia(filename)
             else:
                 raise RuntimeError('Cia file extension not known.')
         if self.abs_coeff is not None:
@@ -42,7 +45,7 @@ class Cia_table(object):
 
 
 
-    def read_hitran_cia(self,filename):
+    def read_hitran_cia(self, filename, old_cia_unit='cm^5'):
         """Reads hitran cia files and load temperature, wavenumber, and absorption coefficient grid.
         Parameters:
             filename: str
@@ -75,7 +78,7 @@ class Cia_table(object):
         self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
         self.tgrid=np.array(tmp_tgrid)
         self.abs_coeff=np.array(tmp_abs_coeff)
-        self.abs_coeff_unit='cm^5'
+        self.abs_coeff_unit=old_cia_unit
         self.Nt=self.tgrid.size
         self.Nw=self.wns.size
 
@@ -92,7 +95,6 @@ class Cia_table(object):
         Temp = float(tmp[4])
 
         return Nw, Temp
-
 
     def read_hdf5(self,filename):
         """Reads hdf5 cia files and load temperature, wavenumber, and absorption coefficient grid.
@@ -117,6 +119,8 @@ class Cia_table(object):
             filename: str
                 Name of the file to be written.
         """
+        if not filename.lower().endswith(('.hdf5', '.h5')):
+            filename=filename+'.hdf5'
         f = h5py.File(filename, 'w')
         f.create_dataset("bin_centers", data=self.wns,compression="gzip")
         f.create_dataset("t", data=self.tgrid,compression="gzip")
@@ -252,7 +256,19 @@ class Cia_table(object):
     def convert_to_mks(self):
         """Converts units to MKS
         """
-        self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
+        if self.abs_coeff_unit=='cm^5':
+            print('conversion from cm^5')
+            self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
+        elif self.abs_coeff_unit=='cm^2':
+            print('conversion from cm^2')
+            self.convert_abs_coeff_unit(abs_coeff_unit='m^2')
+        elif self.abs_coeff_unit=='cm^-1':
+            print('conversion from cm^-1')
+            self.convert_abs_coeff_unit(abs_coeff_unit='m^-1')
+        else:
+            print('no conversion')
+            pass
+        return
 
     @property
     def wls(self):
@@ -286,6 +302,42 @@ class Cia_table(object):
         """Overrides getitem.
         """
         return self.abs_coeff[key]
+
+    def read_CKD_cia(self, filename, old_cia_unit='cm^2'):
+        """Reads hitran cia files and load temperature, wavenumber, and absorption coefficient grid.
+        Parameters:
+            filename: str
+                Name of the file to be read.
+        """
+        self.tgrid=np.array([200., 250., 300., 350., 400.,
+            450., 500., 550., 600., 650., 700.])
+        self.Nt=self.tgrid.size
+        self.abs_coeff=np.loadtxt(filename, skiprows=1, unpack=True)
+        self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)
+        #conversion from cm^2/amagat to cm^2*m^3
+        self.mol1='H2O'
+        if 'SELF' in os.path.basename(filename):
+            self.mol2='H2O'
+        else:
+            self.mol2='N2'
+        nu_name=os.path.join(os.path.dirname(filename),'H2O_CONT_NU.dat')
+        self.wns=np.loadtxt(nu_name, skiprows=1, unpack=True)
+        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+        self.abs_coeff_unit=old_cia_unit
+        self.Nw=self.wns.size
+
+#    #  amagatS=(273.15/temp)*(presS/101325.0)
+#    #  amagatF=(273.15/temp)*(presF/101325.0)
+#
+#    #  abcoef = abcoefS*amagatS + abcoefF*amagatF ! Eq. (15) in Clough (1989)
+#    #  abcoef = abcoef*(presS/(presF+presS))      ! take H2O mixing ratio into account
+#    #                                                ! abs coeffs are given per molecule of H2O
+#
+#    #  Nmolec = (presS+presF)/(kB*temp)           ! assume ideal gas
+#!      print*,'Total number of molecules per m^3 is',Nmolec
+#
+#      abcoef = (abcoefS*x_H2O + abcoefF*(1-x_other))*(k_b*273.15/101325.0)*x_H2O
+#                     *Nmolec*2/(100.0**2)          ! convert to m^-1
 
     def effective_cross_section2(self, logP, T, x_mol1, x_mol2, wngrid_limit=None):
         """Computes the total cross section for a molecule pair
