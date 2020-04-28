@@ -12,19 +12,24 @@ class CIAdatabase(object):
     """Class to group CIA tables and combine them in radiative transfer
     """
 
-    def __init__(self, filenames=[], remove_zeros=True, **kwargs):
+    def __init__(self, filenames, *str_filters, remove_zeros=True, **kwargs):
         """Initializes cia tables and supporting data from a list of filenames
         Parameters:
-            files : table of names of the input pickle files
-        Options: See the options of Ktable.__init__()
+            filenames: list
+                List of names (not full path) of the input cia files. 
+                The files must be in the global search path.
+                A local search path can be specified with 'search_path='
+        Options: See the options of Cia_table.__init__()
         """
         self.cia_tables={}
         self.wns=None
         self.Nw=None
+        self.abs_coeff_unit=None
         for filename in filenames:
-            tmp_cia_table=Cia_table(filename,remove_zeros=remove_zeros,**kwargs)
+            tmp_cia_table=Cia_table(*([filename]+list(str_filters)),
+                remove_zeros=remove_zeros, **kwargs)
             self.add_cia_tables(tmp_cia_table)
-        
+    
     def add_cia_tables(self,*cia_tables):
         """Adds news cia tables to a CIA database.
         Parameters:
@@ -32,6 +37,15 @@ class CIAdatabase(object):
                 as many cia tables as you want.
         """
         for cia_table in cia_tables:
+            if self.abs_coeff_unit is None:
+                self.abs_coeff_unit=cia_table.abs_coeff_unit
+            elif self.abs_coeff_unit!=cia_table.abs_coeff_unit:
+                print('CIAdatabase units for cia coeff: {k}'.format(k=self.abs_coeff_unit))
+                print('{mol1}-{mol2} units for cia coeff: {k}'.format(\
+                    mol1=cia_table.mol1, mol2=cia_table.mol2, k=cia_table.abs_coeff_unit))
+                raise RuntimeError("""You naughty:
+                all CIAdatabase in a database must have the same coeff units""")
+
             if cia_table.mol1 in self.cia_tables:
                 if cia_table.mol2 in self.cia_tables[cia_table.mol1]:
                     continue
@@ -57,6 +71,17 @@ class CIAdatabase(object):
                 cia_table.sample(wngrid,remove_zeros)
         self.wns=np.array(wngrid)
         self.Nw=self.wns.size
+
+    def convert_to_mks(self):
+        """Converts units of all Cia_tables to MKS.
+        """
+        first=True
+        for mol1 in self.cia_tables.values():
+            for cia_table in mol1.values():
+                cia_table.convert_to_mks()
+                if first:
+                    self.abs_coeff_unit=cia_table.abs_coeff_unit
+        
 
     def cia_cross_section(self,logP_array,T_array,gas_comp,wngrid_limit=None):
         """Computes the absorption coefficient in m^-1 for the whole mix specified 

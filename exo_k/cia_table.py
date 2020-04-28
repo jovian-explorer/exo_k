@@ -18,8 +18,56 @@ class Cia_table(object):
     """A class to handle CIA opacity data tables.
     """
 
-    def __init__(self,filename=None, mks=False, remove_zeros=False, old_cia_unit='cm^5'):
-        self.filename=filename
+    def __init__(self, *filename_filters, filename=None, search_path=None,
+            mks=False, remove_zeros=False, old_cia_unit='cm^5'):
+        """Initialization for Cia_tables.
+        Parameters:
+            filename: str (optional)
+                Relative or absolute name of the file to be loaded. 
+            filename_filters: sequence of string
+                As many strings as necessary to uniquely define a file
+                in the Settings()._search_path
+                The Settings()._search_path will be searched for a file
+                with all the filename_filters in the name.
+                The filename_filters can contain *.
+        Options:
+            old_cia_unit : str
+                String to specify the current cia unit if it is unspecified or if 
+                you have reasons to believe it is wrong (e.g. you just read a file where
+                you know that the cia grid and the cia unit do not correspond).
+                Available units are: 'cm^5', 'cm^2' that stand for cm^2/amagat,
+                and 'cm^-1' that stand for cm^-1/amagat^2.
+            remove_zeros: boolean
+                If True, the zeros in the kdata table are replaced by
+                    a value 10 orders of magnitude smaller than the smallest positive value
+            search_path: str
+                If search_path is provided, it locally overrides the global _search_path settings
+                and only files in search_path are returned.            
+        """
+        self._init_empty()
+        self._settings=Settings()
+        if filename is not None:
+            self.filename=filename
+        elif filename_filters:  # a none empty sequence returns a True in a conditional statement
+            self.filename=self._settings.list_files(*filename_filters,
+                only_one=True, search_path=search_path)[0]
+
+        if self.filename is not None:
+            if self.filename.lower().endswith(('h5','hdf5')):
+                self.read_hdf5(self.filename)
+            elif self.filename.lower().endswith('cia'):
+                self.read_hitran_cia(self.filename, old_cia_unit=old_cia_unit)
+            elif self.filename.lower().endswith('.dat'):
+                self.read_CKD_cia(self.filename, old_cia_unit=old_cia_unit)
+            else:
+                raise RuntimeError('Cia file extension not known.')
+        if self.abs_coeff is not None:
+            if self._settings._convert_to_mks or mks: self.convert_to_mks()
+            if remove_zeros : self.remove_zeros()
+
+    def _init_empty(self):
+        """Initializes attributes to none
+        """
         self.mol1=None
         self.mol2=None
         self.wns=None
@@ -29,20 +77,6 @@ class Cia_table(object):
         self.abs_coeff_unit='unspecified'
         self.Nt=None
         self.Nw=None
-        self._settings=Settings()
-        if filename is not None:
-            if filename.lower().endswith(('h5','hdf5')):
-                self.read_hdf5(filename)
-            elif filename.lower().endswith('cia'):
-                self.read_hitran_cia(filename, old_cia_unit=old_cia_unit)
-            elif filename.lower().endswith('.dat'):
-                self.read_CKD_cia(filename)
-            else:
-                raise RuntimeError('Cia file extension not known.')
-        if self.abs_coeff is not None:
-            if self._settings._convert_to_mks or mks: self.convert_to_mks()
-            if remove_zeros : self.remove_zeros()
-
 
 
     def read_hitran_cia(self, filename, old_cia_unit='cm^5'):
@@ -257,17 +291,21 @@ class Cia_table(object):
         """Converts units to MKS
         """
         if self.abs_coeff_unit=='cm^5':
-            print('conversion from cm^5')
+            print('Conversion from cm^5 to m^5')
             self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
-        elif self.abs_coeff_unit=='cm^2':
-            print('conversion from cm^2')
+        elif self.abs_coeff_unit in ['cm^2','m^2']:
+            print('Conversion from '+self.abs_coeff_unit+'/amagat to m^5')
             self.convert_abs_coeff_unit(abs_coeff_unit='m^2')
-        elif self.abs_coeff_unit=='cm^-1':
-            print('conversion from cm^-1')
+            self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)
+            #conversion from m^2/amagat to m^5
+        elif self.abs_coeff_unit in ['cm^-1','m^-1']:
+            print('Conversion from '+self.abs_coeff_unit+'/amagat^2 to m^5')
             self.convert_abs_coeff_unit(abs_coeff_unit='m^-1')
+            self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)**2
+            #conversion from m^-1/amagat^2 to m^5
         else:
-            print('no conversion')
             pass
+        self.abs_coeff_unit='m^5'
         return
 
     @property
@@ -313,8 +351,6 @@ class Cia_table(object):
             450., 500., 550., 600., 650., 700.])
         self.Nt=self.tgrid.size
         self.abs_coeff=np.loadtxt(filename, skiprows=1, unpack=True)
-        self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)
-        #conversion from cm^2/amagat to cm^2*m^3
         self.mol1='H2O'
         if 'SELF' in os.path.basename(filename):
             self.mol2='H2O'

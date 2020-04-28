@@ -9,7 +9,7 @@ import numpy as np
 import astropy.units as u
 from .chemistry import gas_mix
 from .util.cst import N_A,PI,RGP,KBOLTZ,RSOL,RJUP,SIG_SB
-from .util.interp import RandOverlap_2_kdata_prof
+from .util.interp import RandOverlap_2_kdata_prof,rm_molec
 from .util.radiation import Bnu_integral_num,Bnu,rad_prop_corrk,rad_prop_xsec,Bnu_integral_array
 from .rayleigh import Rayleigh
 
@@ -103,6 +103,7 @@ class Atm_profile(object):
             rcp: float
                 R/c_p of the atmosphere
         """
+        if Tstrat is None: Tstrat=Tsurf
         self.tlev=Tsurf*(self.plev/self.psurf)**rcp
         self.tlev=np.where(self.tlev<Tstrat,Tstrat,self.tlev)
 
@@ -230,27 +231,25 @@ class Atm_profile(object):
             dl[:-1]-=dl[1:]
             self.tangent_path.append(2.*dl)
 
+
+
 class RadAtm(Atm_profile):
     """Class based on Atm_profile that contains the link to the radiative data.
     """
-
-    def __init__(self,kdatabase=None,CIAdatabase=None,wl_range=None,**kwargs):
+    
+    def __init__(self, kdatabase=None, CIAdatabase=None, wl_range=None, **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
-        self.kdatabase=kdatabase
-        self.CIAdatabase=CIAdatabase
+        self.set_database(kdatabase)
+        self.set_CIAdatabase(CIAdatabase)
         if wl_range is not None:
             self.set_wl_range(wl_range)
         else:
             self.wn_range=None
-        if self.kdatabase is None:
-            self.Ng=None
-        else:
-            self.Ng=self.kdatabase.Ng
 
-    def set_wl_range(self,wl_range):
+    def set_wl_range(self, wl_range):
         """Sets the wavelength range in which computations will be done.
         Parameters:
             wl_range: Array of size 2
@@ -291,22 +290,42 @@ class RadAtm(Atm_profile):
         """
         return 10000./self.wnedges
 
-    def set_database(self,kdatabase):
+    def set_database(self, kdatabase=None):
         """Change the radiative database attached to the current instance of AtmRad
         Parameters:
             kdatabase: Kdatabase object
                 New Kdatabase to use.
         """
         self.kdatabase=kdatabase
-        self.Ng=self.kdatabase.Ng
+        if self.kdatabase is None:
+            self.Ng=None
+        else:
+            self.Ng=self.kdatabase.Ng
+            if self.kdatabase.p_unit != 'Pa' or rm_molec(self.kdatabase.kdata_unit) != 'm^2':
+                print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
+                You can convert to mks using convert_to_mks.
+                More generally, you can specify exo_k.Settings().set_mks(True) 
+                to force automatic conversion to mks of all newly loaded data.
+                You will have to reload all your data though.
+                (A good thing it does not take so long). """)
+                raise RuntimeError("Bad units in the Kdatabase used with RadAtm.")
 
-    def set_CIAdatabase(self,CIAdatabase):
+    def set_CIAdatabase(self, CIAdatabase):
         """Change the CIA database attached to the current instance of AtmRad
         Parameters:
             CIAdatabase: CIAdatabase object
                 New CIAdatabase to use.
         """
         self.CIAdatabase=CIAdatabase
+        if self.CIAdatabase is not None:
+            if self.CIAdatabase.abs_coeff_unit != 'm^5':
+                print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
+                You can convert to mks using convert_to_mks.
+                More generally, you can specify exo_k.Settings().set_mks(True) 
+                to force automatic conversion to mks of all newly loaded data.
+                You will have to reload all your data though.
+                (A good thing it does not take so long). """)
+                raise RuntimeError("Bad units in the CIAdatabase used with RadAtm.")
 
     def opacity(self, wl_range=None, rayleigh=True, write=0, random_overlap=False, **kwargs):
         """Computes the opacity of each of the layers for the composition given
@@ -492,7 +511,7 @@ class RadAtm(Atm_profile):
                 self.Nlay,self.Nw,self.tangent_path,self.density,self.kdata)
         return transmittance
 
-    def transmission_spectrum(self,normalized=False,Rstar=None,**kwargs):
+    def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):
         """Computes the transmission spectrum of the atmosphere normalized
         to the radius of the planet:
         delta_sigma=(R_planet+h_sigma)^2/R_planet^2

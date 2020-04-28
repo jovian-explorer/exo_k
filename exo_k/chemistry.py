@@ -143,7 +143,8 @@ class gas_mix(object):
         """
         self.composition=composition.copy()
         self.bg_gas=bg_gas
-        if ('background' in self.composition.values()) or (self.bg_gas is not None):
+        if (True in [isinstance(val,str) for val in self.composition.values()]) \
+                or (self.bg_gas is not None):
             self.composition['inactive_gas']=0.
         else:
             self.composition['inactive_gas']='background'

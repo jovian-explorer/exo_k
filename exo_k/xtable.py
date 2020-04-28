@@ -9,7 +9,6 @@ import pickle
 import h5py
 import numpy as np
 from .data_table import Data_table
-from .util.interp import unit_convert,rm_molec
 
 class Xtable(Data_table):
     """A class that handles tables of cross sections. Based on Data_table.
@@ -225,7 +224,8 @@ class Xtable(Data_table):
   
 
     def hires_to_xsec(self, path=None, filename_grid=None, logpgrid=None, tgrid=None,
-        write=0, mol=None, kdata_unit='unspecified'):
+        write=0, mol=None, kdata_unit='unspecified', old_kdata_unit='unspecified',
+        k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
         Parameters:
@@ -241,6 +241,8 @@ class Xtable(Data_table):
             mol: str
                 give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
+            k_to_xsec= boolean, default True
+                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         from .util.cst import KBOLTZ
         first=True
@@ -271,9 +273,12 @@ class Xtable(Data_table):
             elif fname.lower().endswith(('.hdf5', '.h5')):
                 f = h5py.File(fname, 'r')
                 wn_hr=f['wns'][...]
-                k_hr=f['k'][...]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
+                k_hr=f['k'][...]
+                f.close()
             else:
                 raise NotImplementedError('Input file format not recognized.')
+            if k_to_xsec: 
+                k_hr=k_hr*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
             if first:
                 self.wns=wn_hr[1:-1]  #to be consistent with kcorr
                 self.Nw=self.wns.size
@@ -282,9 +287,9 @@ class Xtable(Data_table):
                 first=False
             else:
                 self.kdata[iP,iT]=np.interp(self.wns,wn_hr[1:-1],k_hr[1:-1])
-        self.kdata_unit,conversion_factor=unit_convert('kdata_unit', \
-              unit_file='m^2',unit_in='m^2',unit_out=rm_molec(kdata_unit))
-        self.kdata=self.kdata*conversion_factor
+        self.kdata_unit='m^2' #default unit assumed for the input file
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
 
     def bin_down(self, wnedges=None, remove_zeros=False, write=0):
         """Method to bin down a xsec table to a new grid of wavenumbers

@@ -72,7 +72,9 @@ class Kdatabase(object):
         for tmp_ktable in ktables:
             if self.molecules is None:
                 self.ktables[tmp_ktable.mol]=tmp_ktable
+                self.kdata_unit=tmp_ktable.kdata_unit
                 self.pgrid=tmp_ktable.pgrid
+                self.p_unit=tmp_ktable.p_unit
                 self.logpgrid=tmp_ktable.logpgrid
                 self.tgrid=tmp_ktable.tgrid
                 self.wns=tmp_ktable.wns
@@ -91,11 +93,18 @@ class Kdatabase(object):
                     'All elements in a database must have the same type (Ktable or Xtable).')
                 if (self.Ng is not None) and (not np.array_equal(tmp_ktable.ggrid,self.ggrid)):
                     raise RuntimeError('All Ktables in a database must have the same g grid.')
+                if (self.p_unit != tmp_ktable.p_unit) or (self.kdata_unit != tmp_ktable.kdata_unit):
+                    print('Kdatabase units for p and kdata: {p}, {k}'.format(\
+                        p=self.p_unit, k=self.kdata_unit))
+                    print('{mol} Ktable units for p and kdata: {p}, {k}'.format(\
+                        mol=tmp_ktable.mol, p=tmp_ktable.p_unit, k=tmp_ktable.kdata_unit))
+                    raise RuntimeError("""You naughty:
+                    all Ktables in a database must have the same p and kdata units""")
                 self.ktables[tmp_ktable.mol]=tmp_ktable
                 if not np.array_equal(tmp_ktable.wns,self.wns):
                     self.consolidated_wn_grid=False
                     print("""Carefull, not all tables have the same wevelength grid.
-                        You'll probably need to run bin_down()""")
+                        You'll need to use bin_down""")
                     self.wns    = None
                     self.wnedges= None
                     self.Nw     = None
@@ -108,7 +117,7 @@ class Kdatabase(object):
                     self.Np      = None
                     self.Nt      = None
                     print("""Carefull, not all tables have the same PT grid.
-                        You'll probably need to run remap_logPT()""")
+                        You'll need to use remap_logPT""")
             self.molecules=list(self.ktables.keys())
 
     def __getitem__(self,molecule):
@@ -182,6 +191,15 @@ class Kdatabase(object):
                 self.Nw=self.ktables[mol].Nw
                 self.consolidated_wn_grid=True
 
+    def convert_to_mks(self):
+        """Converts units of all Ktables or Xtables to MKS
+        """
+        first=True
+        for mol in self.molecules:
+            self[mol].convert_to_mks()
+            if first:
+                self.p_unit=self[mol].p_unit
+                self.kdata_unit=self[mol].kdata_unit
 
     def create_mix_ktable(self, composition, inactive_species=[]):
         """creates the kdata table for a mix of molecules

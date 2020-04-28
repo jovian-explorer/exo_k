@@ -14,11 +14,11 @@ from .ktable5d import Ktable5d
 from .util.interp import rm_molec,interp_ind_weights,rebin_ind_weights,rebin
 
 class Ktable(Data_table):
-    """A class that handles tables of k-coefficients.
+    """A class that handles 4D tables of k-coefficients.
     Based on the Data_table class that handles basic operations common to Xtable.
     """
     
-    def __init__(self,*filename_filters,filename=None,xsec=None,path=None,
+    def __init__(self, *filename_filters, filename=None, xsec=None, path=None,
         p_unit='unspecified', old_p_unit='unspecified',
         kdata_unit='unspecified', old_kdata_unit='unspecified',
         remove_zeros=False, search_path=None, mol=None,
@@ -423,7 +423,8 @@ class Ktable(Data_table):
         logpgrid=None, tgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified'):
+        kdata_unit='unspecified', old_kdata_unit='unspecified',
+        k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
         Parameters:
@@ -454,8 +455,10 @@ class Ktable(Data_table):
             mol: string
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
+            k_to_xsec= boolean, default True
+                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
-        from .util.interp import gauss_legendre, spectrum_to_kdist, unit_convert
+        from .util.interp import gauss_legendre, spectrum_to_kdist
         from .util.cst import KBOLTZ
 
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
@@ -512,6 +515,7 @@ class Ktable(Data_table):
                 f = h5py.File(fname, 'r')
                 wn_hr=f['wns'][...]
                 k_hr=f['k'][...]
+                f.close()
             else:
                 wn_hr,k_hr=np.loadtxt(fname,skiprows=0,unpack=True)  
             if mid_dw:
@@ -523,10 +527,10 @@ class Ktable(Data_table):
                 wn_hr=wn_hr[:-1]
                 k_hr=k_hr[:-1]
             self.kdata[iP,iT]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-            self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
-        self.kdata_unit,conversion_factor=unit_convert('kdata_unit', \
-              unit_file='m^2',unit_in='m^2',unit_out=rm_molec(kdata_unit))
-        self.kdata=self.kdata*conversion_factor
+            if k_to_xsec: self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
+        self.kdata_unit='m^2' #default unit assumed for the input file
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
 
     def copy(self, cp_kdata=True, ktab5d=False):
         """Creates a new instance of Ktable object and (deep) copies data into it

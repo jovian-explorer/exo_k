@@ -324,13 +324,13 @@ class Data_table(object):
     def wls(self):
         """Returns the wavelength array for the bin centers
         """
-        return 10000./self.wns
+        if self.wns is not None: return 10000./self.wns
 
     @property
     def wledges(self):
         """Returns the wavelength array for the bin edges
         """
-        return 10000./self.wnedges
+        if self.wnedges is not None: return 10000./self.wnedges
 
     def __getitem__(self,key):
         """To access the data without typing self.kdata[]

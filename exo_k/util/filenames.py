@@ -110,7 +110,7 @@ def convert_exo_transmit_to_hdf5(file_in,file_out,mol='unspecified'):
         while True:
             line=file.readline()
             if line is None or line=='': break
-            tmp_wlgrid.append(float(line.split()[0]))
+            tmp_wlgrid.append(float(line.split()[0])) # wavelength in m
             tmp_kdata.append([])
             for _ in range(Np):
                 tmp_kdata[-1].append(file.readline().split()[1:])

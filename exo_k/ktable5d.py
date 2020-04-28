@@ -261,7 +261,7 @@ class Ktable5d(Data_table):
         logpgrid=None, tgrid=None, xgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified'):
+        kdata_unit='unspecified', old_kdata_unit='unspecified', k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
         Parameters:
@@ -294,8 +294,10 @@ class Ktable5d(Data_table):
             mol: string
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
+            k_to_xsec= boolean, default True
+                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
-        from .util.interp import gauss_legendre, spectrum_to_kdist, unit_convert
+        from .util.interp import gauss_legendre, spectrum_to_kdist
         from .util.cst import KBOLTZ
 
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
@@ -364,11 +366,12 @@ class Ktable5d(Data_table):
                     dwn_hr=(wn_hr[1:]-wn_hr[:-1])
                     wn_hr=wn_hr[:-1]
                     k_hr=k_hr[:-1]
-                self.kdata[iP,iT]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-                self.kdata[iP,iT,iX]=self.kdata[iP,iT,iX]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
-        self.kdata_unit,conversion_factor=unit_convert('kdata_unit', \
-              unit_file='m^2',unit_in='m^2',unit_out=rm_molec(kdata_unit))
-        self.kdata=self.kdata*conversion_factor
+                self.kdata[iP,iT,iX]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
+                if k_to_xsec: 
+                    self.kdata[iP,iT,iX]=self.kdata[iP,iT,iX]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
+        self.kdata_unit='m^2' #default unit assumed for the input file
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
 
     def setup_interpolation(self, log_interp=None):
         """Creates interpolating functions to be called later on.
