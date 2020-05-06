@@ -11,7 +11,8 @@ The goal of `exo_k` is to provide a library to:
   * by changing the pressure/temperature grid
 * To create tables for a mix of gases using tables for individual gases.
 * Test various assumptions in an integrated radiative transfer framework.
-  
-To learn how to use `exo_k`, please look at the tutorial Jupyter Notebook 
+
+To learn how to use `exo_k`, you can generate the documentation by running `make -C doc` (or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the index.html file to check it out).
+You can also simply follow the tutorial jupyter notebook `doc/tutorial-exo_k.ipynb`.
 
 Have fun!
