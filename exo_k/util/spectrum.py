@@ -5,7 +5,7 @@ Spectrum class to handle ouputs, rebinning and plotting
 """
 import numpy as np
 import h5py
-from exo_k.interp import rebin
+from exo_k.util.interp import rebin
 
 class Spectrum(object):
     """A class defining a Spectrum object to plot and manipulate.
