@@ -31,6 +31,7 @@ release = '0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'autoapi.extension',
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.doctest',
@@ -43,12 +44,12 @@ extensions = [
 ]
 
 add_module_names = False
-# autoapi_type = 'python'
-# autoapi_dirs = ['../exo_k']
-# autoapi_file_patterns = ['*.py']
-# autoapi_options = ['members', 'undoc-members']
-# autoapi_python_class_content = 'both'
-# autoapi_add_toctree_entry = False
+autoapi_type = 'python'
+autoapi_dirs = ['../exo_k']
+autoapi_file_patterns = ['*.py']
+autoapi_options = ['members', 'undoc-members']
+autoapi_python_class_content = 'both'
+autoapi_add_toctree_entry = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

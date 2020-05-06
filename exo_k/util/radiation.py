@@ -9,7 +9,7 @@ Library of useful functions for radiative transfer calculations
 import numpy as np
 import numba
 import scipy.integrate as integrate
-from .cst import PI,PLANCK,C_LUM,KBOLTZ,SIG_SB
+from exo_k.cst import PI,PLANCK,C_LUM,KBOLTZ,SIG_SB
 
 PLANCK_CST1MKS=2.*PLANCK*C_LUM**2
 PLANCK_CST1=1.e2*PLANCK_CST1MKS
