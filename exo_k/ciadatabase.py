@@ -13,13 +13,17 @@ class CIAdatabase(object):
     """
 
     def __init__(self, filenames, *str_filters, remove_zeros=True, **kwargs):
-        """Initializes cia tables and supporting data from a list of filenames
-        Parameters:
+        """Initializes cia tables and supporting data from a list of filenames.
+
+        Parameters
+        ----------
             filenames: list
                 List of names (not full path) of the input cia files. 
                 The files must be in the global search path.
-                A local search path can be specified with 'search_path='
-        Options: See the options of Cia_table.__init__()
+                
+        A local search path can be specified with 'search_path='
+
+        See the options of Cia_table.__init__()
         """
         self.cia_tables={}
         self.wns=None
@@ -30,11 +34,13 @@ class CIAdatabase(object):
                 remove_zeros=remove_zeros, **kwargs)
             self.add_cia_tables(tmp_cia_table)
     
-    def add_cia_tables(self,*cia_tables):
+    def add_cia_tables(self, *cia_tables):
         """Adds news cia tables to a CIA database.
-        Parameters:
-            cia_tables: sequence of CIA_table
-                as many cia tables as you want.
+
+        Parameters
+        ----------
+            cia_tables: :class:`CIA_table`
+                As many cia tables as you want.
         """
         for cia_table in cia_tables:
             if self.abs_coeff_unit is None:
@@ -54,7 +60,7 @@ class CIAdatabase(object):
             else:
                 self.cia_tables[cia_table.mol1]={cia_table.mol2:cia_table}
 
-    def __getitem__(self,molecule):
+    def __getitem__(self, molecule):
         """Overrides getitem so that CIAdatabase['mol'] directly accesses 
         the database for that molecule.
         """
@@ -62,9 +68,14 @@ class CIAdatabase(object):
             raise KeyError('The requested molecule is not available.')
         return self.cia_tables[molecule]
 
-    def sample(self,wngrid,remove_zeros=False):
+    def sample(self, wngrid, remove_zeros=False):
         """Samples all the cia_table in the database on the same wavenumber grid
         to be able to use them in radiative transfer modules.
+
+        Parameters
+        ----------
+            wngrid : array
+                new wavenumber grid (cm-1)
         """
         for mol1 in self.cia_tables.values():
             for cia_table in mol1.values():
@@ -83,16 +94,18 @@ class CIAdatabase(object):
                     self.abs_coeff_unit=cia_table.abs_coeff_unit
         
 
-    def cia_cross_section(self,logP_array,T_array,gas_comp,wngrid_limit=None):
+    def cia_cross_section(self, logP_array, T_array, gas_comp, wngrid_limit=None):
         """Computes the absorption coefficient in m^-1 for the whole mix specified 
         (assumes data in MKS).
-        Parameters:
+
+        Parameters
+        ----------
             logP_array: array
 
             T_array   : array
-                log10 Pressure and temperature profile
+                log10 Pressure and temperature profiles
 
-            gas_comp  : chemistry.gas_mix object
+            gas_comp  : :class:`chemistry.Gas_mix` object
                 behaves like a dict with mol names as keys and vmr as values
 
             wngrid_limit: array, optional

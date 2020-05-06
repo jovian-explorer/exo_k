@@ -11,20 +11,21 @@ def bilinear_interpolation(z00, z10, z01, z11, x, y):
     """
     2D interpolation
     Applies linear interpolation across x and y between xmin,xmax and ymin,ymax
+
     Parameters
     ----------
-    z00: array
-        Array corresponding to xmin,ymin
-    z10: array
-        Array corresponding to xmax,ymin
-    z01: array
-        Array corresponding to xmin,ymax
-    z11: array
-        Array corresponding to xmax,ymax
-    x: float
-        weight on x coord
-    y: float
-        weight on y coord
+        z00: array
+            Array corresponding to xmin,ymin
+        z10: array
+            Array corresponding to xmax,ymin
+        z01: array
+            Array corresponding to xmin,ymax
+        z11: array
+            Array corresponding to xmax,ymax
+        x: float
+            weight on x coord
+        y: float
+            weight on y coord
     """
     xy = x*y
     res = np.zeros_like(z00)
@@ -34,17 +35,18 @@ def bilinear_interpolation(z00, z10, z01, z11, x, y):
 
 @numba.njit(nogil=True,fastmath=True)
 def linear_interpolation(z00, z10, x):
-    """
-    1D interpolation
-    Applies linear interpolation in x between xmin,xmax
+    """1D interpolation.
+
+    Applies linear interpolation in x between xmin, xmax.
+
     Parameters
     ----------
-    z00: array
-        Array corresponding to xmin
-    z10: array
-        Array corresponding to xmax
-    x: float
-        weight on x coord
+        z00: array
+            Array corresponding to xmin
+        z10: array
+            Array corresponding to xmax
+        x: float
+            weight on x coord
     """
     res = np.zeros_like(z00)
     for i in range(z00.shape[0]):
@@ -70,12 +72,13 @@ def interp_ind_weights(x_to_interp,x_grid):
 
 def rebin_ind_weights(old_bin_grid,new_bin_grid):
     """Computes the indices and weights to be used when
-       rebinning an array of values f of size N in the bins delimited by old_bin_grid (of size N+1)
-       onto new bins delimited by new_bin_grid (of size Nnew+1)
-       Returns indices, weights to be used as follows to proceed with the rebinning
-       f_rebinned=[np.dot(f[indicestosum[ii]-1:indicestosum[ii+1]],final_weights[ii])
-          for ii in range(Nnew)]
-       """
+    rebinning an array of values f of size N in the bins delimited by old_bin_grid (of size N+1)
+    onto new bins delimited by new_bin_grid (of size Nnew+1)
+    Returns indices, weights to be used as follows to proceed with the rebinning
+
+    >>> f_rebinned=[np.dot(f[indicestosum[ii]-1:indicestosum[ii+1]],final_weights[ii])
+    for ii in range(Nnew)]
+    """
 #    new_bin_grid_used=np.where(new_bin_grid<old_bin_grid[0],old_bin_grid[0],new_bin_grid)
     indicestosum=np.searchsorted(old_bin_grid,new_bin_grid,side='right')
     if indicestosum[-1]==old_bin_grid.size : indicestosum[-1]-=1
@@ -95,10 +98,15 @@ def rebin_ind_weights(old_bin_grid,new_bin_grid):
 @numba.njit()
 def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
     """Computes the convolution of two kdata tables.
-    Parameters:
-        kdata1,kdata2: the two ktabke.kdata tables to convolve
-        shape          : shape of the ktabke.kdata tables to convolve (last size is Ng)
-        kdataconv     : result table where the last dimension as a length equal to Ng^2
+
+    Parameters
+    ----------
+        kdata1,kdata2 : arrays
+            The two ktable.kdata tables to convolve.
+        shape : array
+            shape of the ktabke.kdata tables to convolve (last size is Ng).
+        kdataconv : array
+            Result table where the last dimension as a length equal to Ng^2.
     """
     Ng=shape[-1]
     for i in range(shape[0]):
@@ -111,12 +119,19 @@ def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
 @numba.njit(nogil=True,fastmath=True)
 def kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng):
     """Computes the convolution of two atmospheric kdata profiles.
-    Parameters:
-        kdata1,kdata2: the two ktabke.kdata tables to convolve
-        Nlay          : Number of atmospheric layers
-        Nw            : Number of wavenumber points
-        Ng            : Number of g-points
-        kdataconv     : result table where the last dimension as a length equal to Ng^2
+
+    Parameters
+    ----------
+        kdata1,kdata2 : arrays
+            The two ktable.kdata tables to convolve.
+        kdataconv : array
+            Result table where the last dimension as a length equal to Ng^2.
+        Nlay : int
+            Number of atmospheric layers
+        Nw : int
+            Number of wavenumber points
+        Ng : int
+            Number of g-points
     """
     for i in range(Nlay):
         for j in range(Nw):
@@ -128,10 +143,15 @@ def kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng):
 def rebin(f_fine,fine_grid,coarse_grid):
     """Computes the binned version of a function on a coarser grid.
     The two grids do not need to have the same boundaries.
-    Parameters:
-        f_fine: function to be rebinned, given on the fine_grid
-        fine_grid: the high resolution grid edges we start with
-        coarse_grid: the coarser resolution grid edges inside which we want to bin the function f
+
+    Parameters
+    ----------
+        f_fine: array
+            Function to be rebinned, given on the fine_grid.
+        fine_grid: array
+            The high resolution grid edges we start with.
+        coarse_grid: array
+            The coarser resolution grid edges inside which we want to bin the function f.
        """
     indicestosum=np.searchsorted(fine_grid,coarse_grid,side='right')
     if indicestosum[-1]==fine_grid.size : indicestosum[-1]-=1
@@ -160,7 +180,9 @@ def rebin(f_fine,fine_grid,coarse_grid):
 #@numba.njit(nogil=True,fastmath=True)
 def RandOverlap_2_kdata_prof(Nlay,Nw,Ng,kdata1,kdata2,weights,ggrid):
     """Function to randomely mix the opacities of 2 species.
-    Parameters:
+
+    Parameters
+    ----------
     Output    :
        kcoeff table of the mix.
     """
@@ -188,18 +210,21 @@ def RandOverlap_2_kdata_prof(Nlay,Nw,Ng,kdata1,kdata2,weights,ggrid):
 
 def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out='unspecified'):
     """Chooses the final unit to use and the conversion factor to apply.
-    Parameters:
+
+    Parameters
+    ----------
         quantity: str
             The name of the pysical quantity handled for potential error messages
         unit_file, unit_in, unit_out: str
             Respectively:
-            - String with the unit of the initial data,
-            - The unit we think the initial data are in if unit_file is 'unspecified'
+            * String with the unit of the initial data,
+            * The unit we think the initial data are in if unit_file is 'unspecified'
               or (we believe) wrong,
-            - The unit we want to convert to. If unspecified, we do not convert.
-    Output:
+            * The unit we want to convert to. If unspecified, we do not convert.
+    Returns
+    -------
         unit_to_write: str
-            Resulting unit
+            Resulting unit.
         conversion_factor: float
             A multiplicating factor for the data to proceed to the conversion.
     """
@@ -226,15 +251,17 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
 
 def rm_molec(unit_name):
     """Remove "/molecule" or "/molec" for a unit string.
-    Parameter:
+
+    Parameter
+    ---------
         unit_name: str
-            string to be changed
+            String to be changed.
     """
     return unit_name.replace('/molecule','').replace('/molec','')
 
 @numba.njit
 def is_sorted(a):
-    """Finds out if an array is sorted. Return True if it is.
+    """Finds out if an array is sorted. Returns True if it is.
     """
     for i in range(a.size-1):
          if a[i+1] < a[i] :
@@ -244,15 +271,18 @@ def is_sorted(a):
 
 def gauss_legendre(order):
     """Computes the weights and abscissa for a Gauss Legendre quadrature of order oerder
-    Parameters:
-        order: Integer
-            Order of the quadrature wanted
-    Output:
-        weights: Array(order)
-            Weights to be used in the quadrature
-        ggrid: Array(order)
-            Abscissa to be used for the quadrature
-        gedges: Array(order+1)
+
+    Parameters
+    ----------
+        order: int
+            Order of the quadrature wanted.
+    Returns
+    -------
+        weights: array(order)
+            Weights to be used in the quadrature.
+        ggrid: array(order)
+            Abscissa to be used for the quadrature.
+        gedges: array(order+1)
             Cumulative sum of the weights. Goes from 0 to 1.
        """ 
     from numpy.polynomial.legendre import leggauss
@@ -264,20 +294,24 @@ def gauss_legendre(order):
 
 def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
     """Creates the k-distribution from a single high resolution spectrum
-    Parameters:
-        k_hr    : Array
-            spectrum
-        wn_hr   : Array
-            wavenumber grid
-        dwn_hr  : Array
-            width of the high resolution wavenumber bins
-        wnedges : Array
-            Lower resolution wavenumber bin edges inside which the k-dist will be computed
-        ggrid   : Array
+    
+    Parameters
+    ----------
+        k_hr : array
+            Spectrum
+        wn_hr : array
+            Wavenumber grid
+        dwn_hr : array
+            Width of the high resolution wavenumber bins.
+        wnedges : array
+            Lower resolution wavenumber bin edges inside which the k-dist will be computed.
+        ggrid : array
             Grid of g-point abscissas
-    Output:
-        kdata  : Array
-            k coefficients for each (Wn,g) bin
+
+    Returns
+    -------
+        kdata : array
+            k coefficients for each (Wn, g) bin.
     """
     pos=np.searchsorted(wn_hr,wnedges)
     kdata=np.zeros((wnedges.size-1,ggrid.size))
@@ -302,7 +336,9 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
 
 @numba.njit()
 def kdata_conv(kdata1,kdata2,kdataconv,Ng):
-    """Performs the convolution of the kdata over g-space.
+    """Deprecated.
+    
+    Performs the convolution of the kdata over g-space.
     """
     for jj in range(Ng):
         for ii in range(Ng):
@@ -310,7 +346,9 @@ def kdata_conv(kdata1,kdata2,kdataconv,Ng):
 
 @numba.njit()
 def kdata_conv_loop_bad(kdata1,kdata2,kdataconv,shape):
-    """Performs the convolution of the kdata over g-space.
+    """Deprecated. 
+    
+    Performs the convolution of the kdata over g-space.
     But the loop is in bad order. Keep for test. 
     """
     Ng=shape[-1]

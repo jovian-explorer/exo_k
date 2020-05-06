@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
+
 Class for Rayleigh opacties. Only for H2 and He at the moment. 
 """
 import numpy as np
@@ -24,15 +25,18 @@ class Rayleigh(Singleton):
     def sigma(self, wns, vmr):
         """Computes the Rayleigh cross section for the gas.
         This one is faster than sigma_array, but can be used only when vmr values are floats.
-        Parameters:
+
+        Parameters
+        ----------
             wns: array
                 array of wavenumbers
 
             vmr: dict of floats
                 Keys are molecule names. Values are the volume mixing ratios
 
-        Returns:
-            res: array of shape: (wns.size)
+        Returns
+        -------
+            array of shape (wns.size)
                 Rayleigh cross section for the whole gas in m^2/molecule
         """
         res=np.zeros(wns.size)
@@ -52,15 +56,18 @@ class Rayleigh(Singleton):
 
     def sigma_array(self, wns, vmr):
         """Computes the Rayleigh cross section for the gas.
-        Parameters:
+
+        Parameters
+        ----------
             wns: array
                 array of wavenumbers
 
             vmr: dict of arrays
                 Keys are molecule names. Values are arrays the volume mixing ratios
 
-        Returns:
-            res: array of shape: (vmr.values.size, wns.size)
+        Returns
+        -------
+            array of shape (vmr.values.size, wns.size)
                 Rayleigh cross section for the whole gas in m^2/molecule
         """
         first_mol=True

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
-Doc can be created with "pydoc -w xsec_lib"
 """
 import os.path
 from math import log10
@@ -20,7 +19,9 @@ class Xtable(Data_table):
         remove_zeros=False, search_path=None, mol=None):
         """Initializes cross section table and
         supporting data from a file based on its extension.
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Relative or absolute path to the input file.
             filename_filters: sequence of string
@@ -29,15 +30,15 @@ class Xtable(Data_table):
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain *.
-
-            If there is no filename or filename_filters provided,
-            just creates an empty object to be filled later
-        Options:
-            For unit options, see Ktable init function.
             search_path: str
                 If search_path is provided,
                 it locally overrides the global _search_path settings
                 and only files in search_path are returned.
+
+        If there is no filename or filename_filters provided,
+        just creates an empty object to be filled later
+
+        For unit options, see Ktable init function.
         """
         super().__init__()
         if filename is not None:
@@ -72,9 +73,13 @@ class Xtable(Data_table):
 
     def read_pickle(self, filename=None, mol=None):
         """Initializes xsec table and supporting data from an Exomol pickle file
-        Parameters:
-            file : str
-                Name of the input pickle file
+
+        Parameters
+        ----------
+            filename : str
+                Relative or absolute name of the input pickle file
+            mol : str, optional
+                Overrides the name of the molecule to be put in the :class:`Xtable` object.
         """
         if filename is None: raise TypeError("You should provide an input pickle filename")
         pickle_file=open(filename,'rb')
@@ -112,8 +117,11 @@ class Xtable(Data_table):
 
     def write_pickle(self, filename):
         """Saves data in a pickle format
-        Parameters:
-            filename: name of the file to be created and saved
+
+        Parameters
+        ----------
+            filename: str
+                Relative or absolute name of the file to be created and saved
         """
         fullfilename=filename
         if not filename.lower().endswith('.pickle'): fullfilename=filename+'.pickle'
@@ -131,9 +139,13 @@ class Xtable(Data_table):
 
     def read_hdf5(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
-        Parameters:
+
+        Parameters
+        ----------
             filename : str
                 Name of the input hdf5 file
+            mol : str, optional
+                Overrides the name of the molecule to be put in the :class:`Xtable` object.
         """
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
             raise RuntimeError("You should provide an input hdf5 file")
@@ -159,7 +171,9 @@ class Xtable(Data_table):
 
     def write_hdf5(self, filename):
         """Saves data in a hdf5 format
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be created and saved
         """
@@ -181,12 +195,13 @@ class Xtable(Data_table):
         """Creates an xsec object from an exo_transmit like spectra.
         See https://github.com/elizakempton/Exo_Transmit or Kempton et al. (2016) for details.
         Pressures are expected to be in Pa.
-        Parameters:
+
+        Parameters
+        ----------
             filename : str
                 Name of the input file.
-        Options:
             mol: str
-                Forces the name of the molecule to be put in the Xtable object.
+                Overrides the name of the molecule to be put in the :class:`Xtable` object.
         """
         tmp_wlgrid=[]
         tmp_kdata=[]
@@ -228,7 +243,9 @@ class Xtable(Data_table):
         k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
-        Parameters:
+
+        Parameters
+        ----------
             path : String
                 directory with the input files
             filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size)
@@ -237,11 +254,10 @@ class Xtable(Data_table):
                 Grid in log(pressure/Pa) of the input
             tgrid: Array
                 Grid intemperature of the input
-        Option:
-            mol: str
+            mol: str, optional
                 give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec= boolean, default True
+            k_to_xsec : boolean, optional
                 If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         from .util.cst import KBOLTZ
@@ -292,15 +308,18 @@ class Xtable(Data_table):
         self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
 
     def bin_down(self, wnedges=None, remove_zeros=False, write=0):
-        """Method to bin down a xsec table to a new grid of wavenumbers
-        Parameters:
-            wnedges : edges of the new bins of wavenumbers (cm-1) onto which the xsec
+        """Method to bin down a xsec table to a new grid of wavenumbers (in place)
+
+        Parameters
+        ----------
+            wnedges : array
+                Edges of the new bins of wavenumbers (cm-1) onto which the xsec
                 should be binned down.
                 if you want Nwnew bin in the end, wngrid.size must be Nwnew+1
                 wnedges[0] should be greater than self.wnedges[0]
                 wnedges[-1] should be lower than self.wnedges[-1]
-        Output    :
-            Nothing returned. Directly changes the xsec self instance attributes.
+            remove_zeros: bool, optional
+                If True, remove zeros in kdata. 
         """
         from .util.interp import rebin_ind_weights
         wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
@@ -325,11 +344,12 @@ class Xtable(Data_table):
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     def sample(self, wngrid, remove_zeros=False):
-        """Method to re sample a xsec table to a new grid of wavenumbers
-        Parameters:
-            wngrid : location of the new wavenumbers points (cm-1)
-        Output    :
-            Nothing returned. Directly changes the xsec self instance attributes.
+        """Method to re sample a xsec table to a new grid of wavenumbers (in place)
+
+        Parameters
+        ----------
+            wngrid : array
+                Location of the new wavenumbers points (cm-1)
         """
         wngrid_filter = np.where((wngrid <= self.wnedges[-1]) & (wngrid >= self.wnedges[0]))[0]
         Nnew=wngrid.size
@@ -345,25 +365,35 @@ class Xtable(Data_table):
         self.Nw=Nnew
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
-    def spectrum_to_plot(self,p=1.e-5,t=200.,x=1.,g=None):
+    def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """provide the spectrum for a given point to be plotted
-        Parameters:
-            p: pressure (Ktable pressure unit)
-            t: temperature(K)
-            x: mixing ratio of the variable species
+
+        Parameters
+        ----------
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            x: float
+                Volume mixing ratio of the species
             g: is unused but here to be consistent with the method in data_table
         """
         return self.interpolate_kdata(log10(p),t)[0]*x
 
 
     def copy(self, cp_kdata=True):
-        """Creates a new instance of Xtable object and copies data into it
-        Option:
-            cp_kdata: Boolean
-                If false, the kdata table is not copied and only the
-                structure and metadata are. 
-        Output:
-            res: a new ktable instance with the same structure as self.
+        """Creates a new instance of :class:`Xtable` object and (deep) copies data into it
+
+        Parameters
+        ----------
+            cp_kdata: bool, optional
+                If false, the kdata table is not copied and
+                only the structure and metadata are. 
+
+        Returns
+        -------
+            :class:`Xtable`
+                A new :class:`Xtable` instance with the same structure as self.
         """
         res=Xtable()
         res.copy_attr(self,cp_kdata=cp_kdata)

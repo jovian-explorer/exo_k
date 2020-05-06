@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
-Doc can be created with "pydoc -w corrk_lib"
-An abstract class that will serve as a basis for Ktable and Xtable.
-This class includes all the interpolation and remapping methods
 """
 import numpy as np
 from .util.interp import unit_convert,interp_ind_weights,bilinear_interpolation
@@ -15,8 +12,7 @@ class Data_table(object):
     """
 
     def __init__(self):
-        """Dummy init method
-        """
+        """Initializes all attributes to `None`"""
         self.filename=None
         self.mol=None
         self.pgrid=None
@@ -42,6 +38,13 @@ class Data_table(object):
 
     def copy_attr(self,other,cp_kdata=False):
         """Copy attributes from other
+
+        Parameters
+        ----------
+            other: :class:`Data_table`
+                :class:`Data_table` object that will be copied
+            cp_kdata: bool, optional
+                If `False`, only metadata are copied
         """
         self.filename=other.filename
         self.mol     =other.mol
@@ -66,7 +69,12 @@ class Data_table(object):
     def remove_zeros(self,deltalog_min_value=10.):
         """Finds zeros in the kdata and set them to (10.**-deltalog_min_value)
         times the minimum positive value in the table.
+
         This is to be able to work in logspace. 
+
+        Parameters
+        ----------
+            deltalog_min_value: float        
         """
         mask = np.zeros(self.kdata.shape,dtype=bool)
         mask[np.nonzero(self.kdata)] = True
@@ -75,13 +83,14 @@ class Data_table(object):
 
     def convert_p_unit(self,p_unit='unspecified',old_p_unit='unspecified'):
         """Converts pressure to a new unit (in place)
-        Parameters:
+
+        Parameters
+        ----------
             p_unit: str
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
-        Option:
-            old_p_unit : str
+            old_p_unit : str, optional
                 String to specify the current pressure unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
@@ -95,7 +104,9 @@ class Data_table(object):
 
     def convert_kdata_unit(self,kdata_unit='unspecified',old_kdata_unit='unspecified'):
         """Converts kdata to a new unit (in place)
-        Parameters:
+
+        Parameters
+        ----------
             kdata_unit: str
                 String to identify the units to convert to. Accepts 'cm^2', 'm^2'
                 or any surface unit recognized by the astropy.units library.
@@ -104,9 +115,8 @@ class Data_table(object):
                 units (as opposed to 'per mass' units) as composition will
                 always be assumed to be a number or volume mixing ratio.
                 Opacities per unit mass are not supported yet.
-                Note that that you do not need to specify the '/molec' or
+                Note that you do not need to specify the '/molec' or
                 '/molecule' in the unit.
-        Option:
             old_kdata_unit : str
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
@@ -128,19 +138,26 @@ class Data_table(object):
         self.convert_p_unit(p_unit='Pa')
 
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array=1.,
-            log_interp=None,wngrid_limit=None):
+            log_interp=None, wngrid_limit=None):
         """interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. 
-        Parameters:
-            logp_array: Array
+
+        Parameters
+        ----------
+            logp_array: array
                 log 10 pressure array to interpolate to
-            t_array: Array, same size a logp_array
+            t_array: array, same size a logp_array
                 Temperature array to interpolate to
-            If floats are given, they are interpreted as arrays of size 1.
-            x_array: dummy argument to be consistent with interpolate_kdata in Ktable5d
-        Options:
-            wngrid_limit: if an array is given, interpolates only within this array
-            log_interp: whether the interpolation is linear in kdata or in log(kdata)
+        If floats are given, they are interpreted as arrays of size 1.
+
+        Parameters
+        ----------
+            x_array: None
+                Dummy argument to be consistent with interpolate_kdata in Ktable5d
+            wngrid_limit: list or array
+                if an array of to values is given, interpolates only within this array
+            log_interp: bool, optional
+                Whether the interpolation is linear in kdata or in log(kdata)
         """
         if hasattr(logp_array, "__len__"):
             logp_array=np.array(logp_array)
@@ -192,15 +209,17 @@ class Data_table(object):
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array=None):
         """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid. 
-        Parameters:
+
+        Parameters
+        ----------
             logp_array: Array
                 log 10 pressure array to interpolate to
             t_array: Array
                 temperature array to interpolate to
             x_array: dummy argument to be consistent with interpolate_kdata in Ktable5d
-        Options:
-            Whether the interpolation is linear in kdata or in log10(kdata)
-            is controlled by self._settings._log_interp
+
+        Whether the interpolation is linear in kdata or in log10(kdata)
+        is controlled by self._settings._log_interp
         """
         if x_array is not None: print('be careful, providing an x_array is usually for Ktable5d')
         t_array=np.array(t_array)
@@ -239,18 +258,18 @@ class Data_table(object):
         self.Np      =logp_array.size
         self.Nt      =t_array.size
 
-    def pindex(self,p):
+    def pindex(self, p):
         """Finds the index corresponding to the given pressure p
         (units must be the same as the ktable)
         """
         return min(np.searchsorted(self.pgrid,p),self.Np-1)
 
-    def tindex(self,t):
+    def tindex(self, t):
         """Finds the index corresponding to the given temperature t (in K)
         """
         return min(np.searchsorted(self.tgrid,t),self.Nt-1)
 
-    def wlindex(self,wl):
+    def wlindex(self, wl):
         """Finds the index corresponding to the given wavelength (in microns)
         """
         return min(np.searchsorted(self.wns,10000./wl),self.Nw-1)-1
@@ -270,15 +289,26 @@ class Data_table(object):
             p=self.pgrid,p_unit=self.p_unit, t=self.tgrid,kdata_unit=self.kdata_unit)
         return output
 
-    def plot_spectrum(self,ax,p=1.e-5,t=200.,x=1.,g=None,
-            x_axis='wls',xscale=None,yscale=None,**kwarg):
+    def plot_spectrum(self, ax, p=1.e-5, t=200., x=1., g=None,
+            x_axis='wls', xscale=None, yscale=None, **kwarg):
         """Plot the spectrum for a given point
-        Parameters:
-            ax: a pyplot axes instance where to put the plot.
-            p: pressure (Ktable pressure unit)
-            t: temperature(K)
-            x: mixing ratio of the variable species
-            g: gauss point
+
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature (K)
+            g: float
+                Gauss point
+            x: float
+                Mixing ratio of the species
+            x_axis: str, optional
+                If 'wls', x axis is wavelength. Wavenumber otherwise.
+            x/yscale: str, optional
+                If 'log' log axes are used.
         """
         toplot=self.spectrum_to_plot(p=p,t=t,x=x,g=g)
         if x_axis == 'wls':
@@ -292,17 +322,19 @@ class Data_table(object):
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 
-    def spectrum_to_plot(self,p=1.e-5,t=200.,x=1.,g=None):
+    def spectrum_to_plot(self, p=1.e-5, t=200., x=1.,g=None):
         """Dummy function to be defined in inheriting classes
         """
         raise NotImplementedError()
 
 
-    def VolMixRatioNormalize(self,x_self):
+    def VolMixRatioNormalize(self, x_self):
         """Rescales kdata to account for the fact that the gas is not a pure species
-        Parameters:
-            x_self is the volume mixing ratio of the species.
-            should be given either as a number or a numpy array of shape (Np,Nt)
+
+        Parameters
+        ----------
+            x_self: float or array of shape (`self.Np,self.Nt`)
+                The volume mixing ratio of the species.
         """
         if x_self is None : return self.kdata
         if isinstance(x_self, float): return x_self*self.kdata
@@ -332,8 +364,11 @@ class Data_table(object):
         """
         if self.wnedges is not None: return 10000./self.wnedges
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         """To access the data without typing self.kdata[]
+
+        Parameters
+        ----------
         key: can be slices, like for a numpy array.
         """
         return self.kdata[key]
@@ -356,18 +391,27 @@ class Data_table(object):
 
     def interpolate_kdata2(self, logp_array=None, t_array=None, x_array=None,
             log_interp=None,wngrid_limit=None):
-        """interpolate_kdata interpolates the kdata at on a given temperature and
+        """Deprecated, should NOT be used.
+
+        interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. 
-        Parameters:
-            logp_array: Array
+
+        Parameters
+        ----------
+            logp_array: array
                 log 10 pressure array to interpolate to
-            t_array: Array, same size a logp_array
+            t_array: array, same size a logp_array
                 Temperature array to interpolate to
-            If floats are given, they are interpreted as arrays of size 1.
-            x_array: dummy argument to be consistent with interpolate_kdata in Ktable5d
-        Options:
-            wngrid_limit: if an array is given, interpolates only within this array
-            log_interp: whether the interpolation is linear in kdata or in log(kdata)
+        If floats are given, they are interpreted as arrays of size 1.
+
+        Parameters
+        ----------
+            x_array: None
+                Dummy argument to be consistent with interpolate_kdata in Ktable5d
+            wngrid_limit: list or array
+                if an array of to values is given, interpolates only within this array
+            log_interp: bool, optional
+                Whether the interpolation is linear in kdata or in log(kdata)
         """
         if x_array is not None: print('be careful, providing an x_array is usually for Ktable5d')
         if hasattr(logp_array, "__len__"):

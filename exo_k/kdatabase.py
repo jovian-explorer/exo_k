@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on May 2 2019
-
 @author: jeremy leconte
-Doc can be created with "pydoc -w corrk_lib"
 """
 import numpy as np
 from .ktable import Ktable
@@ -13,26 +10,33 @@ from .settings import Settings
 
 class Kdatabase(object):
     """This object contains mainly a dictionary of individual Ktable objects for each molecule. 
-    In addition, the informations about the P,T,Wn,g grids
+
+    In addition, the informations about the P, T, Wn, g grids
     are reloaded as atributes of the Kdatabase object.
     """
 
     def __init__(self, molecules, *str_filters, search_path=None,
         remove_zeros=True, **kwargs):
         """Initializes k coeff tables and supporting data from a list of molecules
-        Parameters:
+
+        Parameters
+        ----------
             molecules: list or dict
-                If a list of molecules is provided,
-                    the file starting with the molecule name and containing all the str_filters
-                    are searched in the Settings()._search_path
-                If a dictionary is provided, the keys are the molecules to load,
-                    and the values are the path to the corresponding file.
-                    If a None value is given, the str_filters will be used as above.
-        Options: 
-            See the options of Ktable.__init__()
-            search_path: str
+                * If a list of molecules is provided,
+                  the file starting with the molecule name and containing all the str_filters
+                  are searched in the Settings()._search_path
+                * If a dictionary is provided, the keys are the molecules to load,
+                  and the values are the path to the corresponding file.
+                  If a None value is given, the str_filters will be used as above.
+            search_path: str, optional
                 If search_path is provided, it locally overrides the global _search_path settings
                 and only files in search_path are returned.            
+
+        See the options of Ktable.__init__()
+
+        >>> Kdatabase(None)
+
+        Loads an empty database to be filled later.
         """
         self.ktables={}
         self._settings=Settings()
@@ -68,6 +72,11 @@ class Kdatabase(object):
 
     def add_ktables(self, *ktables):
         """Adds as many Ktables to the database as you want.
+
+        Parameters
+        ----------
+            ktables: :class:`Ktable` or :class:`Xtable` objects
+                Tables to be added. 
         """
         for tmp_ktable in ktables:
             if self.molecules is None:
@@ -120,7 +129,7 @@ class Kdatabase(object):
                         You'll need to use remap_logPT""")
             self.molecules=list(self.ktables.keys())
 
-    def __getitem__(self,molecule):
+    def __getitem__(self, molecule):
         """Overrides getitem so as to access directly a Ktable with Kdatabase['mol']
         """
         if molecule not in self.ktables.keys():
@@ -145,10 +154,11 @@ class Kdatabase(object):
         """
         return 10000./self.wnedges
 
-    def remap_logPT(self,logp_array=None,t_array=None):
+    def remap_logPT(self, logp_array=None, t_array=None):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same PT grid.
-        See data_table.remap_logPT() for details.
+
+        See Data_table.remap_logPT() for details.
         """
         for mol in self.molecules:
             self.ktables[mol].remap_logPT(logp_array=logp_array,t_array=t_array)
@@ -162,6 +172,7 @@ class Kdatabase(object):
     def bin_down(self,wnedges=None,**kwargs):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
+
         See Ktable.bin_down() or Xtable.bin_down() for details.
         """
         first=True
@@ -179,6 +190,7 @@ class Kdatabase(object):
     def sample(self,wngrid,**kwargs):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
+
         See Ktable.bin_down() or Xtable.bin_down() for details.
         """
         first=True
@@ -202,8 +214,10 @@ class Kdatabase(object):
                 self.kdata_unit=self[mol].kdata_unit
 
     def create_mix_ktable(self, composition, inactive_species=[]):
-        """creates the kdata table for a mix of molecules
-        Parameters:
+        """creates the kdata table for a mix of molecules.
+
+        Parameters
+        ----------
             composition: dict
                 Keys are the molecule names (they must match the names in the database).
                 Values are either numbers or arrays of volume mixing ratios
@@ -211,17 +225,16 @@ class Kdatabase(object):
                 This composition will instantiate a gas_mix object.
                 In particular, if a value is 'background', this gas will
                 be used to fill up to sum(vmr)=1 (See chemistry.gas_type for details).
-            
                 For each (P,T) point, the sum of all the mixing ratios
                 should be lower or equal to 1.
                 If it is lower, it is assumed that the rest of the gas is transparent.
-
             inactive_species: list, optional
                 List the gases that are in composition but for which we do not want the 
                 opacity to be accounted for. 
 
-        Returns:
-            res: Ktable object
+        Returns
+        -------
+            Ktable object
                 A new ktable for the mix
         """
         if self.Ng is None: raise RuntimeError("""
@@ -274,15 +287,17 @@ class Kdatabase(object):
         """Creates a Ktable5d for a mix of molecules with a variable gas.
         In essence, the regular create_mix_ktable is called to create
         two mixes:
-            - the background mix specified by bg_comp={}, bg_inac_species=[]
-            - the variable gas specified by vgas_comp={}, vgas_inac_species=[]
+        * The background mix specified by bg_comp={}, bg_inac_species=[]
+        * The variable gas specified by vgas_comp={}, vgas_inac_species=[]
+
         See create_mix_ktable for details.
 
         These two gases are then mixed together for an array of vmr x_array where
         var_gas has a vmr of x_array and the background gas has a vmr of 1.-x_array
 
-        Returns:
-            res: Ktable5D object
+        Returns
+        -------
+            Ktable5d object
                 A new ktable for the mix
         """
         if x_array is None:

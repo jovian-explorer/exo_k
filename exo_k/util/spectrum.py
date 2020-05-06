@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
-Spectrum class to handle ouputs, rebinning and plotting
+
+A module to handle ouputs rebinning and plotting
 """
 import numpy as np
 import h5py
@@ -11,7 +12,8 @@ class Spectrum(object):
     """A class defining a Spectrum object to plot and manipulate.
     """
 
-    def __init__(self,value=None,wns=None,wnedges=None,filename=None,dataset='native_spectrum'):
+    def __init__(self, value=None, wns=None, wnedges=None, filename=None,
+            dataset='native_spectrum'):
         """Instanciate with a value, bin centers, and bin edges.
         Can also load a Taurex spectrum if filename is provided.
         """
@@ -39,10 +41,21 @@ class Spectrum(object):
         """
         return Spectrum(self.value,self.wns,self.wnedges)
 
-    def plot_spectrum(self,ax,per_wavenumber=True,x_axis='wls',xscale=None,yscale=None,**kwarg):
+    def plot_spectrum(self, ax, per_wavenumber=True, x_axis='wls',
+            xscale=None, yscale=None, **kwarg):
         """Plot the spectrum
-        Options:
-            logx/y: decide if log axes must be used.
+        
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            per_wavenumber: bool, optional
+                Defines the units of spectral flux density.
+                False converts to per wavelength units.
+            x_axis: str, optional
+                If 'wls', x axis is wavelength. Wavenumber otherwise.
+            x/yscale: str, optional
+                If 'log' log axes are used.
         """
         if per_wavenumber:
             toplot=self.value
@@ -59,8 +72,13 @@ class Spectrum(object):
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 
-    def bin_down(self,wnedges):
+    def bin_down(self, wnedges):
         """Bins down the spectrum to a new grid of wnedges by conserving area.
+        
+        Parameters
+        ----------
+            wnedges: array
+                Wavenumbers of the bin edges to be used
         """
         self.value=rebin(self.value,self.wnedges,wnedges)
         self.wnedges=wnedges
@@ -134,7 +152,9 @@ class Spectrum(object):
 
     def load_taurex(self,filename,dataset='native_spectrum'):
         """Loads a taurex file
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Full name (path) of the hdf5 file to load
             dataset: str

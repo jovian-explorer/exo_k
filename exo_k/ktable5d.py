@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
-A class to deal with LMDZ type ktable where there is a variable gas.
 """
 from math import log10
 import os
@@ -14,6 +13,9 @@ from .util.interp import rm_molec,rebin_ind_weights,rebin
 class Ktable5d(Data_table):
     """A class that handles tables of k-coefficients with a variable gas.
     Based on the Data_table class that handles basic operations common to Ktable and Xtable.
+
+    This class is specifically designed to deal with
+    LMDZ type ktable where there is a variable gas.
     """
     
     def __init__(self,filename=None,path=None,
@@ -21,15 +23,15 @@ class Ktable5d(Data_table):
         remove_zeros=False,**kwargs):
         """Initializes k coeff table with variable gas and
         supporting data from various sources (see below by order of precedence)
-        Parameters:
+
+        Parameters
+        ----------
             filename: str (optional)
                 Relative or absolute name of the file to be loaded. 
             path: str
                 If none of the above is specifed,
                 path can point to a directory with a LMDZ type k coeff table.
                 In this case, see read_LMDZ for the keywords to specify.
-            If there is no input, just creates an empty object to be filled later
-        Options:
             p_unit: str
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
@@ -47,6 +49,8 @@ class Ktable5d(Data_table):
             remove_zeros: boolean
                 If True, the zeros in the kdata table are replaced by
                     a value 10 orders of magnitude smaller than the smallest positive value
+
+        If there is no input, just creates an empty object to be filled later
         """
         super().__init__()
 
@@ -85,8 +89,10 @@ class Ktable5d(Data_table):
 
     def read_hdf5(self, filename=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
-        Parameters:
-            file : str
+
+        Parameters
+        ----------
+            filename : str
                 Name of the input hdf5 file
         """
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
@@ -117,7 +123,9 @@ class Ktable5d(Data_table):
 
     def write_hdf5(self, filename):
         """Saves data in a hdf5 format
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be created and saved
         """
@@ -143,7 +151,9 @@ class Ktable5d(Data_table):
         """Initializes k coeff table and supporting data from a .dat file
         in a gcm friendly format.
         Units are assumed to be cm^2 for kdata and mbar for pressure. 
-        Parameters:
+
+        Parameters
+        ----------
             path: str
                 Name of the directory with the various input files
             res: str
@@ -151,9 +161,6 @@ class Ktable5d(Data_table):
                 in the infrared and visible of the k table to load.
             band: str
                 "IR" or "VI" to specify which band to load.
-        Options:
-            molecule: str
-                Name of the molecule to be saved in the Ktable object. 
         """        
         if (path is None) or (res is None): \
             raise TypeError("You should provide an input directory name and a resolution")
@@ -202,7 +209,9 @@ class Ktable5d(Data_table):
         """Saves data in a LMDZ friendly format. Note that the gcm requires
         p in mbar and kdata in cm^2/molec
         (at least up to July 2019). 
-        Parameters:
+
+        Parameters
+        ----------
             path: str
                 Name of the directory to be created and saved,
                 the one that will contain all the necessary files
@@ -210,6 +219,8 @@ class Ktable5d(Data_table):
                 The band you are computing: 'IR' or 'VI'
             fmt: str
                 Fortran format for the corrk file. 
+            write_only_metadata: bool, optional
+                If `True`, only supporting files are written (T.dat, p.dat, etc.)
         """
         import astropy.units as u
         try:
@@ -264,7 +275,9 @@ class Ktable5d(Data_table):
         kdata_unit='unspecified', old_kdata_unit='unspecified', k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
-        Parameters:
+
+        Parameters
+        ----------
             path : String
                 directory with the input files
             filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size,xgrid.size)
@@ -283,18 +296,17 @@ class Ktable5d(Data_table):
                 Type of quadrature used. Default is 'legendre'
             order : Integer
                 Order of the Gauss legendre quadrature used. Default is 20.
-        Options:
-            mid_dw: boolean, default True
-                - If True, the Xsec values in the high resolution xsec data are assumed to
-                cover a spectral interval that is centered around
-                the corresponding wavenumber value.
-                The first and last Xsec values are discarded. 
-                - If False, each interval runs from the wavenumber value to the next one.
-                The last Xsec value is dicarded.
+            mid_dw: boolean, optional
+                * If True, the Xsec values in the high resolution xsec data are assumed to
+                  cover a spectral interval that is centered around
+                  the corresponding wavenumber value.
+                  The first and last Xsec values are discarded. 
+                * If False, each interval runs from the wavenumber value to the next one.
+                  The last Xsec value is dicarded.
             mol: string
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec= boolean, default True
+            k_to_xsec: boolean, optional
                 If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         from .util.interp import gauss_legendre, spectrum_to_kdist
@@ -388,6 +400,11 @@ class Ktable5d(Data_table):
     def set_kdata(self, new_kdata):
         """Changes kdata. this is preferred to directly accessing kdata because one
         could forget to run setup_interpolation().
+
+        Parameters
+        ----------
+            new_kdata: array
+                New array of kdata.
         """
         self.kdata=new_kdata
         self.setup_interpolation()
@@ -396,7 +413,9 @@ class Ktable5d(Data_table):
             log_interp=None, wngrid_limit=None):
         """interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. 
-        Parameters:
+
+        Parameters
+        ----------
             logp_array: Array
                 log 10 pressure array to interpolate to
             t_array: Array, same size a logp_array
@@ -404,9 +423,10 @@ class Ktable5d(Data_table):
             x_array: Array, same size a logp_array
                 vmr of variable gas array to interpolate to
             If floats are given, they are interpreted as arrays of size 1.
-        Options:
-            wngrid_limit: if an array is given, interpolates only within this array
-            log_interp: dummy variable to be consistent with interpolate_kdata in data_table
+            wngrid_limit: list or array, optional
+                if an array is given, interpolates only within this array
+            log_interp: bool, dummy
+                Dummy variable to be consistent with interpolate_kdata in data_table
                 Whether the interpolation is linear in kdata or in log(kdata)
                 is controlled by self._settings._log_interp but only when the ktable is loaded.
                 If you change that after the loading, you should rerun setup_interpolation().
@@ -428,17 +448,19 @@ class Ktable5d(Data_table):
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array= None):
         """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid. 
-        Parameters:
+
+        Parameters
+        ----------
             logp_array: Array
                 log 10 pressure array to interpolate to
             t_array: Array
                 temperature array to interpolate to
             x_array: Array
                 vmr of variable gas array to interpolate to
-        Options:
-            Whether the interpolation is linear in kdata or in log(kdata)
-            is controlled by self._settings._log_interp but only when the ktable is loaded.
-            If you change that after the loading, you should rerun setup_interpolation().
+
+        Whether the interpolation is linear in kdata or in log(kdata)
+        is controlled by self._settings._log_interp but only when the ktable is loaded.
+        If you change that after the loading, you should rerun setup_interpolation().
         """
         coord=np.array(np.meshgrid(logp_array, t_array, np.log(x_array))).transpose((2,1,3,0))
         if self._local_log_interp:
@@ -456,12 +478,18 @@ class Ktable5d(Data_table):
         self.setup_interpolation()
 
     def copy(self,cp_kdata=True):
-        """Creates a new instance of Ktable5d object and (deep) copies data into it
-        Option:
-            cp_kdata: If false, the kdata table is not copied and only the
-            structure and metadata are. 
-        Output:
-            res: a new ktable instance with the same structure as self.
+        """Creates a new instance of :class:`Ktable5d` object and (deep) copies data into it
+
+        Parameters
+        ----------
+            cp_kdata: bool, optional
+                If false, the kdata table is not copied and
+                only the structure and metadata are. 
+
+        Returns
+        -------
+            :class:`Ktable`
+                A new :class:`Ktable5d` instance with the same structure as self.
         """
         res=Ktable5d()
         res.copy_attr(self,cp_kdata=cp_kdata)
@@ -483,13 +511,19 @@ class Ktable5d(Data_table):
         """
         return min(np.searchsorted(self.xgrid,x),self.Nx-1)
 
-    def spectrum_to_plot(self,p=1.e-5,t=200.,x=1.,g=None):
+    def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """provide the spectrum for a given point to be plotted
-        Parameters:
-            p: pressure (Ktable pressure unit)
-            t: temperature(K)
-            x: mixing ratio of the variable species
-            g: gauss point
+
+        Parameters
+        ----------
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            g: float
+                Gauss point
+            x: float
+                Mixing ratio of the species
         """
         if g is None: raise RuntimeError('A gauss point should be provided with the g= keyword.')
 #        pindex=self.pindex(p)
@@ -501,10 +535,15 @@ class Ktable5d(Data_table):
 
     def plot_distrib(self, ax, p=1.e-5, t=200., wl=1., x=1., xscale=None, yscale='log', **kwarg):
         """Plot the distribution for a given point
-        Parameters:
-            p: pressure (Ktable pressure unit)
-            t: temperature (K)
-            wl: wavelength (micron)
+
+        Parameters
+        ----------
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            wl: float
+                Wavelength (micron)
         """
         wlindex=self.wlindex(wl)
         toplot=self.interpolate_kdata(log10(p),t,x)[0,wlindex]
@@ -532,16 +571,24 @@ class Ktable5d(Data_table):
         """.format(shape=self.shape,xgrid=self.xgrid,wl=self.wls, wg=self.weights)
         return output
 
-    def bin_down(self,wnedges=None,ggrid=None,weights=None,num=300,use_rebin=False,write=0):
+    def bin_down(self, wnedges=None, ggrid=None, weights=None, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers
-        Parameters:
-            wnedges : edges of the new bins of wavenumbers (cm-1)
+
+        Parameters
+        ----------
+            wnedges: array
+                Edges of the new bins of wavenumbers (cm-1)
                 onto which the kcoeff should be binned down.
                 if you want Nwnew bin in the end, wnedges.size must be Nwnew+1
                 wnedges[0] should be greater than self.wnedges[0] (JL20 not sure anymore)
                 wnedges[-1] should be lower than self.wnedges[-1]
-        Output    :
-            Nothing returned. Directly changes the Kcoeff self instance attributes.
+            weights: array, optional
+                Desired weights for the resulting Ktable.
+            ggrid: array, optional
+                Desired g-points for the resulting Ktable.
+                Must be consistent with provided weights.
+                If not given, they are taken at the midpoints of the array
+                given by the cumulative sum of the weights
         """
         current_ggrid=self.ggrid
         if ggrid is not None:
@@ -597,15 +644,17 @@ class Ktable5d(Data_table):
 
 
     def bin_down2(self,wngrid,num=300,use_rebin=False,write=0):
-        """Method to bin down a kcoeff table to a new grid of wavenumbers
-        Parameters:
+        """Obsolete. Do NOT use.
+        
+        Method to bin down a kcoeff table to a new grid of wavenumbers
+
+        Parameters
+        ----------
             wngrid : edges of the new bins of wavenumbers (cm-1) onto which
                 the kcoeff should be binned down.
                 if you want Nwnew bin in the end, wngrid.size must be Nwnew+1
                 wngrid[0] should be greater than self.wnedges[0]
                 wngrid[-1] should be lower than self.wnedges[-1]
-        Output    :
-            Nothing returned. Directly changes the Kcoeff self instance attributes.
         """
         ggrid=self.ggrid
         gedges=self.gedges
@@ -645,10 +694,13 @@ class Ktable5d(Data_table):
 
 def read_Qdat(filename):
     """Reads Q.dat files LMDZ style and extract the vmr grid.
-    Parameters:
+
+    Parameters
+    ----------
         filename: str
-            Path to file to read
-    Returns:
+            Path to file to read.
+    Returns
+    -------
         background_mol_names: list
             list of names of molecules in background gas
         var_mol: str

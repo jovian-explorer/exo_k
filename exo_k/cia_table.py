@@ -8,7 +8,7 @@ A class to handle continuum absorption (CIA)
 import os.path
 import h5py
 import numpy as np
-from .util.filenames import EndOfFile
+from exo_k.util.filenames import EndOfFile
 from .util.interp import linear_interpolation,interp_ind_weights
 from .util.cst import KBOLTZ
 from .settings import Settings
@@ -21,8 +21,10 @@ class Cia_table(object):
     def __init__(self, *filename_filters, filename=None, search_path=None,
             mks=False, remove_zeros=False, old_cia_unit='cm^5'):
         """Initialization for Cia_tables.
-        Parameters:
-            filename: str (optional)
+
+        Parameters
+        ----------
+            filename: str, optional
                 Relative or absolute name of the file to be loaded. 
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define a file
@@ -30,7 +32,6 @@ class Cia_table(object):
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain *.
-        Options:
             old_cia_unit : str
                 String to specify the current cia unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
@@ -81,9 +82,13 @@ class Cia_table(object):
 
     def read_hitran_cia(self, filename, old_cia_unit='cm^5'):
         """Reads hitran cia files and load temperature, wavenumber, and absorption coefficient grid.
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be read.
+            old_cia_unit: str, optional
+                Units found in the file.
         """
         tmp_tgrid=[]
         tmp_abs_coeff=[]
@@ -117,8 +122,13 @@ class Cia_table(object):
         self.Nw=self.wns.size
 
 
-    def read_header(self,file):
+    def read_header(self, file):
         """Reads the header lines in a Hitran CIA file.
+
+        Parameters
+        ----------
+            file: file stream
+                file to be read
         """
         line=file.readline()
         if line is None or line=='':
@@ -130,9 +140,11 @@ class Cia_table(object):
 
         return Nw, Temp
 
-    def read_hdf5(self,filename):
+    def read_hdf5(self, filename):
         """Reads hdf5 cia files and load temperature, wavenumber, and absorption coefficient grid.
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be read.
         """
@@ -147,9 +159,11 @@ class Cia_table(object):
         self.Nt=self.tgrid.size
         self.Nw=self.wns.size
           
-    def write_hdf5(self,filename):
+    def write_hdf5(self, filename):
         """Writes hdf5 cia files.
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be written.
         """
@@ -164,12 +178,13 @@ class Cia_table(object):
         #f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
         f.close()    
 
-    def sample(self,wngrid,remove_zeros=False,use_grid_filter=False,**kwargs):
-        """Method to re sample a cia table to a new grid of wavenumbers
-        Parameters:
-            wngrid : new wavenumber grid (cm-1)
-        Output    :
-            Nothing returned. Directly changes the xsec self instance attributes.
+    def sample(self, wngrid, remove_zeros=False, use_grid_filter=False, **kwargs):
+        """Method to re sample a cia table to a new grid of wavenumbers (in place)
+
+        Parameters
+        ----------
+            wngrid : array
+                new wavenumber grid (cm-1)
         """
         wngrid=np.array(wngrid)
         #min_val=np.amin(self.abs_coeff)
@@ -190,15 +205,18 @@ class Cia_table(object):
         if remove_zeros : self.remove_zeros(**kwargs)
 
 
-    def interpolate_cia(self,t_array=None,log_interp=None,wngrid_limit=None):
+    def interpolate_cia(self, t_array=None, log_interp=None, wngrid_limit=None):
         """interpolate_cia interpolates the kdata at on a given temperature profile. 
-        Parameters:
-            t_array: float or Array
+
+        Parameters
+        ----------
+            t_array: float or array
                 Temperature array to interpolate to.
                 If a float is given, it is interpreted as an array of size 1.
-        Options:
-            wngrid_limit: if an array is given, interpolates only within this array
-            log_interp: whether the interpolation is linear in kdata or in log(kdata)
+            wngrid_limit: array, optional
+                If an array is given, interpolates only within this array.
+            log_interp: bool, optional
+                Whether the interpolation is linear in kdata or in log(kdata).
         """
         if hasattr(t_array, "__len__"):
             t_array=np.array(t_array)
@@ -250,8 +268,17 @@ class Cia_table(object):
 
     def plot_spectrum(self, ax, t=200., x_axis='wls', xscale=None, yscale=None, **kwarg):
         """Plot the spectrum for a given point
-        Parameters:
-            t: temperature(K)
+
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            t: float
+                temperature(K)
+            x_axis: str, optional
+                If 'wls', x axis is wavelength. Wavenumber otherwise.
+            x/yscale: str, optional
+                If 'log' log axes are used.
         """
         toplot=self.interpolate_cia(t)[0]
         if x_axis == 'wls':
@@ -267,13 +294,14 @@ class Cia_table(object):
 
     def convert_abs_coeff_unit(self,abs_coeff_unit='unspecified',old_abs_coeff_unit='unspecified'):
         """Converts abs_coeff to a new unit (in place)
-        Parameters:
+
+        Parameters
+        ----------
             abs_coeff_unit: str
                 String to identify the units to convert to.
                 Accepts 'cm^5', 'm^5'. or any length^5 unit recognized by the 
                 astropy.units library. If ='unspecified', no conversion is done.
-        Option:
-            old_abs_coeff_unit : str
+            old_abs_coeff_unit : str, optional
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
@@ -314,7 +342,7 @@ class Cia_table(object):
         """
         return 10000./self.wns
 
-    def remove_zeros(self,deltalog_min_value=0.):
+    def remove_zeros(self, deltalog_min_value=0.):
         """Finds zeros in the abs_coeff and set them to (10.**-deltalog_min_value)
         times the minimum positive value in the table.
         This is to be able to work in logspace. 
@@ -343,7 +371,9 @@ class Cia_table(object):
 
     def read_CKD_cia(self, filename, old_cia_unit='cm^2'):
         """Reads hitran cia files and load temperature, wavenumber, and absorption coefficient grid.
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be read.
         """
@@ -376,7 +406,9 @@ class Cia_table(object):
 #                     *Nmolec*2/(100.0**2)          ! convert to m^-1
 
     def effective_cross_section2(self, logP, T, x_mol1, x_mol2, wngrid_limit=None):
-        """Computes the total cross section for a molecule pair
+        """Obsolete.
+        
+        Computes the total cross section for a molecule pair
         (in m^2 per total number of molecules; assumes data in MKS).
         """
         x_x_n_density=10**logP/(KBOLTZ*T)*x_mol1*x_mol2

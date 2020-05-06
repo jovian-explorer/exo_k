@@ -25,50 +25,57 @@ class Ktable(Data_table):
         **kwargs):
         """Initializes k coeff table and supporting data from various sources
         (see below by order of precedence)
-        Parameters:
-            filename: str (optional)
+
+        Parameters
+        ----------
+            filename : str, optional
                 Relative or absolute name of the file to be loaded. 
-            filename_filters: sequence of string
+            filename_filters : sequence of string
                 As many strings as necessary to uniquely define a file
-                in the Settings()._search_path
+                in the `Settings()._search_path`.
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain *.
-            xsec: Xtable object
+            xsec : Xtable object
                 If no filename nor filename_filters are provided, this xsec object will be used to
                 create a ktable. In this case, wavenumber bins must be given
                 with the wnedges keyword.
-            path: str
+            path : str
                 If none of the above is specifed, path can point to
                 a directory with a LMDZ type k coeff table.
                 In this case, see read_LMDZ for the keywords to specify.
-            If there is no input, just creates an empty object to be filled later
-        Options:
-            p_unit: str
+
+        If none of the parameters above is specified,
+        just creates an empty object to be filled later.
+
+        Parameters
+        ----------
+            p_unit: str, optional
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
-            old_p_unit : str
+            old_p_unit : str, optional
                 String to specify the current pressure unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
-            kdata_unit: str
-                String to identify the units to convert to. Accepts 'cm^2', 'm^2'
+            kdata_unit : str, optional
+                String to identify the unit to convert to.
+                Accepts 'cm^2', 'm^2'
                 or any surface unit recognized by the astropy.units library.
                 If ='unspecified', no conversion is done.
                 In general, kdata should be kept in 'per number' or 'per volume'
                 units (as opposed to 'per mass' units) as composition will
                 always be assumed to be a number or volume mixing ratio.
                 Opacities per unit mass are not supported yet.
-                Note that that you do not need to specify the '/molec' or '/molecule' in the unit.
-            old_kdata_unit : str
+                Note that you do not need to specify the '/molec' or '/molecule' in the unit.
+            old_kdata_unit : str, optional
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
-            remove_zeros: boolean
+            remove_zeros : boolean, optional
                 If True, the zeros in the kdata table are replaced by
-                    a value 10 orders of magnitude smaller than the smallest positive value
-            search_path: str
+                a value 10 orders of magnitude smaller than the smallest positive value
+            search_path : str, optional
                 If search_path is provided, it locally overrides the global _search_path settings
                 and only files in search_path are returned.            
         """
@@ -114,9 +121,13 @@ class Ktable(Data_table):
 
     def read_pickle(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol pickle file
-        Parameters:
+
+        Parameters
+        ----------
             filename : str
                 Name of the input pickle file
+            mol : str, optional
+                Force the name of the molecule
         """
         if filename is None: raise RuntimeError("You should provide an input pickle filename")
         pickle_file=open(filename,'rb')
@@ -158,7 +169,9 @@ class Ktable(Data_table):
 
     def write_pickle(self,filename):
         """Saves data in a pickle format
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be created and saved
         """
@@ -181,7 +194,9 @@ class Ktable(Data_table):
 
     def read_hdf5(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
-        Parameters:
+
+        Parameters
+        ----------
             file : str
                 Name of the input hdf5 file
         """
@@ -214,7 +229,9 @@ class Ktable(Data_table):
 
     def write_hdf5(self,filename):
         """Saves data in a hdf5 format
-        Parameters:
+
+        Parameters
+        ----------
             filename: str
                 Name of the file to be created and saved
         """
@@ -239,7 +256,9 @@ class Ktable(Data_table):
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file in a gcm friendly format.
         Units are assumed to be cm^2 for kdata and mbar for pressure. 
-        Parameters:
+
+        Parameters
+        ----------
             path: str
                 Name of the directory with the various input files
             res: str
@@ -247,7 +266,6 @@ class Ktable(Data_table):
                 in the infrared and visible of the k table to load.
             band: str
                 "IR" or "VI" to specify which band to load.
-        Options:
             mol: str
                 Name of the molecule to be saved in the Ktable object. 
         """        
@@ -299,7 +317,9 @@ class Ktable(Data_table):
         """Saves data in a LMDZ friendly format.
         Note that the gcm requires p in mbar and kdata in cm^2/molec
         (at least up to July 2019). 
-        Parameters:
+
+        Parameters
+        ----------
             path: str
                 Name of the directory to be created and saved,
                 the one that will contain all the necessary files
@@ -355,27 +375,27 @@ class Ktable(Data_table):
 
     def xsec_to_ktable(self, xsec=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre',order=20,mid_dw=True,write=0):
-        """Computes a k coeff table from a Xtable object.
-        The p and kcorr units are inherited from the xsec object.
-        Parameters:
-            xsec : input Xtable object instance
+        """Fills the :class:`Ktable` object with a k-coeff table computed
+        from a :class:`Xtable` object.
+        The p and kcorr units are inherited from the :class:`Xtable` object.
+
+        Parameters
+        ----------
+            xsec : :class:`Xtable`
+                input Xtable object instance
             wnedges : Array
                 edges of the wavenumber bins to be used to compute the corrk
             quad : string
                 Type of quadrature used. Default is 'legendre'
             order : Integer
                 Order of the Gauss legendre quadrature used.
-        Option:
             mid_dw: Boolean, default True
-                - If True, the Xsec values in the high resolution xsec data are assumed to
-                cover a spectral interval that is centered around
-                the corresponding wavenumber value.
-                The first and last Xsec values are discarded. 
-                - If False, each interval runs from the wavenumber value to the next one.
-                The last Xsec value is dicarded.
-        Output:
-            self:
-                a full fledged Ktable based on the cross sections with the same T,P structure. 
+                * If True, the Xsec values in the high resolution xsec data are assumed to
+                  cover a spectral interval that is centered around
+                  the corresponding wavenumber value.
+                  The first and last Xsec values are discarded. 
+                * If False, each interval runs from the wavenumber value to the next one.
+                  The last Xsec value is dicarded.
         """        
         from .util.interp import gauss_legendre,spectrum_to_kdist
         if xsec is None: raise TypeError("You should provide an input Xtable object")
@@ -427,7 +447,9 @@ class Ktable(Data_table):
         k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
-        Parameters:
+
+        Parameters
+        ----------
             path : String
                 directory with the input files
             filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size)
@@ -444,14 +466,13 @@ class Ktable(Data_table):
                 Type of quadrature used. Default is 'legendre'
             order : Integer
                 Order of the Gauss legendre quadrature used. Default is 20.
-        Option:
             mid_dw: boolean, default True
-                - If True, the Xsec values in the high resolution xsec data are assumed to
-                cover a spectral interval that is centered around
-                the corresponding wavenumber value.
-                The first and last Xsec values are discarded. 
-                - If False, each interval runs from the wavenumber value to the next one.
-                The last Xsec value is dicarded.
+                * If True, the Xsec values in the high resolution xsec data are assumed to
+                  cover a spectral interval that is centered around
+                  the corresponding wavenumber value.
+                  The first and last Xsec values are discarded. 
+                * If False, each interval runs from the wavenumber value to the next one.
+                  The last Xsec value is dicarded.
             mol: string
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
@@ -533,12 +554,18 @@ class Ktable(Data_table):
         self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
 
     def copy(self, cp_kdata=True, ktab5d=False):
-        """Creates a new instance of Ktable object and (deep) copies data into it
-        Option:
-            cp_kdata: If false, the kdata table is not copied and
-            only the structure and metadata are. 
-        Output:
-            res: a new ktable instance with the same structure as self.
+        """Creates a new instance of :class:`Ktable` object and (deep) copies data into it
+
+        Parameters
+        ----------
+            cp_kdata: bool, optional
+                If false, the kdata table is not copied and
+                only the structure and metadata are. 
+
+        Returns
+        -------
+            :class:`Ktable`
+                A new :class:`Ktable` instance with the same structure as self.
         """
         if ktab5d:
             res=Ktable5d()
@@ -563,12 +590,19 @@ class Ktable(Data_table):
 
     def plot_spectrum2(self,ax,p=1.e-5,t=200.,g=0.,logx=True,logy=True,x=1.,**kwarg):
         """Plot the spectrum for a given point
-        Parameters:
-            ax: a pyplot axes instance where to put the plot.
-            p: pressure (Ktable pressure unit)
-            t: temperature(K)
-            g: gauss point
-            x: mixing ratio of the species
+
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            g: float
+                Gauss point
+            x: float
+                Mixing ratio of the species
         """
         gindex=self.gindex(g)
         toplot=self.interpolate_kdata(log10(p),t)[0,:,gindex]*x
@@ -579,13 +613,19 @@ class Ktable(Data_table):
         if logx: ax.set_xscale('log')
         if logy: ax.set_yscale('log')
 
-    def spectrum_to_plot(self,p=1.e-5,t=200.,x=1.,g=None):
+    def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """provide the spectrum for a given point to be plotted
-        Parameters:
-            p: pressure (Ktable pressure unit)
-            t: temperature(K)
-            x: mixing ratio of the variable species
-            g: gauss point
+
+        Parameters
+        ----------
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            g: float
+                Gauss point
+            x: float
+                Mixing ratio of the species
         """
         if g is None: raise RuntimeError('A gauss point should be provided with the g= keyword.')
         gindex=self.gindex(g)
@@ -593,10 +633,15 @@ class Ktable(Data_table):
 
     def plot_distrib(self, ax, p=1.e-5, t=200., wl=1., x=1., xscale=None, yscale='log', **kwarg):
         """Plot the distribution for a given point
-        Parameters:
-            p: pressure (Ktable pressure unit)
-            t: temperature (K)
-            wl: wavelength (micron)
+
+        Parameters
+        ----------
+            p : float
+                Pressure (Ktable pressure unit)
+            t : float
+                Temperature(K)
+            wl: float
+                Wavelength (micron)
         """
         wlindex=self.wlindex(wl)
         toplot=self.interpolate_kdata(log10(p),t)[0,wlindex]*x
@@ -625,14 +670,23 @@ class Ktable(Data_table):
 
     def RandOverlap(self,other,x_self,x_other,write=0,use_rebin=False):
         """Method to randomely mix the opacities of 2 species (self and other).
-        Parameters:
-           other  : a Kcoeff object to be mixed with. Dimensions should be the same as self.
-           x_self : volume mixing ratio of the first species
-           x_other: volume mixing ratio of the species to be mixed with.
-            If one of these is None, the kcoeffs of the species in question
-             are considered to be already normalized with respect to the mixing ratio.
-        Output    :
-           kcoeff table of the mix. 
+
+        Parameters
+        ----------
+            other : :class:`Ktable`
+                A :class:`Ktable` object to be mixed with. Dimensions should be the same as self.
+            x_self : float or array
+                Volume mixing ratio of the first species
+            x_other : float or array
+                Volume mixing ratio of the species to be mixed with.
+
+        If one of these is None, the kcoeffs of the species in question
+        are considered to be already normalized with respect to the mixing ratio.
+
+        Returns
+        -------
+            :class:`Ktable`
+                k-coeff table of the mix. 
         """
         from .util.interp import kdata_conv_loop#,kdata_conv_loop_bad,kdata_conv
 
@@ -683,7 +737,9 @@ class Ktable(Data_table):
 
     def bin_down(self, wnedges=None, weights=None, ggrid=None, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers
-        Parameters:
+
+        Parameters
+        ----------
             wnedges: array
                 Edges of the new bins of wavenumbers (cm-1)
                 onto which the kcoeff should be binned down.

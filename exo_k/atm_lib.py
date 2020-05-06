@@ -22,26 +22,12 @@ class Atm_profile(object):
     def __init__(self, composition={}, psurf=None, ptop=None, logplev=None, tlev=None,
             Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlev=20):
         """Initializes atmospheric profiles
-        Parameters:
+
+        Parameters
+        ----------
             composition: dict
                 Keys are molecule names and values the vmr.
                 Vmr can be arrays of size Nlev-1 (i.e. the number of layers).
-            There are two routes to define the profile.
-            Tither define:
-                Nlev: int
-                    Number of level interfaces (Number of layers is Nlev-1)
-                psurf, Tsurf: float
-                    Surface pressure (Pa) and temperature 
-                ptop: float
-                    Pressure at the top of the model (Pa) 
-                Tstrat: float
-                    Stratospheric temperature
-            or:
-                logplev: array
-                tlev: array (same size)
-                    These will become the pressures (Pa) and temperatures at the level interfaces.
-                    This will be used to define the surface and top pressures.
-                    Nlev becomes the size of the arrays. 
             grav: float
                 Planet surface gravity (gravity constant with altitude for now).
             Rp: float of Astropy.unit quantity
@@ -51,7 +37,26 @@ class Atm_profile(object):
             Mgas: float, optional
                 Molar mass of the gas (kg/mol). If given, overrides the molar mass computed
                 from composition.
-        Option:
+        
+        There are two ways to define the profile.
+        Either define:
+
+        * Nlev: int
+          Number of level interfaces (Number of layers is Nlev-1)
+        * psurf, Tsurf: float
+          Surface pressure (Pa) and temperature 
+        * ptop: float
+          Pressure at the top of the model (Pa) 
+        * Tstrat: float
+          Stratospheric temperature        
+
+        or:
+
+        * logplev: array
+        * tlev: array (same size)
+          These will become the pressures (Pa) and temperatures at the level interfaces.
+          This will be used to define the surface and top pressures.
+          Nlev becomes the size of the arrays. 
         """
         self.gas_mix=gas_mix(composition)
         self.rcp=rcp
@@ -74,7 +79,9 @@ class Atm_profile(object):
 
     def set_logPT_profile(self,log_plev,tlev):
         """Set the logP-T profile of the atmosphere with a new one
-        Parameters:
+
+        Parameters
+        ----------
             log_plev: numpy array
                 Log pressure (in Pa) at the level surfaces
             tlev: numpy array (same size)
@@ -95,7 +102,9 @@ class Atm_profile(object):
 
     def set_adiab_profile(self,Tsurf=None,Tstrat=None,rcp=0.28):
         """Initializes atmospheric the logP-T profile with an adiabat with index R/cp=rcp
-        Parameters:
+
+        Parameters
+        ----------
             Tsurf: float
                 Surface temperature
             Tstrat: float
@@ -109,7 +118,9 @@ class Atm_profile(object):
 
     def set_grav(self, grav=None, compute_col_dens=True):
         """Sets the surface gravity of the planet
-        Parameters:
+
+        Parameters
+        ----------
             grav: float
                 surface gravity (m/s^2)
     
@@ -124,14 +135,16 @@ class Atm_profile(object):
     
     def set_gas(self, composition_dict, compute_col_dens=True):
         """Sets the composition of the atmosphere
-        Parameters:
+
+        Parameters
+        ----------
             composition_dict: dictionary
                 Keys are molecule names, and values are volume mixing ratios.
                 A 'background' value means that the gas will be used to fill up to vmr=1
                 If they do not add up to 1 and there is no background gas_mix,
                 the rest of the gas_mix is considered transparent.
     
-            compute_col_dens: boolean (optional, default=True)
+            compute_col_dens: boolean, optional
                 If True, the column density per layer of the atmosphere is recomputed.
                 This si mostly to save time when we know this will be done later on.
         """
@@ -140,11 +153,12 @@ class Atm_profile(object):
 
     def set_Mgas(self, Mgas=None, compute_col_dens=True):
         """Sets the mean molecular weight of the atmosphere
-        Parameters:
+
+        Parameters
+        ----------
             Mgas: float or array of size Nlay
                 mean molecular weight (kg/mol)
-
-            compute_col_dens: boolean (optional, default=True)
+            compute_col_dens: boolean, optional
                 If True, the column density per layer of the atmosphere is recomputed.
                 This si mostly to save time when we know this will be done later on.
         """
@@ -156,7 +170,9 @@ class Atm_profile(object):
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
-        Parameters:
+
+        Parameters
+        ----------
             rcp: float
                 R/c_p
         """
@@ -164,7 +180,9 @@ class Atm_profile(object):
 
     def set_Rp(self,Rp):
         """Sets the radius of the planet
-        Parameters:
+
+        Parameters
+        ----------
             Rp: float
                 radius of the planet (m)
         """
@@ -178,7 +196,9 @@ class Atm_profile(object):
 
     def set_Rstar(self,Rstar):
         """Sets the radius of the star
-        Parameters:
+
+        Parameters
+        ----------
             Rstar: float
                 radius of the star (m)
         """
@@ -251,7 +271,9 @@ class RadAtm(Atm_profile):
 
     def set_wl_range(self, wl_range):
         """Sets the wavelength range in which computations will be done.
-        Parameters:
+
+        Parameters
+        ----------
             wl_range: Array of size 2
                 Minimum and maximum wavelength
         """
@@ -259,7 +281,9 @@ class RadAtm(Atm_profile):
 
     def set_wn_range(self,wn_range):
         """Sets the wavenumber range in which computations will be done.
-        Parameters:
+
+        Parameters
+        ----------
             wn_range: Array of size 2
                 Minimum and maximum wavenumber
         """
@@ -292,7 +316,9 @@ class RadAtm(Atm_profile):
 
     def set_database(self, kdatabase=None):
         """Change the radiative database attached to the current instance of AtmRad
-        Parameters:
+
+        Parameters
+        ----------
             kdatabase: Kdatabase object
                 New Kdatabase to use.
         """
@@ -312,7 +338,9 @@ class RadAtm(Atm_profile):
 
     def set_CIAdatabase(self, CIAdatabase):
         """Change the CIA database attached to the current instance of AtmRad
-        Parameters:
+
+        Parameters
+        ----------
             CIAdatabase: CIAdatabase object
                 New CIAdatabase to use.
         """
@@ -331,12 +359,17 @@ class RadAtm(Atm_profile):
         """Computes the opacity of each of the layers for the composition given
         for every wavelength (and possibly g point).
         For the moment the kcoeff are added to each other (maximum recovery assumption).
-        Option:
+
+        Parameters
+        ----------
             wl_range: array of two values
                 Wavelength range to cover
-        Output:
-            self.kdata: array
-                opacity of each layer for each wavenumber (and potentially g point).
+
+        Returns
+        -------
+            array
+                opacity (cross section) of each layer
+                for each wavenumber (and potentially g point).
         """
         if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
         Use the kdatabase keyword during initialization or use the set_database method.""")
@@ -395,15 +428,18 @@ class RadAtm(Atm_profile):
 
     def emission_spectrum(self, integral=True, mu0=0.5, **kwargs):
         """Computes the emission flux at the top of the atmosphere (in W/m**2/cm**-1)
-        Parameters:
-        Options:
-            integral: Boolean
-                If true, the black body is integrated within each wavenumber bin.
-                If not, only the central value is used.
-                    False is faster and should be ok for small bins,
-                    but True is the correct version. 
-        Output:
-            A Spectrum object with the Spectral flux at the top of the atmosphere (in W/m**2/cm**-1)
+
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+        Returns
+        -------
+            Spectrum object 
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m**2/cm**-1)
         """
         from .util.spectrum import Spectrum
         #if self.dtau is None:
@@ -453,15 +489,17 @@ class RadAtm(Atm_profile):
 
     def surf_bb(self, integral=True):
         """Computes the surface black body flux (in W/m**2/cm**-1)
-        Parameters:
-        Options:
-            integral: Boolean
-                If true, the black body is integrated within each wavenumber bin.
-                If not, only the central value is used.
-                    False is faster and should be ok for small bins,
-                    but True is the correct version. 
-        Output:
-            surf_bb: Spectrum object
+
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+        Returns
+        -------
+            Spectrum object
                 Spectral flux at the surface (in W/m**2/cm**-1)
         """
         from .util.spectrum import Spectrum
@@ -473,15 +511,17 @@ class RadAtm(Atm_profile):
 
     def top_bb(self, integral=True):
         """Computes the top of atmosphere black body flux (in W/m**2/cm**-1)
-        Parameters:
-        Options:
-            integral: Boolean
+
+        Parameters
+        ----------
+            integral: boolean, optional
                 If true, the black body is integrated within each wavenumber bin.
                 If not, only the central value is used.
                     False is faster and should be ok for small bins,
                     but True is the correct version. 
-        Output:
-            top_bb: Spectrum object
+        Returns
+        -------
+            Spectrum object
                 Spectral flux of a bb at the temperature at the top of atmosphere (in W/m**2/cm**-1)
         """
         from .util.spectrum import Spectrum

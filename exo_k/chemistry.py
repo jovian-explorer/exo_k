@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Jun 20 2019
-
 @author: jeremy leconte
 """
 import numpy as np
@@ -15,9 +13,11 @@ class EquChemTable(object):
     
     def __init__(self, filename=None, remove_zeros=False):
         """Initializes chemical composition tables from various init files
-        Parameters:
-            inputfile : Name of the input pickle file
-        Option:
+
+        Parameters
+        ----------
+            filename : str
+                Name of the input file
         """
         self.filename=filename
         self.tgrid=None
@@ -35,11 +35,15 @@ class EquChemTable(object):
             self.read_composition_dat(filename=self.filename, remove_zeros=remove_zeros)
         self.setup_interpolation()
 
-    def read_composition_in(self,filename=None,remove_zeros=False, skiprows=7):
+    def read_composition_in(self, filename=None, remove_zeros=False, skiprows=7):
         """Initializes chemical composition tables from composition.in files
-        Parameters:
-            inputfile : Name of the input file
-        Option:
+
+        Parameters
+        ----------
+            filename : str
+                Name of the input file
+            skiprows : int, optional
+                Number of lines to skip in the file
         """
         data = np.loadtxt(filename,skiprows=skiprows,unpack=True)
         self.Nt=np.where(data[2,1:]==data[2,0])[0][0]+1
@@ -67,9 +71,13 @@ class EquChemTable(object):
 
     def read_composition_dat(self, filename=None, remove_zeros=False, skiprows=1):
         """Initializes chemical composition tables from composition.in files
-        Parameters:
-            inputfile : Name of the input file
-        Option:
+
+        Parameters
+        ----------
+            filename : str
+                Name of the input file
+            skiprows : int, optional
+                Number of lines to skip in the file
         """
         with open(filename, 'r') as file:
             molecules=file.readline().split()[2:]
@@ -159,7 +167,8 @@ class gas_mix(object):
         The background gas must have a vmr='background'
         
         Returns
-            self.float or array:
+        -------
+            float or array:
                 Vol. Mix. Ratio of the background gas
         """
         other_vmr=0.
@@ -182,11 +191,14 @@ class gas_mix(object):
 
     def molar_mass(self):
         """Computes the molar mass of a mix of gases
-        Parameters:
+
+        Parameters
+        ----------
             composition: dict
                 Dictionary with the name of the molecules as keys
                 and the vmr as values. vmr are either float or arrays.
-        Returns:
+        Returns
+        -------
             float or array:
                 Molar mass of the active gases in kg/mol
         """
@@ -203,7 +215,9 @@ class gas_mix(object):
 
     def get_vmr_array(self, sh=None):
         """Returns a dictionary with an array of vol. mix. ratios for each species. 
-        Parameters:
+
+        Parameters
+        ----------
             sh: set or list
                 shape of the array wanted if all the vmr are floats.
                 If some are already arrays, check whether the shape is the correct one. 

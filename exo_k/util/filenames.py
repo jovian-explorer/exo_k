@@ -15,7 +15,9 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
         p_kw=None, t_kw=None, x_kw=None):
     """Creates a grid of filenames from an array of pressures, temperatures,
     and vmr if there is a variable gas.
-    Parameters:
+
+    Parameters
+    ----------
         base_string: str
             Generic name of the spectra files with specific keywords to be replaced 
             by the relevant numerical values
@@ -31,21 +33,18 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
         x_kw: str
             Input grid in vmr of the variable gas
 
-    Example:
-        ```
-        logpgrid=[1,2]
-        tgrid=np.array([100.,150.,200.])
-        print(logpgrid,tgrid)
-        file_grid=exo_k.create_fname_grid('spectrum_CO2_1e{logp}Pa_{t}K.hdf5',
-                  logpgrid=logpgrid,tgrid=tgrid,p_kw='logp',t_kw='t')
-        ```
-        Results in 
-        ```
+    Examples
+    --------
+
+        >>> logpgrid=[1,2]
+        >>> tgrid=np.array([100.,150.,200.])
+        >>> file_grid=exo_k.create_fname_grid('spectrum_CO2_1e{logp}Pa_{t}K.hdf5',
+                  logpgrid=logpgrid,tgrid=tgrid,p_kw='logp',t_kw='t')                  
         array([['spectrum_CO2_1e1Pa_100K.hdf5', 'spectrum_CO2_1e1Pa_150K.hdf5',
         'spectrum_CO2_1e1Pa_200K.hdf5'],
-       ['spectrum_CO2_1e2Pa_100K.hdf5', 'spectrum_CO2_1e2Pa_150K.hdf5',
+        ['spectrum_CO2_1e2Pa_100K.hdf5', 'spectrum_CO2_1e2Pa_150K.hdf5',
         'spectrum_CO2_1e2Pa_200K.hdf5']], dtype='<U28')
-        ```
+
     """
     logpgrid=np.array(logpgrid)
     tgrid=np.array(tgrid)
@@ -71,6 +70,15 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
 def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
     """Creates the right links for a LMDZ type directory to be read by the LMDZ generic GCM.
       => you must have run write_LMDZcorrk for your IR and VI channels.
+
+    Parameters
+    ----------
+        corrkname: str
+            Path to the directory with the LMDZ ktable to finalize
+        IRsize: int
+            Number of IR spectral bins
+        VIsize: int
+            Number of VI spectral bins
     """
     import os
     newdir=os.path.join(corrkname,str(IRsize)+'x'+str(VIsize))
@@ -88,6 +96,13 @@ def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
 
 def convert_kspectrum_to_hdf5(file_in,file_out,skiprows=0):
     """Converts kspectrum like spectra to hdf5 format for speed and space
+
+    Parameters
+    ----------
+        file_in: str
+            Initial kspectrum filename.
+        file_out: str
+            Name of the final hdf5 file to be created.
     """
     wn_hr,k_hr=np.loadtxt(file_in,skiprows=skiprows,unpack=True) 
     f = h5py.File(file_out, 'w')
@@ -96,7 +111,14 @@ def convert_kspectrum_to_hdf5(file_in,file_out,skiprows=0):
     f.close()    
 
 def convert_exo_transmit_to_hdf5(file_in,file_out,mol='unspecified'):
-    """Converts exo_transmit like spectra to hdf5 format for speed and space
+    """Converts exo_transmit like spectra to hdf5 format for speed and space.
+
+    Parameters
+    ----------
+        file_in: str
+            Initial exo_transmit filename.
+        file_out: str
+            Name of the final hdf5 file to be created.
     """
     tmp_wlgrid=[]
     tmp_kdata=[]

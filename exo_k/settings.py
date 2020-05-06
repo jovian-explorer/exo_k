@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: jeremy leconte
+
 A class based on a singleton to store global options only once for every instance. 
 """
 import os.path
@@ -22,9 +23,11 @@ class Settings(Singleton):
     def add_search_path(self, *search_paths):
         """Add path(s) to the list of paths that will be searched for
         correlated-k and x-sec files.
-        Parameters:
+
+        Parameters
+        ----------
             search_path : string or list of strings
-                  search path(s) to look for opacities
+                Search path(s) to look for opacities.
         """
         for path in search_paths:
             if not os.path.isdir(path):
@@ -36,9 +39,11 @@ class Settings(Singleton):
 
     def set_search_path(self, *search_paths):
         """Set the path(s) that will be searched for correlated-k and x-sec files .
-        Parameters:
+
+        Parameters
+        ----------
             search_path : string or list of strings
-                  search path(s) to look for opacities
+                Search path(s) to look for opacities.
         """
         if not os.path.isdir(search_paths[0]):
             raise NotADirectoryError("""The search_path you provided
@@ -52,31 +57,37 @@ class Settings(Singleton):
         """
         return self._search_path
 
-    def set_delimiter(self,newdelimiter):
+    def set_delimiter(self, newdelimiter):
         """Sets the delimiter string used to separate molecule names in filenames
         """
         self._delimiter = newdelimiter
 
     def set_log_interp(self, log_interp):
         """Set the default interpolation mode for kdata.
-        Parameter:
-            log_interp: Boolean
+
+        Parameters
+        ----------
+            log_interp: boolean
                 If True, log interpolation. Linear if False
         """
         self._log_interp = log_interp
 
     def set_case_sensitive(self, case_sensitive):
         """Set whether name matching is case sensitive
-        Parameter:
-            case_sensitive: Boolean
+
+        Parameters
+        ----------
+            case_sensitive: boolean
                 If True, name matching is case sensitive.
         """
         self._case_sensitive = case_sensitive
 
     def set_mks(self, set_mks):
         """Forces conversion to mks system.
-        Parameter:
-            set_mks: Boolean
+        
+        Parameters
+        ----------
+            set_mks: boolean
                 If True, all datasets are converted to mks upon loading
         """
         self._convert_to_mks = set_mks
@@ -84,20 +95,23 @@ class Settings(Singleton):
     def list_files(self, *str_filters, only_one = False, search_path = None):
         """A routine that provides a list of all filenames containing
         a set of string filters in the global _search_path or a local one.
-        Parameters:
+
+        Parameters
+        ----------
             *str_filters: str
                 A set of strings that need to be contained in the name of the file
-        Options:
-            only_one: boolean
+            only_one: boolean, optional
                 If true, only one filename is returned (the first one).
                 If false, a list is returned. Default is false.
-            search_path: str
+            search_path: str, optional
                 If search_path is provided, it locally overrides
                 the global _search_path settings
                 and only files in search_path are returned.
-        Ouput:
-            finalnames: list of strings
-                List of corresponding filenames 
+
+        Returns
+        -------
+            list of strings
+                List of filenames corresponding to all the str_filters
         """
         local_search_path=self._search_path
         if search_path is not None:

@@ -21,20 +21,43 @@ PLANCK_CST1_lamb=1.e-6*2.*PLANCK*C_LUM**2
 
 @numba.jit(nopython=True,fastmath=True)
 #@numba.vectorize([float64(float64,float64)],fastmath=True)
-def Bnu(nu,T):
+def Bnu(nu, T):
     """Computes the Planck law in wavenumber domain.
-    nu is the wavenumber in cm^-1. sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
-    Bnu is in W/m^2/str/cm^-1 (not SI units).
+
+    Parameters
+    ----------
+        nu: float
+            The wavenumber in cm^-1. 
+        T: float
+            Temperature (K).
+
+    Returns
+    -------
+        float
+            Bnu in W/m^2/str/cm^-1 (not SI units).
+
+    sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
     """
     sigma=nu*1.e2
     return PLANCK_CST1*sigma**3/(np.exp(PLANCK_CST2*sigma/T)-1.)
 
 
-def Bnu_integral(nu_edges,T):
+def Bnu_integral(nu_edges, T):
     """Computes the integral of the Planck function in wavenumber bins.
-    nu_edges is an array of the edges of the wavenumber bins in cm^-1.
+    
+    Parameters
+    ----------
+        nu_edges: array
+            Edges of the wavenumber bins in cm^-1.
+        T: float
+            Temperature (K).
+
+    Returns
+    -------
+        array
+            Bnu_integral in W/m^2/str.
+
     sigma*T**4/PI=sum of Bnu_integral
-    Bnu_integral is in W/m^2/str
     """
     nu_edges=np.array(nu_edges)
     res=np.empty(nu_edges.size-1)
@@ -42,21 +65,25 @@ def Bnu_integral(nu_edges,T):
         res[ii]=integrate.quad(lambda nu: Bnu(nu,T),nu_edges[ii],nu_edges[ii+1])[0]
     return res
 
-@numba.jit(nopython=True,fastmath=True)
-def Bnu_integral_num(nu_edges,T,n=30):
+@numba.jit(nopython=True, fastmath=True)
+def Bnu_integral_num(nu_edges, T, n=30):
     """Computes the integral of the Planck function in wavenumber bins.
-    Parameters:
+    
+    Parameters
+    ----------
         nu_edges: array
             Edges of the wavenumber bins in cm^-1.
-        T: Float
-            Temperature
-    Options:
-        n: Int
+        T: float
+            Temperature (K).
+        n: int
             number of terms to take into account in the black body calculation.
-    Output:
-        Bnu_integral_num: Array of size nu_edges.size-1
-            Integral of the source function at temperature T inside the bins in W/m^2/str
-            sigma*T**4/PI=sum of Bnu_integral_num
+    
+    Returns
+    -------
+        Array of shape (T_array.size,nu_edges.size-1)
+            Bnu_integral_num: Integral of the source function at 
+            temperatures T_array inside the bins in W/m^2/str
+            sigma*T**4=sum of Bnu_integral_num
     """
     kp=PLANCK_CST2/T
     res=np.zeros(nu_edges.size)
@@ -72,20 +99,28 @@ def Bnu_integral_num(nu_edges,T,n=30):
 
     return res[:-1]*PLANCK_CST1MKS/kp**4
 
-@numba.jit(nopython=True,fastmath=True)
-def Bnu_integral_array(nu_edges,T_array,Nw,Nt,n=30):
+@numba.jit(nopython=True, fastmath=True)
+def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
     """Computes the integral of the Planck function in wavenumber bins.
-    Parameters:
+    
+    Parameters
+    ----------
         nu_edges: array
             Edges of the wavenumber bins in cm^-1.
-        T: Float
-            Temperature
-    Options:
-        n: Int
+        T: array
+            Array of temperature (K).
+        Nw: int
+            Number of spectral bins.
+        Nt: int
+            Number of temperatures.
+        n: int, optional
             number of terms to take into account in the black body calculation.
-    Output:
-        Bnu_integral_num: Array of shape (T_array.size,nu_edges.size-1)
-            Integral of the source function at temperatures T_array inside the bins in W/m^2/str
+    
+    Returns
+    -------
+        Array of shape (T_array.size,nu_edges.size-1)
+            Bnu_integral_num: Integral of the source function at
+            temperatures T_array inside the bins in W/m^2/str
             sigma*T**4=sum of Bnu_integral_num
     """
     res=np.empty((Nt,Nw))
@@ -109,7 +144,7 @@ def Bnu_integral_array(nu_edges,T_array,Nw,Nt,n=30):
             tmp=tmp2
     return res
 
-def Bnu_integral_old(nu_edges,T):
+def Bnu_integral_old(nu_edges, T):
     """Computes the integral of the Planck function in wavenumber bins.
     nu_edges is an array of the edges of the wavenumber bins in cm^-1.
     sigma*T**4=sum of Bnu_integral
@@ -124,11 +159,22 @@ def Bnu_integral_old(nu_edges,T):
 
 
 @numba.jit(nopython=True)
-def Bmicron(lamb,T):
+def Bmicron(lamb, T):
     """Computes the Planck law in wavelength domain.
-    lamb is the wavelength in microns. sigma*T**4=Int(Bmicron d lamb)
+
+    Parameters
+    ----------
+        lamb: float
+            The wavelength in microns. 
+        T: float
+            Temperature (K).
+ 
+    Returns:
+        float
+            Bmicron in W/m^2/str/micron (not SI units).
+
+    sigma*T**4=Int(Bmicron d lamb)
     where lamb is expressed in microns
-    Bmicron is in W/m^2/str/micron (not SI units).
     """
     lambda_si=lamb*1.e-6
     return PLANCK_CST1_lamb/(lambda_si**5   \
@@ -136,35 +182,62 @@ def Bmicron(lamb,T):
 
 
 @numba.jit(nopython=True)
-def BBnu_Stellar_Spectrum(nu,T,Flux):
+def BBnu_Stellar_Spectrum(nu, T, Flux):
     """Computes the outgoing spectral flux of a black body at temperature T so that its 
     bolometric flux is equal to the input 'Flux'
-    Parameters:
-        nu is the wavenumber in cm^-1. sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
-        BBnu_Stellar_Spectrum is in W/m^2/cm^-1 (not SI units).
+
+    Parameters
+    ----------
+        nu: float
+            The wavenumber in cm^-1. 
+        T: float
+            Temperature (K).
+        Flux: float
+            bolometric flux for rescaling.
+    
+    Returns
+    -------
+        float
+            BBnu_Stellar_Spectrum is in W/m^2/cm^-1 (not SI units).
+    
+    sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
     """
     Scaling_Factor=PI/(SIG_SB*T**4)*Flux
     return Scaling_Factor*Bnu(nu,T)
     
 @numba.jit(nopython=True)
-def BBmicron_Stellar_Spectrum(lamb,T,Flux):
+def BBmicron_Stellar_Spectrum(lamb, T, Flux):
     """Computes the outgoing spectral flux of a black body at temperature T so that its 
     bolometric flux is equal to the input 'Flux'
-    Parameters:
-        lamb is the wavelength in microns. sigma*T**4=Int(Bmicron d lamb)
-        where lamb is expressed in microns
-        BBmicron_Stellar_Spectrum is in W/m^2/micron (not SI units).
+
+    Parameters
+    ----------
+        lamb: float
+            The wavelength in microns. 
+        T: float
+            Temperature (K).
+        Flux: float
+            bolometric flux for rescaling.
+    
+    Returns
+    -------
+        float
+            BBmicron_Stellar_Spectrum is in W/m^2/micron (not SI units).
+            
+    sigma*T**4=Int(Bmicron d lamb)
+    where lamb is expressed in microns.
+    
     """
     Scaling_Factor=PI/(SIG_SB*T**4)*Flux
     return Scaling_Factor*Bmicron(lamb,T)
 
-def wavelength_grid_R(lambda_min,lambda_max,R):
+def wavelength_grid_R(lambda_min, lambda_max, R):
     """Creates a wavelength grid starting from lambda_min and ending at lambda_max
     with a resolution of R (roughly).
     """
     return np.append(np.exp(np.arange(np.log(lambda_min),np.log(lambda_max),1./R)),lambda_max)
 
-def wavenumber_grid_R(nu_min,nu_max,R):
+def wavenumber_grid_R(nu_min, nu_max, R):
     """Creates a wavenumber grid starting from nu_min and ending at nu_max
     with a resolution of R (roughly).
     """
@@ -174,16 +247,23 @@ def wavenumber_grid_R(nu_min,nu_max,R):
 def rad_prop_corrk(dcol_density, opacity_prof, mu0):
     """Computes the optical depth of each of the layers
     for the opacity given for every wavelength and g point.
-    Parameters:
-    Option:
+
+    Parameters
+    ----------
+        dcol_density: array
+            Column density per layer (molecules/m^2/layer).
+        opacity_prof: array
+            effective cross section per molecule (m^2/molecule).
         mu0: cosine of the equivalent zenith angle for the rays.
             e.g. Cos(60deg)=0.5 is chosen (See, for example, chap 4 of Pierrehumbert 2010)
-    Output:
+
+    Returns
+    -------
         self.dtau: Array
-            optical depth of each layer for each wavenumber and g point.
+            optical depth of each layer for each wavenumber.
         self.tau: Array
             cumulative optical depth from the top (with zeros at the top of the first layer)
-    """
+   """
     Nlev,Nw,Ng=opacity_prof.shape
     OvMu=1./mu0
     dtau=np.empty((Nlev,Nw,Ng))
@@ -199,12 +279,19 @@ def rad_prop_corrk(dcol_density, opacity_prof, mu0):
 @numba.njit
 def rad_prop_xsec(dcol_density, opacity_prof, mu0):
     """Computes the optical depth of each of the layers
-    for the opacity given for every wavelength and g point.
-    Parameters:
-    Option:
+    for the opacity given for every wavelength.
+
+    Parameters
+    ----------
+        dcol_density: array
+            Column density per layer (molecules/m^2/layer).
+        opacity_prof: array
+            effective cross section per molecule (m^2/molecule).
         mu0: cosine of the equivalent zenith angle for the rays.
             e.g. Cos(60deg)=0.5 is chosen (See, for example, chap 4 of Pierrehumbert 2010)
-    Output:
+
+    Returns
+    -------
         self.dtau: Array
             optical depth of each layer for each wavenumber.
         self.tau: Array
@@ -222,26 +309,30 @@ def rad_prop_xsec(dcol_density, opacity_prof, mu0):
     return tau,dtau
 
 @numba.njit(nogil=True,fastmath=True)
-def path_integral_corrk(Nlay,Nw,Ng,tangent_path,density_prof,opacity_prof,weights):
+def path_integral_corrk(Nlay, Nw, Ng, tangent_path, density_prof, opacity_prof, weights):
     """Computes the transmittance for each layer of the atmosphere for k-coefficients.
-    Parameters:
+
+    Parameters
+    ----------
         Nlay: int
-            Number of layers
+            Number of layers.
         Nw: int
-            Number of wavenumber bins
+            Number of wavenumber bins.
         Ng: int
-            Number of gauss points
+            Number of gauss points.
         tangent_path: List of arrays
-            Triangular array of tangent path for each layer
+            Triangular array of tangent path for each layer.
         density_prof: array
-            Array with the number density of molecules in the atmosphere
+            Array with the number density of molecules in the atmosphere.
         opacity_prof: array
-            Effective cross section of the atmsophere for each (layer,wavenumber,g-point)
+            Effective cross section of the atmsophere for each (layer,wavenumber,g-point).
         weights: array
-            Weights for the quadrature in g-space
-    Output:
+            Weights for the quadrature in g-space.
+
+    Returns
+    -------
         transmittance: array
-            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma))
+            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma)).
     """
     exp_min_tau=np.zeros((Nlay,Nw,Ng))
     transmittance=np.zeros((Nlay,Nw))
@@ -262,22 +353,26 @@ def path_integral_corrk(Nlay,Nw,Ng,tangent_path,density_prof,opacity_prof,weight
 
 
 @numba.njit(nogil=True,fastmath=True)
-def path_integral_xsec(Nlay,Nw,tangent_path,density_prof,opacity_prof):
+def path_integral_xsec(Nlay, Nw, tangent_path, density_prof, opacity_prof):
     """Computes the transmittance for each layer of the atmosphere from cross sections.
-    Parameters:
+
+    Parameters
+    ----------
         Nlay: int
-            Number of layers
+            Number of layers.
         Nw: int
-            Number of wavenumber bins
+            Number of wavenumber bins.
         tangent_path: List of arrays
-            Triangular array of tangent path for each layer
+            Triangular array of tangent path for each layer.
         density_prof: array
-            Array with the number density of molecules in the atmosphere
+            Array with the number density of molecules in the atmosphere.
         opacity_prof: array
-            Effective cross section of the atmsophere for each (layer,wavenumber)
-    Output:
+            Effective cross section of the atmsophere for each (layer,wavenumber).
+
+    Returns
+    -------
         transmittance: array
-            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma))
+            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma)).
     """
     transmittance=np.zeros((Nlay,Nw))
     for ilay in range(Nlay):
