@@ -12,7 +12,24 @@ The goal of `exo_k` is to provide a library to:
 * To create tables for a mix of gases using tables for individual gases.
 * Test various assumptions in an integrated radiative transfer framework.
 
-To learn how to use `exo_k`, you can generate the documentation by running `make -C doc` (or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the index.html file to check it out).
-You can also simply follow the tutorial jupyter notebook `doc/tutorial-exo_k.ipynb`.
+## Installation
+
+Exo_k can be installed using pip:
+```
+pip install -e .
+```
+Or by running the [setup.py](./setup.py) script:
+```
+python setup.py install
+```
+You can generate the documentation by running:
+```
+python setup.py build_sphinx
+```
+(or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the [index.html](doc/html/index.html) file to check it out).
+
+## Usage
+
+To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](doc/tutorial-exo_k.ipynb) or read the [documentation](doc/html/index.html) (see `Installation` above to generate it).
 
 Have fun!
