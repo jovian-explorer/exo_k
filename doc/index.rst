@@ -1,8 +1,8 @@
 Exo_k
-***********
+*****
 
 About Exo_k
-================
+============
 
 Exo_k is a Python 3 based library to handle radiative opacities from various sources for atmospheric applications.
 
@@ -14,12 +14,7 @@ Doc Contents
 
    installation
    getting_started
-
-
-Modules
-=======
-
-* :ref:`modindex`
+   API reference <autoapi/exo_k/index>
 
 Other Links
 ===========

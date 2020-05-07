@@ -1,1 +1,3 @@
-*
+doc/doctrees
+doc/html
+**/*pyc

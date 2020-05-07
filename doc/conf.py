@@ -48,9 +48,10 @@ add_module_names = False
 autoapi_type = 'python'
 autoapi_dirs = ['../exo_k']
 autoapi_file_patterns = ['*.py']
-autoapi_options = ['members', 'undoc-members']
+autoapi_options = ['members', 'undoc-members', 'show-inheritance']
 autoapi_python_class_content = 'both'
-autoapi_add_toctree_entry = False
+# autoapi_add_toctree_entry = False
+# autoapi_keep_file = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -61,7 +62,7 @@ master_doc = 'index'
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'doctrees', 'html', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'build', '.*', 'doctrees', 'html', 'Thumbs.db', '.DS_Store']
 
 pygments_style = 'sphinx'
 
@@ -71,6 +72,7 @@ pygments_style = 'sphinx'
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+# html_logo = '_static/logo.png'
 html_theme_options = {
     'collapse_navigation': False,
     'sticky_navigation': True,
