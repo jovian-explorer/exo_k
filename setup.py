@@ -1,11 +1,6 @@
 #!/usr/bin/env python
-import setuptools
 from setuptools import find_packages
-from numpy.distutils.core import setup
-from numpy.distutils.core import Extension
-from numpy.distutils import log
-import re, os
-import glob
+from distutils.core import setup
 
 packages = find_packages(exclude=('tests', 'doc'))
 provides = ['exo_k', ]
@@ -13,16 +8,11 @@ provides = ['exo_k', ]
 requires = []
 
 install_requires = ['numpy',
-                    'cython',
-                    'configobj',
                     'scipy',
                     'numba',
                     'astropy',
-                    'numexpr',
-                    'numpy',
-                    'nestle',
                     'h5py',
-                    'tabulate', ]
+                    ]
 
 console_scripts = ['']
 
