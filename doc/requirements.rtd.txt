@@ -1,2 +1,4 @@
 setuptools >= 18.0
 nbsphinx
+sphinx-autoapi
+sphinx_rt_theme

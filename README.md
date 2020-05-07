@@ -22,9 +22,14 @@ Or by running the [setup.py](./setup.py) script:
 ```
 python setup.py install
 ```
-You can generate the documentation by running:
+To generate the documentation, you will need to install the following packages:
 ```
-python setup.py build_sphinx
+pip install nbsphinx sphinx-autoapi sphinx_rtd_theme
+conda install sphinx # installs more (required) dependencies than pip
+```
+You can then generate the documentation by running:
+```
+python setup.py doc
 ```
 (or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the [index.html](doc/html/index.html) file to check it out).
 
