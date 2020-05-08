@@ -69,15 +69,15 @@ class Atm_profile(object):
             self.plev=10**self.logplev
             self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
             self.play=10**self.logplay
-            self.set_adiab_profile(Tsurf=Tsurf,Tstrat=Tstrat,rcp=rcp)
+            self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat, rcp=rcp)
             self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         else:
-            self.set_logPT_profile(logplev,tlev)
+            self.set_logPT_profile(logplev, tlev, compute_col_dens=False)
         self.set_grav(grav,compute_col_dens=False)
         self.set_Mgas(Mgas)
         self.set_Rp(Rp)        
 
-    def set_logPT_profile(self,log_plev,tlev):
+    def set_logPT_profile(self, log_plev, tlev, compute_col_dens=True):
         """Set the logP-T profile of the atmosphere with a new one
 
         Parameters
@@ -95,12 +95,13 @@ class Atm_profile(object):
         self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
         self.play=10**self.logplay
         self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
-        self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
         self.Nlev=log_plev.size
         self.Nlay=self.Nlev-1
-        self.compute_layer_col_density()
+        if compute_col_dens:
+            self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
+            self.compute_layer_col_density()
 
-    def set_adiab_profile(self,Tsurf=None,Tstrat=None,rcp=0.28):
+    def set_adiab_profile(self, Tsurf=None, Tstrat=None, rcp=0.28):
         """Initializes atmospheric the logP-T profile with an adiabat with index R/cp=rcp
 
         Parameters

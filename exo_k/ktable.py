@@ -11,7 +11,7 @@ import h5py
 import numpy as np
 from .data_table import Data_table
 from .ktable5d import Ktable5d
-from .util.interp import rm_molec,interp_ind_weights,rebin_ind_weights,rebin
+from .util.interp import rm_molec,interp_ind_weights,rebin_ind_weights,rebin,is_sorted
 
 class Ktable(Data_table):
     """A class that handles 4D tables of k-coefficients.
@@ -96,9 +96,9 @@ class Ktable(Data_table):
                 raise NotImplementedError("""Requested format not recognized.
             Should end with .pickle, .hdf5, or .h5""")
         elif xsec is not None:
-            self.xsec_to_ktable(xsec=xsec,**kwargs)
+            self.xsec_to_ktable(xsec=xsec, **kwargs)
         elif path is not None:
-            self.read_LMDZ(path=path,**kwargs)
+            self.read_LMDZ(path=path, mol=mol, **kwargs)
         else:                  #if there is no input file, just create an empty object 
             self.wnedges=None
             self.weights=None
@@ -764,6 +764,11 @@ class Ktable(Data_table):
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
             self.Ng=self.ggrid.size
         wnedges=np.array(wnedges)
+        if wnedges.min() < self.wnedges[0] or wnedges.max() > self.wnedges[-1]:
+            print('Cannot bin_down outside covered spectral range:',self.wnedges[0],self.wnedges[-1])
+            raise RuntimeError('Cannot bin_down outside covered spectral range.')
+        if not is_sorted(wnedges):
+            raise RuntimeError('wnedges should be sorted.')
         indicestosum,wn_weigths=rebin_ind_weights(self.wnedges,wnedges)
         if write> 10 :print(indicestosum);print(wn_weigths)
         newshape=self.shape

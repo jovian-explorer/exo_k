@@ -7,6 +7,7 @@ from .ktable import Ktable
 from .xtable import Xtable
 from .chemistry import gas_mix
 from .settings import Settings
+from .util.interp import rm_molec
 
 class Kdatabase(object):
     """This object contains mainly a dictionary of individual Ktable objects for each molecule. 
@@ -102,7 +103,8 @@ class Kdatabase(object):
                     'All elements in a database must have the same type (Ktable or Xtable).')
                 if (self.Ng is not None) and (not np.array_equal(tmp_ktable.ggrid,self.ggrid)):
                     raise RuntimeError('All Ktables in a database must have the same g grid.')
-                if (self.p_unit != tmp_ktable.p_unit) or (self.kdata_unit != tmp_ktable.kdata_unit):
+                if (self.p_unit != tmp_ktable.p_unit) or \
+                        (rm_molec(self.kdata_unit) != rm_molec(tmp_ktable.kdata_unit)):
                     print('Kdatabase units for p and kdata: {p}, {k}'.format(\
                         p=self.p_unit, k=self.kdata_unit))
                     print('{mol} Ktable units for p and kdata: {p}, {k}'.format(\

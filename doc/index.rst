@@ -19,7 +19,7 @@ Doc Contents
 Other Links
 ===========
 
-* Project homepage: https://forge.oasu.u-bordeaux.fr/jleconte/exo_k
-* Code repository: https://forge.oasu.u-bordeaux.fr/jleconte/exo_k
-* Documentation:
-* Development mailing list: mascaret-lab@u-bordeaux.fr
+* Project homepage: http://perso.astrophy.u-bordeaux.fr/~jleconte/
+* Code repository: https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public
+* Documentation: http://perso.astrophy.u-bordeaux.fr/~jleconte/exo_k-doc/index.html
+* Contact: jeremy.leconte at u-bordeaux.fr

@@ -95,7 +95,7 @@ class Data_table(object):
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
         """
-        if p_unit==old_p_unit: return
+        if p_unit==old_p_unit and self.p_unit != 'unspecified': return
         current_p_unit=self.p_unit
         self.p_unit,conversion_factor=unit_convert( \
             'p_unit',unit_file=current_p_unit,unit_in=old_p_unit,unit_out=p_unit)
@@ -122,7 +122,7 @@ class Data_table(object):
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
         """
-        if kdata_unit==old_kdata_unit: return
+        if kdata_unit==old_kdata_unit and self.kdata_unit != 'unspecified': return
         tmp_k_u_in=old_kdata_unit.replace('/molecule','').replace('/molec','')
         tmp_k_u_out=kdata_unit.replace('/molecule','').replace('/molec','')
         tmp_k_u_file=self.kdata_unit.replace('/molecule','').replace('/molec','')
