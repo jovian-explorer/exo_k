@@ -7,6 +7,7 @@ That's where forward models are computed.
 """
 import numpy as np
 import astropy.units as u
+from numba.typed import List
 from .chemistry import gas_mix
 from .util.cst import N_A,PI,RGP,KBOLTZ,RSOL,RJUP,SIG_SB
 from .util.interp import RandOverlap_2_kdata_prof,rm_molec
@@ -245,7 +246,8 @@ class Atm_profile(object):
         spends in the jlay>=ilay layer (accounting for a factor of 2 due to symmetry)
         """
         if self.Rp is None: raise RuntimeError('Planetary radius should be set')
-        self.tangent_path=[]
+        self.tangent_path=List()
+        # List() is a new numba.typed list to comply with new numba evolution after v0.50
         for ilay in range(self.Nlay):
             z0square=(self.Rp+self.zlay[ilay])**2
             dl=np.sqrt((self.Rp+self.zlev[:ilay+1])**2-z0square)
