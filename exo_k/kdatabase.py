@@ -171,7 +171,7 @@ class Kdatabase(object):
         self.Nt      =self.tgrid.size
         self.consolidated_PT_grid=True
 
-    def bin_down(self,wnedges=None,**kwargs):
+    def bin_down(self, wnedges=None, **kwargs):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
 
@@ -179,14 +179,15 @@ class Kdatabase(object):
         """
         first=True
         for mol in self.molecules:
-            self.ktables[mol].bin_down(wnedges=wnedges,**kwargs)
+            self.ktables[mol].bin_down(wnedges=wnedges, **kwargs)
             if first:
                 self.wns=self.ktables[mol].wns
                 self.wnedges=self.ktables[mol].wnedges
                 self.Nw=self.ktables[mol].Nw
-                self.ggrid=self.ktables[mol].ggrid
-                self.weights=self.ktables[mol].weights
-                self.Ng=self.ktables[mol].Ng
+                if self.Ng is not None:
+                    self.ggrid=self.ktables[mol].ggrid
+                    self.weights=self.ktables[mol].weights
+                    self.Ng=self.ktables[mol].Ng
                 self.consolidated_wn_grid=True
 
     def sample(self,wngrid,**kwargs):

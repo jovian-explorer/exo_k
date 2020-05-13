@@ -84,6 +84,23 @@ class Spectrum(object):
         self.wnedges=wnedges
         self.wns=0.5*(self.wnedges[:-1]+self.wnedges[1:])
 
+    def bin_down_cp(self, wnedges):
+        """Returns a new binned down spectrum to a grid of wnedges by conserving area.
+        
+        Parameters
+        ----------
+            wnedges: array
+                Wavenumbers of the bin edges to be used
+
+        Returns
+        -------
+            :class:`Spectrum`
+                Binned down spectrum
+        """
+        res=self.copy()
+        res.bin_down(wnedges)
+        return res
+
     def __add__(self,other):
         """Defines addition
         """
