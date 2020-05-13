@@ -305,6 +305,9 @@ class Data_table(object):
                 Gauss point
             x: float
                 Mixing ratio of the species
+
+        Other Parameters
+        ----------------
             x_axis: str, optional
                 If 'wls', x axis is wavelength. Wavenumber otherwise.
             x/yscale: str, optional
@@ -372,6 +375,24 @@ class Data_table(object):
         key: can be slices, like for a numpy array.
         """
         return self.kdata[key]
+
+    def clip_wl_range(self, wl_range=None):
+        """Limits the data to the provided wavelength range (micron: wl_range)
+        """
+        if wl_range is None: return
+        self.clip_wn_range(10000./np.array(wl_range))
+
+    def clip_wn_range(self, wn_range=None):
+        """Limits the data to the provided wavenumber range (cm^-1: wn_range)
+        """
+        if wn_range is None: return
+        _wn_range=np.sort(np.array(wn_range))
+        iw_min, iw_max=np.searchsorted(self.wnedges, _wn_range, side='left')
+        iw_max-=1
+        self.wnedges=self.wnedges[iw_min:iw_max+1]
+        self.wns=self.wns[iw_min:iw_max]
+        self.Nw=self.wns.size
+        self.kdata=self.kdata[:,:,iw_min:iw_max]
 
     def toLogK(self):
         """Changes kdata to log 10.

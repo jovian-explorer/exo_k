@@ -190,7 +190,7 @@ class Kdatabase(object):
                     self.Ng=self.ktables[mol].Ng
                 self.consolidated_wn_grid=True
 
-    def sample(self,wngrid,**kwargs):
+    def sample(self, wngrid, **kwargs):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
 
@@ -205,6 +205,24 @@ class Kdatabase(object):
                 self.wnedges=self.ktables[mol].wnedges
                 self.Nw=self.ktables[mol].Nw
                 self.consolidated_wn_grid=True
+
+    def clip_wl_range(self, wl_range=None):
+        """Limits the data to the provided wavelength range (micron: wl_range)
+        """
+        if wl_range is None: return
+        self.clip_wn_range(10000./np.array(wl_range))
+
+    def clip_wn_range(self, wn_range=None):
+        """Limits the data to the provided wavenumber range (cm^-1: wn_range)
+        """
+        if wn_range is None: return
+        first=True
+        for mol in self.molecules:
+            self.ktables[mol].clip_wn_range(wn_range)
+            if first:
+                self.wns=self.ktables[mol].wns
+                self.wnedges=self.ktables[mol].wnedges
+                self.Nw=self.ktables[mol].Nw
 
     def convert_to_mks(self):
         """Converts units of all Ktables or Xtables to MKS

@@ -270,7 +270,7 @@ class RadAtm(Atm_profile):
         if wl_range is not None:
             self.set_wl_range(wl_range)
         else:
-            self.wn_range=None
+            self._wn_range=None
 
     def set_wl_range(self, wl_range):
         """Sets the wavelength range in which computations will be done.
@@ -282,7 +282,7 @@ class RadAtm(Atm_profile):
         """
         self.set_wn_range(np.sort(10000./np.array(wl_range)))
 
-    def set_wn_range(self,wn_range):
+    def set_wn_range(self, wn_range):
         """Sets the wavenumber range in which computations will be done.
 
         Parameters
@@ -290,19 +290,17 @@ class RadAtm(Atm_profile):
             wn_range: Array of size 2
                 Minimum and maximum wavenumber
         """
-        self.wn_range=np.sort(np.array(wn_range))
-        self.iw_min,self.iw_max=np.searchsorted(self.kdatabase.wnedges,wn_range,side='left')
-        self.iw_max-=1
+        self._wn_range=np.sort(np.array(wn_range))
 
     def compute_wn_range_indices(self):
         """Compute the starting and ending indices to be used for current wn_range
         """
-        if self.wn_range is None:
+        if self._wn_range is None:
             self.iw_min=0
             self.iw_max=self.kdatabase.Nw
         else:
             self.iw_min,self.iw_max=  \
-                np.searchsorted(self.kdatabase.wnedges,self.wn_range,side='left')
+                np.searchsorted(self.kdatabase.wnedges, self._wn_range, side='left')
             self.iw_max-=1
 
     @property
@@ -358,16 +356,23 @@ class RadAtm(Atm_profile):
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the CIAdatabase used with RadAtm.")
 
-    def opacity(self, wl_range=None, rayleigh=True, write=0, random_overlap=False, **kwargs):
+    def opacity(self, wl_range=None, wn_range=None, rayleigh=True,
+            write=0, random_overlap=False, **kwargs):
         """Computes the opacity of each of the layers for the composition given
         for every wavelength (and possibly g point).
         For the moment the kcoeff are added to each other (maximum recovery assumption).
 
         Parameters
         ----------
-            wl_range: array of two values
-                Wavelength range to cover
-
+            wl_range: array or list of two values, optional
+                Wavelength range to cover.
+            wn_range: array or list of two values, optional
+                Wavenumber range to cover.
+            rayleigh: boolean, optional
+                Whether to compute rayleigh scattering.
+            random_overlap: boolean, optional
+                Whether Ktable opacities are added linearly (False),
+                or using random overlap method (True).
         Returns
         -------
             array
@@ -395,7 +400,15 @@ class RadAtm(Atm_profile):
              I ll compute opacites with the available ones:""")
         if write>3 : print(mol_to_be_done)
 
-        if wl_range is not None: self.set_wl_range(wl_range)
+        if wl_range is not None:
+            if wn_range is not None:
+                print('Cannot specify both wl and wn range!')
+                raise RuntimeError()
+            else:
+                self.set_wl_range(wl_range)
+        else:
+            if wn_range is not None:
+                self.set_wn_range(wn_range)
         self.compute_wn_range_indices()
         self.wnedges=kdatabase.wnedges[self.iw_min:self.iw_max+1]
         self.wns=kdatabase.wns[self.iw_min:self.iw_max]
@@ -403,7 +416,7 @@ class RadAtm(Atm_profile):
         vmr_prof, cst_prof=self.gas_mix.get_vmr_array((self.Nlay,))
         for mol in mol_to_be_done:
             tmp_kdata=kdatabase[mol].interpolate_kdata(logp_array=self.logplay, \
-                t_array=self.tlay, x_array=vmr_prof[mol], wngrid_limit=self.wn_range, **kwargs)
+                t_array=self.tlay, x_array=vmr_prof[mol], wngrid_limit=self._wn_range, **kwargs)
             if first_mol:
                 self.kdata=tmp_kdata
                 first_mol=False
@@ -418,7 +431,7 @@ class RadAtm(Atm_profile):
             cont_sig=np.zeros((self.Nlay,self.Nw))
             if self.CIAdatabase is not None:
                 cont_sig+=self.CIAdatabase.cia_cross_section( \
-                    self.logplay, self.tlay, vmr_prof, wngrid_limit=self.wn_range)
+                    self.logplay, self.tlay, vmr_prof, wngrid_limit=self._wn_range)
             if rayleigh:
                 if cst_prof:
                     cont_sig+=Rayleigh().sigma(self.wns, self.gas_mix)
