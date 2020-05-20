@@ -6,9 +6,13 @@ from math import log10
 import os
 import h5py
 import numpy as np
+import astropy.units as u
 from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
-from .util.interp import rm_molec,rebin_ind_weights,rebin
+from .util.interp import rm_molec, rebin_ind_weights, rebin, \
+        gauss_legendre, spectrum_to_kdist
+from .util.cst import KBOLTZ
+
 
 class Ktable5d(Data_table):
     """A class that handles tables of k-coefficients with a variable gas.
@@ -222,7 +226,6 @@ class Ktable5d(Data_table):
             write_only_metadata: bool, optional
                 If `True`, only supporting files are written (T.dat, p.dat, etc.)
         """
-        import astropy.units as u
         try:
             os.mkdir(path)
         except FileExistsError:
@@ -290,11 +293,14 @@ class Ktable5d(Data_table):
                 Input grid in vmr of the variable gas
             wnedges : Array
                 edges of the wavenumber bins to be used to compute the corrk
-            weights: Array (optional)
+
+        Other Parameters
+        ----------------
+            weights: array, optional
                 If weights are provided, they are used instead of the legendre quadrature. 
-            quad : string
+            quad : string, optional
                 Type of quadrature used. Default is 'legendre'
-            order : Integer
+            order : Integer, optional
                 Order of the Gauss legendre quadrature used. Default is 20.
             mid_dw: boolean, optional
                 * If True, the Xsec values in the high resolution xsec data are assumed to
@@ -303,15 +309,12 @@ class Ktable5d(Data_table):
                   The first and last Xsec values are discarded. 
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
-            mol: string
+            mol: string, optional
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
             k_to_xsec: boolean, optional
                 If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
-        from .util.interp import gauss_legendre, spectrum_to_kdist
-        from .util.cst import KBOLTZ
-
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 

@@ -9,7 +9,7 @@ import os.path
 import h5py
 import numpy as np
 from exo_k.util.filenames import EndOfFile
-from .util.interp import linear_interpolation,interp_ind_weights
+from .util.interp import linear_interpolation, interp_ind_weights, unit_convert
 from .util.cst import KBOLTZ
 from .settings import Settings
 
@@ -32,16 +32,19 @@ class Cia_table(object):
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain *.
-            old_cia_unit : str
+
+        Other Parameters
+        ----------------
+            old_cia_unit : str, optional
                 String to specify the current cia unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the cia grid and the cia unit do not correspond).
                 Available units are: 'cm^5', 'cm^2' that stand for cm^2/amagat,
                 and 'cm^-1' that stand for cm^-1/amagat^2.
-            remove_zeros: boolean
+            remove_zeros: boolean, optional
                 If True, the zeros in the kdata table are replaced by
                     a value 10 orders of magnitude smaller than the smallest positive value
-            search_path: str
+            search_path: str, optional
                 If search_path is provided, it locally overrides the global _search_path settings
                 and only files in search_path are returned.            
         """
@@ -306,7 +309,6 @@ class Cia_table(object):
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
         """
-        from .util.interp import unit_convert
         if abs_coeff_unit==old_abs_coeff_unit: return
         tmp_k_u_in=old_abs_coeff_unit
         tmp_k_u_out=abs_coeff_unit

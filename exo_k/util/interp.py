@@ -4,7 +4,9 @@
 Library of useful functions for interpolation
 """
 import numpy as np
+from numpy.polynomial.legendre import leggauss
 import numba
+import astropy.units as u
 
 @numba.njit(nogil=True,fastmath=True)
 def bilinear_interpolation(z00, z10, z01, z11, x, y):
@@ -80,7 +82,7 @@ def rebin_ind_weights(old_bin_grid,new_bin_grid):
     for ii in range(Nnew)]
     """
 #    new_bin_grid_used=np.where(new_bin_grid<old_bin_grid[0],old_bin_grid[0],new_bin_grid)
-    indicestosum=np.searchsorted(old_bin_grid,new_bin_grid,side='right')
+    indicestosum=np.searchsorted(old_bin_grid, new_bin_grid, side='right')
     if indicestosum[-1]==old_bin_grid.size : indicestosum[-1]-=1
     dg=old_bin_grid[1:]-old_bin_grid[:-1]
     final_weights=[]
@@ -228,7 +230,6 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
         conversion_factor: float
             A multiplicating factor for the data to proceed to the conversion.
     """
-    import astropy.units as u
     if unit_in!='unspecified':
       if((unit_file!='unspecified') and (unit_file!=unit_in)):
         print('Be careful, you are assuming that '+quantity+' is '+unit_in)
@@ -285,7 +286,6 @@ def gauss_legendre(order):
         gedges: array(order+1)
             Cumulative sum of the weights. Goes from 0 to 1.
        """ 
-    from numpy.polynomial.legendre import leggauss
     ggrid,weights=leggauss(order)
     weights=weights/2.
     ggrid=(ggrid+1.)/2.

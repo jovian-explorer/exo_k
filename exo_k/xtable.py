@@ -8,6 +8,9 @@ import pickle
 import h5py
 import numpy as np
 from .data_table import Data_table
+from .util.interp import rebin_ind_weights
+from .util.cst import KBOLTZ
+
 
 class Xtable(Data_table):
     """A class that handles tables of cross sections. Based on Data_table.
@@ -30,13 +33,16 @@ class Xtable(Data_table):
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain *.
-            search_path: str
-                If search_path is provided,
-                it locally overrides the global _search_path settings
-                and only files in search_path are returned.
 
         If there is no filename or filename_filters provided,
         just creates an empty object to be filled later
+
+        Other Parameters
+        ----------------
+            search_path: str, optional
+                If search_path is provided,
+                it locally overrides the global _search_path settings
+                and only files in search_path are returned.
 
         For unit options, see Ktable init function.
         """
@@ -260,7 +266,6 @@ class Xtable(Data_table):
             k_to_xsec : boolean, optional
                 If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
-        from .util.cst import KBOLTZ
         first=True
 
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
@@ -321,12 +326,11 @@ class Xtable(Data_table):
             remove_zeros: bool, optional
                 If True, remove zeros in kdata. 
         """
-        from .util.interp import rebin_ind_weights
         wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
         if write>=3:
             print(self.wnedges);print(wnedges);print(wngrid_filter);print(wnedges[wngrid_filter])
 
-        indicestosum,weights=rebin_ind_weights(self.wnedges,wnedges[wngrid_filter])
+        indicestosum,weights=rebin_ind_weights(self.wnedges, wnedges[wngrid_filter])
         if write>=3: print(indicestosum[0]);print(weights[0])
         Nnew=wnedges.size-1
         Ntmp=wnedges[wngrid_filter].size-1

@@ -9,9 +9,13 @@ import time
 import pickle
 import h5py
 import numpy as np
+import astropy.units as u
 from .data_table import Data_table
 from .ktable5d import Ktable5d
-from .util.interp import rm_molec,interp_ind_weights,rebin_ind_weights,rebin,is_sorted
+from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
+        gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_kdata_numba
+from .util.cst import KBOLTZ
+
 
 class Ktable(Data_table):
     """A class that handles 4D tables of k-coefficients.
@@ -48,8 +52,8 @@ class Ktable(Data_table):
         If none of the parameters above is specified,
         just creates an empty object to be filled later.
 
-        Parameters
-        ----------
+        Other Parameters
+        ----------------
             p_unit: str, optional
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
@@ -328,7 +332,6 @@ class Ktable(Data_table):
             fmt: str
                 Fortran format for the corrk file. 
         """
-        import astropy.units as u
         try:
             os.mkdir(path)
         except FileExistsError:
@@ -374,7 +377,7 @@ class Ktable(Data_table):
             np.savetxt(os.path.join(dirname,'corrk_gcm_'+band+'.dat'),data_to_write,fmt=fmt)
 
     def xsec_to_ktable(self, xsec=None, wnedges=None, weights=None, ggrid=None,
-        quad='legendre',order=20,mid_dw=True,write=0):
+        quad='legendre', order=20, mid_dw=True, write=0):
         """Fills the :class:`Ktable` object with a k-coeff table computed
         from a :class:`Xtable` object.
         The p and kcorr units are inherited from the :class:`Xtable` object.
@@ -385,11 +388,16 @@ class Ktable(Data_table):
                 input Xtable object instance
             wnedges : Array
                 edges of the wavenumber bins to be used to compute the corrk
-            quad : string
+
+        Other Parameters
+        ----------------
+            weights: array, optional
+                If weights are provided, they are used instead of the legendre quadrature. 
+            quad : string, optional
                 Type of quadrature used. Default is 'legendre'
-            order : Integer
-                Order of the Gauss legendre quadrature used.
-            mid_dw: Boolean, default True
+            order : Integer, optional
+                Order of the Gauss legendre quadrature used. Default is 20.
+            mid_dw: boolean, optional
                 * If True, the Xsec values in the high resolution xsec data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
@@ -397,7 +405,6 @@ class Ktable(Data_table):
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
         """        
-        from .util.interp import gauss_legendre,spectrum_to_kdist
         if xsec is None: raise TypeError("You should provide an input Xtable object")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
@@ -460,28 +467,28 @@ class Ktable(Data_table):
                 Grid intemperature of the input
             wnedges : Array
                 edges of the wavenumber bins to be used to compute the corrk
-            weights: Array (optional)
+
+        Other Parameters
+        ----------------
+            weights: array, optional
                 If weights are provided, they are used instead of the legendre quadrature. 
-            quad : string
+            quad : string, optional
                 Type of quadrature used. Default is 'legendre'
-            order : Integer
+            order : Integer, optional
                 Order of the Gauss legendre quadrature used. Default is 20.
-            mid_dw: boolean, default True
+            mid_dw: boolean, optional
                 * If True, the Xsec values in the high resolution xsec data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
                   The first and last Xsec values are discarded. 
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
-            mol: string
+            mol: string, optional
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec= boolean, default True
+            k_to_xsec: boolean, optional
                 If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
-        from .util.interp import gauss_legendre, spectrum_to_kdist
-        from .util.cst import KBOLTZ
-
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
@@ -688,8 +695,6 @@ class Ktable(Data_table):
             :class:`Ktable`
                 k-coeff table of the mix. 
         """
-        from .util.interp import kdata_conv_loop#,kdata_conv_loop_bad,kdata_conv
-
         if not np.array_equal(self.shape,other.shape):
             raise TypeError("""in RandOverlap: kdata tables do not have the same dimensions.
                 I'll stop now!""")
@@ -735,7 +740,8 @@ class Ktable(Data_table):
 
         return newkdata
 
-    def bin_down(self, wnedges=None, weights=None, ggrid=None, num=300, use_rebin=False, write=0):
+    def bin_down(self, wnedges=None, weights=None, ggrid=None,
+        remove_zeros=False, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers
 
         Parameters

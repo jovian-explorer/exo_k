@@ -35,6 +35,6 @@ python setup.py doc
 
 ## Usage
 
-To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](doc/tutorial-exo_k.ipynb) or read the [documentation](doc/html/index.html) (see `Installation` above to generate it).
+To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](tutorial-exo_k.ipynb) or read the [documentation](doc/html/index.html) (see `Installation` above to generate it).
 
 Have fun!

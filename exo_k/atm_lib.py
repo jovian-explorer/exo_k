@@ -9,10 +9,12 @@ import numpy as np
 import astropy.units as u
 from numba.typed import List
 from .chemistry import gas_mix
-from .util.cst import N_A,PI,RGP,KBOLTZ,RSOL,RJUP,SIG_SB
-from .util.interp import RandOverlap_2_kdata_prof,rm_molec
-from .util.radiation import Bnu_integral_num,Bnu,rad_prop_corrk,rad_prop_xsec,Bnu_integral_array
+from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
+from .util.interp import RandOverlap_2_kdata_prof, rm_molec
+from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
+    Bnu_integral_array, path_integral_corrk, path_integral_xsec
 from .rayleigh import Rayleigh
+from .util.spectrum import Spectrum
 
 
 class Atm_profile(object):
@@ -457,7 +459,6 @@ class RadAtm(Atm_profile):
             Spectrum object 
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m**2/cm**-1)
         """
-        from .util.spectrum import Spectrum
         #if self.dtau is None:
         #    self.rad_prop(**kwargs)
         self.opacity(rayleigh=False, **kwargs)
@@ -518,7 +519,6 @@ class RadAtm(Atm_profile):
             Spectrum object
                 Spectral flux at the surface (in W/m**2/cm**-1)
         """
-        from .util.spectrum import Spectrum
         if integral:
             piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[-1])/np.diff(self.wnedges)
         else:
@@ -540,7 +540,6 @@ class RadAtm(Atm_profile):
             Spectrum object
                 Spectral flux of a bb at the temperature at the top of atmosphere (in W/m**2/cm**-1)
         """
-        from .util.spectrum import Spectrum
         if integral:
             piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[0])/np.diff(self.wnedges)
         else:
@@ -553,7 +552,6 @@ class RadAtm(Atm_profile):
         Real work done in the numbafied function path_integral_corrk/xsec
         depending on the type of data.
         """
-        from .util.radiation import path_integral_corrk,path_integral_xsec
         self.opacity(**kwargs)
         self.compute_altitudes()
         self.compute_tangent_path()
@@ -572,7 +570,6 @@ class RadAtm(Atm_profile):
         to the radius of the planet:
         delta_sigma=(R_planet+h_sigma)^2/R_planet^2
         """
-        from .util.spectrum import Spectrum
         self.set_Rstar(Rstar)
         transmittance=self.transmittance_profile(**kwargs)
         self.compute_area()
