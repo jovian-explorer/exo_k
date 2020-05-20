@@ -13,7 +13,7 @@ import astropy.units as u
 from .data_table import Data_table
 from .ktable5d import Ktable5d
 from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
-        gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_kdata_numba
+        gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
 from .util.cst import KBOLTZ
 
 
@@ -760,7 +760,7 @@ class Ktable(Data_table):
                 If not given, they are taken at the midpoints of the array
                 given by the cumulative sum of the weights
         """
-        current_ggrid=self.ggrid
+        old_ggrid=self.ggrid
         if weights is not None:
             self.weights=np.array(weights)
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
@@ -770,41 +770,20 @@ class Ktable(Data_table):
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
             self.Ng=self.ggrid.size
         wnedges=np.array(wnedges)
-        if wnedges.min() < self.wnedges[0] or wnedges.max() > self.wnedges[-1]:
-            print('Cannot bin_down outside covered spectral range:',self.wnedges[0],self.wnedges[-1])
-            raise RuntimeError('Cannot bin_down outside covered spectral range.')
+        wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
         if not is_sorted(wnedges):
             raise RuntimeError('wnedges should be sorted.')
-        indicestosum,wn_weigths=rebin_ind_weights(self.wnedges,wnedges)
+        indicestosum,wn_weigths=rebin_ind_weights(self.wnedges, wnedges[wngrid_filter])
         if write> 10 :print(indicestosum);print(wn_weigths)
-        newshape=self.shape
-        newshape[-2]=wnedges.size-1
-        newkdata=np.zeros(newshape)
-        for iW in range(newshape[2]):
-            tmp_dwn=wn_weigths[iW]
-            for iP in range(newshape[0]):
-                for iT in range(newshape[1]):            
-                    tmp_logk=np.log10(self.kdata[iP,iT,indicestosum[iW]-1:indicestosum[iW+1]])
-                    logk_min=np.amin(tmp_logk[:,0])
-                    logk_max=np.amax(tmp_logk[:,-1])
-                    if logk_min==logk_max:
-                        newkdata[iP,iT,iW,:]=np.ones(newshape[-1])*10.**logk_max
-                    else:
-                        logk_max=logk_max+(logk_max-logk_min)/(num-3.)
-                        logk_min=logk_min-(logk_max-logk_min)/(num-3.)
-                        logkgrid=np.linspace(logk_min,logk_max,num=num)
-                        newg=np.zeros(logkgrid.size)
-                        for ii in range(tmp_logk.shape[0]):
-                            newg+=np.interp(logkgrid,tmp_logk[ii], \
-                                current_ggrid,left=0.,right=1.)*tmp_dwn[ii]
-                        if use_rebin:
-                            newkdata[iP,iT,iW,:]=rebin(10.**logkgrid,newg,self.gedges)
-                        else:
-                            newkdata[iP,iT,iW,:]=np.interp(self.ggrid,newg,10.**logkgrid)
+
+        self.kdata=bin_down_corrk_numba((self.Np,self.Nt,wnedges.size-1,self.Ng), \
+            self.kdata, old_ggrid, self.ggrid, self.gedges, indicestosum, wngrid_filter, \
+            wn_weigths, num, use_rebin)
+
         self.wnedges=wnedges
         self.wns=(wnedges[1:]+wnedges[:-1])*0.5
         self.Nw=self.wns.size
-        self.kdata=newkdata
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
 
     def remap_logPT_grid(self, logp_array=None, t_array=None):

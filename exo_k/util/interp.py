@@ -6,6 +6,7 @@ Library of useful functions for interpolation
 import numpy as np
 from numpy.polynomial.legendre import leggauss
 import numba
+from numba.typed import List
 import astropy.units as u
 
 @numba.njit(nogil=True,fastmath=True)
@@ -72,7 +73,7 @@ def interp_ind_weights(x_to_interp,x_grid):
     indices=np.where(indices==0,1,indices)
     return indices,(used_x-x_grid[indices-1])/(x_grid[indices]-x_grid[indices-1])
 
-def rebin_ind_weights(old_bin_grid,new_bin_grid):
+def rebin_ind_weights(old_bin_grid, new_bin_grid):
     """Computes the indices and weights to be used when
     rebinning an array of values f of size N in the bins delimited by old_bin_grid (of size N+1)
     onto new bins delimited by new_bin_grid (of size Nnew+1)
@@ -85,7 +86,7 @@ def rebin_ind_weights(old_bin_grid,new_bin_grid):
     indicestosum=np.searchsorted(old_bin_grid, new_bin_grid, side='right')
     if indicestosum[-1]==old_bin_grid.size : indicestosum[-1]-=1
     dg=old_bin_grid[1:]-old_bin_grid[:-1]
-    final_weights=[]
+    final_weights=List()
     for ig in range(new_bin_grid.size-1):
         if indicestosum[ig+1]>indicestosum[ig]:
             weights=np.concatenate((old_bin_grid[[indicestosum[ig]]]-new_bin_grid[[ig]],\
@@ -95,7 +96,7 @@ def rebin_ind_weights(old_bin_grid,new_bin_grid):
             weights=np.array([new_bin_grid[ig+1]-new_bin_grid[ig]])
         weights=weights/np.sum(weights)
         final_weights.append(weights)
-    return indicestosum,final_weights
+    return indicestosum, final_weights
 
 @numba.njit()
 def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
@@ -156,8 +157,9 @@ def rebin(f_fine,fine_grid,coarse_grid):
             The coarser resolution grid edges inside which we want to bin the function f.
        """
     indicestosum=np.searchsorted(fine_grid,coarse_grid,side='right')
-    if indicestosum[-1]==fine_grid.size : indicestosum[-1]-=1
-    if not is_sorted(indicestosum): print('not sorted')
+    Nfine=fine_grid.size
+    if indicestosum[-1]==Nfine : 
+        indicestosum=np.where(indicestosum<Nfine,indicestosum,Nfine-1)
     dgrid=np.diff(fine_grid)
     Nn=coarse_grid.size-1
     f_coarse=np.zeros(Nn)
@@ -332,6 +334,38 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
     return kdata
 
 
+
+@numba.njit()
+def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicestosum, \
+        wngrid_filter, wn_weigths, num, use_rebin):
+    """Non mais Allo koi
+    """
+    ggrid0to1=np.copy(old_ggrid)
+    ggrid0to1[0]=0.
+    ggrid0to1[-1]=1.
+    newkdata=np.zeros(newshape, dtype=np.float64)
+    for iW,newiW in enumerate(wngrid_filter[0:-1]):
+        tmp_dwn=wn_weigths[iW]
+        for iP in range(newshape[0]):
+            for iT in range(newshape[1]):            
+                tmp_logk=np.log(kdata[iP,iT,indicestosum[iW]-1:indicestosum[iW+1]])
+                logk_min=np.amin(tmp_logk[:,0])
+                logk_max=np.amax(tmp_logk[:,-1])
+                if logk_min==logk_max:
+                    newkdata[iP,iT,newiW,:]=np.ones(newshape[-1])*np.exp(logk_max)
+                else:
+                    logk_max=logk_max+(logk_max-logk_min)/(num-3.)
+                    logk_min=logk_min-(logk_max-logk_min)/(num-3.)
+                    logkgrid=np.linspace(logk_min,logk_max,num)
+                    newg=np.zeros(logkgrid.size)
+                    for ii in range(tmp_logk.shape[0]):
+                        newg+=np.interp(logkgrid,tmp_logk[ii],ggrid0to1)*tmp_dwn[ii]
+                    if use_rebin:
+                        newkdata[iP,iT,newiW,:]=rebin(np.exp(logkgrid), newg, gedges)
+                    else:
+                        newkdata[iP,iT,newiW,:]=np.interp(new_ggrid, newg, np.exp(logkgrid))
+    return newkdata
+
 ## OLD FUNCTIONS
 
 @numba.njit()
@@ -358,6 +392,7 @@ def kdata_conv_loop_bad(kdata1,kdata2,kdataconv,shape):
        for l in range(shape[1]):
         for m in range(shape[0]):
             kdataconv[m,l,k,ii*Ng+jj]=kdata1[m,l,k,jj]+kdata2[m,l,k,ii]
+
 
 #@numba.njit(fastmath=True)
 def g_interp(logk,Nw,Ng,Num,ggrid,wl_weights,indices):
