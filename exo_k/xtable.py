@@ -349,7 +349,7 @@ class Xtable(Data_table):
         self.Nw=self.wns.size
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
-    def sample(self, wngrid, remove_zeros=False):
+    def sample(self, wngrid, remove_zeros=False, log_interp=None):
         """Method to re sample a xsec table to a new grid of wavenumbers (in place)
 
         Parameters
@@ -361,6 +361,14 @@ class Xtable(Data_table):
         wngrid_filter = np.where((wngrid <= self.wnedges[-1]) & (wngrid >= self.wnedges[0]))[0]
         Nnew=wngrid.size
         newxsec=np.zeros((self.Np,self.Nt,Nnew))
+        if log_interp is None: log_interp=self._settings._log_interp
+        if log_interp:
+            for iP in range(self.Np):
+                for iT in range(self.Nt):
+                    tmp=np.log(self.kdata[iP,iT,:])
+                    newxsec[iP,iT,wngrid_filter]=np.interp(wngrid[wngrid_filter],self.wns,tmp)
+            self.kdata=np.exp(newxsec)
+        else:
         for iP in range(self.Np):
             for iT in range(self.Nt):
                 tmp=self.kdata[iP,iT,:]

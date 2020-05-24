@@ -301,9 +301,9 @@ class RadAtm(Atm_profile):
             self.iw_min=0
             self.iw_max=self.kdatabase.Nw
         else:
-            self.iw_min,self.iw_max=  \
-                np.searchsorted(self.kdatabase.wnedges, self._wn_range, side='left')
-            self.iw_max-=1
+            self.iw_min, self.iw_max = np.where((self.kdatabase.wnedges > self._wn_range[0]) \
+                & (self.kdatabase.wnedges <= self._wn_range[1]))[0][[0,-1]]
+            # to be consistent with interpolate_kdata
 
     @property
     def wls(self):
