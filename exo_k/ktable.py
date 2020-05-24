@@ -409,7 +409,8 @@ class Ktable(Data_table):
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
         self.copy_attr(xsec,cp_kdata=False)
-        self.wnedges=wnedges
+        self.wnedges=np.array(wnedges)
+        if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=0.5*(self.wnedges[1:]+self.wnedges[:-1])
 
         if weights is not None:
@@ -524,7 +525,8 @@ class Ktable(Data_table):
         self.Nt=self.tgrid.size
         if write >= 3 : print(self.Nt,self.tgrid)
 
-        self.wnedges=wnedges
+        self.wnedges=np.array(wnedges)
+        if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
         
@@ -770,6 +772,7 @@ class Ktable(Data_table):
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
             self.Ng=self.ggrid.size
         wnedges=np.array(wnedges)
+        if wnedges.size<2: raise TypeError('wnedges should at least have two values')
         wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
         if not is_sorted(wnedges):
             raise RuntimeError('wnedges should be sorted.')

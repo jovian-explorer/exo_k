@@ -80,6 +80,7 @@ class Spectrum(object):
             wnedges: array
                 Wavenumbers of the bin edges to be used
         """
+        wnedges=np.array(wnedges)
         self.value=rebin(self.value,self.wnedges,wnedges)
         self.wnedges=wnedges
         self.wns=0.5*(self.wnedges[:-1]+self.wnedges[1:])

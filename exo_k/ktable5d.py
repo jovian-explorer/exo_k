@@ -351,7 +351,8 @@ class Ktable5d(Data_table):
         self.Nx=self.xgrid.size
         if write >= 3 : print(self.Nx,self.xgrid)
 
-        self.wnedges=wnedges
+        self.wnedges=np.array(wnedges)
+        if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
         
@@ -604,6 +605,7 @@ class Ktable5d(Data_table):
             new_ggrid=current_ggrid
             gedges=self.gedges
         wnedges=np.array(wnedges)
+        if wnedges.size<2: raise TypeError('wnedges should at least have two values')
         indicestosum,wn_weigths=rebin_ind_weights(self.wnedges,wnedges)
         if write> 10 :print(indicestosum);print(wn_weigths)
         newshape=np.array(self.shape)

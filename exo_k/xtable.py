@@ -326,6 +326,8 @@ class Xtable(Data_table):
             remove_zeros: bool, optional
                 If True, remove zeros in kdata. 
         """
+        wnedges=np.array(wnedges)
+        if wnedges.size<2: raise TypeError('wnedges should at least have two values')
         wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
         if write>=3:
             print(self.wnedges);print(wnedges);print(wngrid_filter);print(wnedges[wngrid_filter])
@@ -355,6 +357,7 @@ class Xtable(Data_table):
             wngrid : array
                 Location of the new wavenumbers points (cm-1)
         """
+        wngrid=np.array(wngrid)
         wngrid_filter = np.where((wngrid <= self.wnedges[-1]) & (wngrid >= self.wnedges[0]))[0]
         Nnew=wngrid.size
         newxsec=np.zeros((self.Np,self.Nt,Nnew))
