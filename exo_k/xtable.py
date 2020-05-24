@@ -369,6 +369,23 @@ class Xtable(Data_table):
         self.Nw=Nnew
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
+    def sample_cp(self, wngrid, **kwargs):
+        """Creates a copy of the instance before resampling it.
+
+        Parameters
+        ----------
+            See sample method for details. 
+
+        Returns
+        -------
+            :class:`Xtable` object
+                the re-sampled :class:`Xtable`
+        """
+        res=self.copy()
+        res.sample(wngrid, **kwargs)
+        return res
+
+
     def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """provide the spectrum for a given point to be plotted
 

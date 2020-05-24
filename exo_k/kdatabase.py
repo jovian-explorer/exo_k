@@ -70,7 +70,6 @@ class Kdatabase(object):
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 self.add_ktables(tmp_ktable)
         
-
     def add_ktables(self, *ktables):
         """Adds as many Ktables to the database as you want.
 
@@ -131,6 +130,23 @@ class Kdatabase(object):
                         You'll need to use remap_logPT""")
             self.molecules=list(self.ktables.keys())
 
+    def copy(self):
+        """Creates a new instance of :class:`Kdatabase` object and (deep) copies data into it
+        """
+        res=Kdatabase(None)
+        if self.molecules is not None:
+            for ktab in self.ktables.values():
+                res.add_ktables(ktab.copy())
+        return res
+
+    def __repr__(self):
+        """Method to output
+        """
+        output='The available molecules are: \n'
+        for mol, ktab in self.ktables.items():
+            output+=mol+'->'+ktab.filename+'\n'
+        return output
+
     def __getitem__(self, molecule):
         """Overrides getitem so as to access directly a Ktable with Kdatabase['mol']
         """
@@ -190,6 +206,22 @@ class Kdatabase(object):
                     self.Ng=self.ktables[mol].Ng
                 self.consolidated_wn_grid=True
 
+    def bin_down_cp(self, wnedges=None, **kwargs):
+        """Creates a copy of the database and bins it down.
+
+        Parameters
+        ----------
+            See `bin_down` for details on parameters
+
+        Returns
+        -------
+            :class:`Kdatabase` object
+                The binned down database
+        """
+        res=self.copy()
+        res.bin_down(wnedges=wnedges, **kwargs)
+        return res
+
     def sample(self, wngrid, **kwargs):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
@@ -205,6 +237,23 @@ class Kdatabase(object):
                 self.wnedges=self.ktables[mol].wnedges
                 self.Nw=self.ktables[mol].Nw
                 self.consolidated_wn_grid=True
+
+    def sample_cp(self, wngrid, **kwargs):
+        """Creates a copy of the database and re-samples it.
+
+        Parameters
+        ----------
+            See `sample` for details on parameters
+
+        Returns
+        -------
+            :class:`Kdatabase` object
+                The re-sampled database
+        """
+        if self.Ng is not None: raise RuntimeError('sample is only available for Xtable objects.')
+        res=self.copy()
+        res.sample(wngrid, **kwargs)
+        return res
 
     def clip_wl_range(self, wl_range=None):
         """Limits the data to the provided wavelength range (micron: wl_range)

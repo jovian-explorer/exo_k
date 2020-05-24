@@ -36,7 +36,7 @@ class Data_table(object):
         self.kdata_unit='unspecified'
         self._settings=Settings()
 
-    def copy_attr(self,other,cp_kdata=False):
+    def copy_attr(self, other, cp_kdata=False):
         """Copy attributes from other
 
         Parameters
@@ -393,6 +393,23 @@ class Data_table(object):
         self.wns=self.wns[iw_min:iw_max]
         self.Nw=self.wns.size
         self.kdata=self.kdata[:,:,iw_min:iw_max]
+
+    def bin_down_cp(self, wnedges=None, **kwargs):
+        """Create a copy of the instance and bins it down using the methods in 
+        Ktable or Xtable.
+
+        Parameters
+        ----------
+            See :class:`Ktable` or :class:`Xtable` for details on parameters
+
+        Returns
+        -------
+            :class:`Ktable` or :class:`Xtable` object
+                the binned down table
+        """
+        res=self.copy()
+        res.bin_down(wnedges=wnedges, **kwargs)
+        return res
 
     def toLogK(self):
         """Changes kdata to log 10.

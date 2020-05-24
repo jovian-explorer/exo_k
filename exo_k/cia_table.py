@@ -81,6 +81,7 @@ class Cia_table(object):
         self.abs_coeff_unit='unspecified'
         self.Nt=None
         self.Nw=None
+        self.filename=None
 
 
     def read_hitran_cia(self, filename, old_cia_unit='cm^5'):
@@ -207,6 +208,21 @@ class Cia_table(object):
         self.Nw=Nnew
         if remove_zeros : self.remove_zeros(**kwargs)
 
+    def sample_cp(self, wngrid, **kwargs):
+        """Creates a copy of the object before resampling it.
+
+        Parameters
+        ----------
+            See sample method for details. 
+
+        Returns
+        -------
+            :class:`Cia_table` object
+                the re-sampled :class:`Cia_table`
+        """
+        res=self.copy()
+        res.sample(wngrid, **kwargs)
+        return res
 
     def interpolate_cia(self, t_array=None, log_interp=None, wngrid_limit=None):
         """interpolate_cia interpolates the kdata at on a given temperature profile. 
@@ -359,10 +375,10 @@ class Cia_table(object):
         """
         output="""
         file          : {file}
-        molecule pair : {mol}
+        molecule pair : {mol1} - {mol2}
         t grid   (K)  : {t}
         abs coeff     : {abs_coeff}
-        """.format(file=self.filename,mol=self.mol1+'-'+self.mol2, \
+        """.format(file=self.filename,mol1=self.mol1, mol2=self.mol2, \
             t=self.tgrid,abs_coeff=self.abs_coeff)
         return output
 
@@ -370,6 +386,23 @@ class Cia_table(object):
         """Overrides getitem.
         """
         return self.abs_coeff[key]
+
+    def copy(self):
+        """Creates a new instance of :class:`CIA_table` object and (deep) copies data into it
+        """
+        res=Cia_table()
+        res.mol1 = self.mol1
+        res.mol2 = self.mol2
+        res.wns = np.copy(self.wns)
+        res.wnedges = np.copy(self.wnedges)
+        res.tgrid = np.copy(self.tgrid)
+        res.abs_coeff = np.copy(self.abs_coeff)
+        res.abs_coeff_unit = self.abs_coeff_unit
+        res.Nt = self.Nt
+        res.Nw = self.Nw
+        res.filename = self.filename
+        res._settings=Settings()
+        return res
 
     def read_CKD_cia(self, filename, old_cia_unit='cm^2'):
         """Reads hitran cia files and load temperature, wavenumber, and absorption coefficient grid.

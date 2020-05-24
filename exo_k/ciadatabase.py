@@ -29,10 +29,11 @@ class CIAdatabase(object):
         self.wns=None
         self.Nw=None
         self.abs_coeff_unit=None
-        for filename in filenames:
-            tmp_cia_table=Cia_table(*([filename]+list(str_filters)),
-                remove_zeros=remove_zeros, **kwargs)
-            self.add_cia_tables(tmp_cia_table)
+        if filenames is not None:
+            for filename in filenames:
+                tmp_cia_table=Cia_table(*([filename]+list(str_filters)),
+                    remove_zeros=remove_zeros, **kwargs)
+                self.add_cia_tables(tmp_cia_table)
     
     def add_cia_tables(self, *cia_tables):
         """Adds news cia tables to a CIA database.
@@ -67,6 +68,24 @@ class CIAdatabase(object):
         if molecule not in self.cia_tables:
             raise KeyError('The requested molecule is not available.')
         return self.cia_tables[molecule]
+
+    def copy(self):
+        """Creates a new instance of :class:`CIAdatabase` object and (deep) copies data into it
+        """
+        res=CIAdatabase(None)
+        for dic_cia_tabs in self.cia_tables.values():
+            for cia_tab in dic_cia_tabs.values():
+                res.add_cia_tables(cia_tab.copy())
+        return res
+
+    def __repr__(self):
+        """Method to output
+        """
+        output='The available molecule pairs are: \n'
+        for mol1, dico in self.cia_tables.items():
+            for mol2, cia_tab in dico.items():
+                output+=mol1+'-'+mol2+'->'+cia_tab.filename+'\n'
+        return output
 
     def sample(self, wngrid, remove_zeros=False):
         """Samples all the cia_table in the database on the same wavenumber grid
