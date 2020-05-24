@@ -294,6 +294,7 @@ def gauss_legendre(order):
     gedges=np.insert(np.cumsum(weights),0,0.)
     return weights,ggrid,gedges
 
+@numba.njit
 def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
     """Creates the k-distribution from a single high resolution spectrum
     
@@ -316,10 +317,13 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
             k coefficients for each (Wn, g) bin.
     """
     pos=np.searchsorted(wn_hr,wnedges)
+    #print(pos)
     kdata=np.zeros((wnedges.size-1,ggrid.size))
     for ib in range(wnedges.size-1):
         if pos[ib+1]==pos[ib]:
             continue
+            # JL20 why did I write that ??
+            # for the moment, this leaves zeros but we should probably make the code stop
         tmp_k=k_hr[pos[ib]:pos[ib+1]]
         totwg=np.sum(dwn_hr[pos[ib]:pos[ib+1]])
         wg=dwn_hr[pos[ib]:pos[ib+1]]/totwg

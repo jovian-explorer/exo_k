@@ -200,7 +200,7 @@ class Xtable(Data_table):
     def read_exo_transmit(self, filename, mol=None):
         """Creates an xsec object from an exo_transmit like spectra.
         See https://github.com/elizakempton/Exo_Transmit or Kempton et al. (2016) for details.
-        Pressures are expected to be in Pa.
+        Pressures are expected to be in Pa and cross sections in m^2/molecule
 
         Parameters
         ----------
@@ -369,11 +369,11 @@ class Xtable(Data_table):
                     newxsec[iP,iT,wngrid_filter]=np.interp(wngrid[wngrid_filter],self.wns,tmp)
             self.kdata=np.exp(newxsec)
         else:
-        for iP in range(self.Np):
-            for iT in range(self.Nt):
-                tmp=self.kdata[iP,iT,:]
-                newxsec[iP,iT,wngrid_filter]=np.interp(wngrid[wngrid_filter],self.wns,tmp)
-        self.kdata=newxsec
+            for iP in range(self.Np):
+                for iT in range(self.Nt):
+                    tmp=self.kdata[iP,iT,:]
+                    newxsec[iP,iT,wngrid_filter]=np.interp(wngrid[wngrid_filter],self.wns,tmp)
+            self.kdata=newxsec
         self.wns=wngrid
         self.wnedges=np.concatenate( \
             ([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
@@ -428,7 +428,7 @@ class Xtable(Data_table):
                 A new :class:`Xtable` instance with the same structure as self.
         """
         res=Xtable()
-        res.copy_attr(self,cp_kdata=cp_kdata)
+        res.copy_attr(self, cp_kdata=cp_kdata)
         return res
 
     def __repr__(self):

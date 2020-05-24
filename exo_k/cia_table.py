@@ -100,7 +100,7 @@ class Cia_table(object):
         with open(filename, 'r') as file:
             while True:
                 try:
-                    Nw, Temp = self.read_header(file)
+                    Nw, Temp = self._read_header(file)
                 except EndOfFile:
                     break
                 tmp_tgrid.append(Temp)
@@ -126,7 +126,7 @@ class Cia_table(object):
         self.Nw=self.wns.size
 
 
-    def read_header(self, file):
+    def _read_header(self, file):
         """Reads the header lines in a Hitran CIA file.
 
         Parameters
@@ -189,6 +189,11 @@ class Cia_table(object):
         ----------
             wngrid : array
                 new wavenumber grid (cm-1)
+            use_grid_filter: boolean, optional
+                If true, the table is sampled only within the boundaries
+                of its current wavenumber grid. The coefficients are set to zero elswere
+                (except if remove_zeros is set to True).
+                If false, the values at the boundaries are used when sampling outside the grid.
         """
         wngrid=np.array(wngrid)
         #min_val=np.amin(self.abs_coeff)
@@ -277,6 +282,22 @@ class Cia_table(object):
     def effective_cross_section(self, logP, T, x_mol1, x_mol2, wngrid_limit=None):
         """Computes the total cross section for a molecule pair
         (in m^2 per total number of molecules; assumes data in MKS).
+
+        Parameters
+        ----------
+            logP: float or array
+                Log10 of the pressure (Pa).
+            T: float or array
+                Temperature (K).
+            x_mol1/2: float or array
+                Volume mixing ratio of the 1st and 2nd molecule of the pair.
+            wngrid_limit: array, optional  
+                If an array is given, interpolates only within this array. 
+
+        Returns
+        -------
+            float or array
+                total cross section for the molecule pair in m^2 per total number of molecules.
         """
         x_x_n_density=10**logP/(KBOLTZ*T)*x_mol1*x_mol2
         #return self.interpolate_cia( \

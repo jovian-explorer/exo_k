@@ -570,11 +570,15 @@ class Ktable(Data_table):
             cp_kdata: bool, optional
                 If false, the kdata table is not copied and
                 only the structure and metadata are. 
+            ktab5d: bool, optional
+                If true, creates a Ktable5d object with the same structure. 
+                Data are not copied.
 
         Returns
         -------
-            :class:`Ktable`
-                A new :class:`Ktable` instance with the same structure as self.
+            :class:`Ktable` or :class:`Ktable5d`
+                A new :class:`Ktable` or :class:`Ktable5d` 
+                instance with the same structure as self.
         """
         if ktab5d:
             res=Ktable5d()
@@ -592,35 +596,10 @@ class Ktable(Data_table):
 #        It essentially copies all the meta data.
 #        """
 
-    def gindex(self,g):
+    def gindex(self, g):
         """Finds the index corresponding to the given g
         """
         return min(np.searchsorted(self.ggrid,g),self.Ng-1)
-
-    def plot_spectrum2(self,ax,p=1.e-5,t=200.,g=0.,logx=True,logy=True,x=1.,**kwarg):
-        """Plot the spectrum for a given point
-
-        Parameters
-        ----------
-            ax : :class:`pyplot.Axes`
-                A pyplot axes instance where to put the plot.
-            p : float
-                Pressure (Ktable pressure unit)
-            t : float
-                Temperature(K)
-            g: float
-                Gauss point
-            x: float
-                Mixing ratio of the species
-        """
-        gindex=self.gindex(g)
-        toplot=self.interpolate_kdata(log10(p),t)[0,:,gindex]*x
-        ax.plot(self.wls,toplot,**kwarg)
-        ax.set_xlabel('Wavelength (micron)')
-        ax.set_ylabel('Cross section')
-        ax.grid(True)
-        if logx: ax.set_xscale('log')
-        if logy: ax.set_yscale('log')
 
     def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """provide the spectrum for a given point to be plotted
@@ -677,7 +656,7 @@ class Ktable(Data_table):
         """.format(shape=self.shape,wl=self.wls, wg=self.weights)
         return output
 
-    def RandOverlap(self,other,x_self,x_other,write=0,use_rebin=False):
+    def RandOverlap(self, other, x_self, x_other, write=0, use_rebin=False):
         """Method to randomely mix the opacities of 2 species (self and other).
 
         Parameters
@@ -694,8 +673,8 @@ class Ktable(Data_table):
 
         Returns
         -------
-            :class:`Ktable`
-                k-coeff table of the mix. 
+            array
+                array of k-coefficients for the mix. 
         """
         if not np.array_equal(self.shape,other.shape):
             raise TypeError("""in RandOverlap: kdata tables do not have the same dimensions.

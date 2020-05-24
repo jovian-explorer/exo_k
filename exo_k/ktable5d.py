@@ -505,12 +505,12 @@ class Ktable5d(Data_table):
         if res.kdata is not None: res.setup_interpolation()
         return res
 
-    def gindex(self,g):
+    def gindex(self, g):
         """Finds the index corresponding to the given g
         """
         return min(np.searchsorted(self.ggrid,g),self.Ng-1)
 
-    def xindex(self,x):
+    def xindex(self, x):
         """Finds the index corresponding to the given x
         """
         return min(np.searchsorted(self.xgrid,x),self.Nx-1)
@@ -530,12 +530,8 @@ class Ktable5d(Data_table):
                 Mixing ratio of the species
         """
         if g is None: raise RuntimeError('A gauss point should be provided with the g= keyword.')
-#        pindex=self.pindex(p)
-#        tindex=self.tindex(t)
-#        xindex=self.xindex(x)
         gindex=self.gindex(g)
         return self.interpolate_kdata(log10(p),t,x)[0,:,gindex]
-#        return self.kdata[pindex,tindex,xindex,:,gindex]
 
     def plot_distrib(self, ax, p=1.e-5, t=200., wl=1., x=1., xscale=None, yscale='log', **kwarg):
         """Plot the distribution for a given point
