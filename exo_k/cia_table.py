@@ -79,6 +79,7 @@ class Cia_table(object):
         self.tgrid=None
         self.abs_coeff=None
         self.abs_coeff_unit='unspecified'
+        self.wn_unit='cm^-1'
         self.Nt=None
         self.Nw=None
         self.filename=None

@@ -80,8 +80,8 @@ class Ktable5d(Data_table):
             if self._settings._convert_to_mks:
                 if p_unit is 'unspecified': p_unit='Pa'
                 if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,old_p_unit='unspecified')
-            self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit='unspecified')
+            self.convert_p_unit(p_unit=p_unit,file_p_unit='unspecified')
+            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit='unspecified')
             if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
             self.setup_interpolation()
 
@@ -107,6 +107,8 @@ class Ktable5d(Data_table):
         else:
             self.mol='unspecified'
         self.wns=f['bin_centers'][...]
+        if 'units' in f['bin_edges'].attrs:
+            self.wn_unit=f['bin_edges'].attrs['units']
         self.wnedges=f['bin_edges'][...]
         self.kdata=f['kcoeff'][...]
         self.kdata_unit=f['kcoeff'].attrs['units']
@@ -149,6 +151,7 @@ class Ktable5d(Data_table):
         f.create_dataset("weights", data=self.weights,compression=compression)
         f.create_dataset("bin_edges", data=self.wnedges,compression=compression)
         f.create_dataset("bin_centers", data=self.wns,compression=compression)
+        f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()    
 
     def read_LMDZ(self, path=None, res=None, band=None):
@@ -275,7 +278,7 @@ class Ktable5d(Data_table):
         logpgrid=None, tgrid=None, xgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', old_kdata_unit='unspecified', k_to_xsec=True):
+        kdata_unit='unspecified', file_kdata_unit='unspecified', k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
 
@@ -387,7 +390,7 @@ class Ktable5d(Data_table):
                     self.kdata[iP,iT,iX]=self.kdata[iP,iT,iX]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
         self.kdata_unit='m^2' #default unit assumed for the input file
         if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
+        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
 
     def setup_interpolation(self, log_interp=None):
         """Creates interpolating functions to be called later on.
@@ -563,12 +566,11 @@ class Ktable5d(Data_table):
         """
         out1=super().__repr__()
         output=out1+"""
-        data oredered following p, t, x, wl, g
-        shape        : {shape}
-        x      (vmr) : {xgrid}
-        wl (microns) : {wl}
         weights      : {wg}
-        """.format(shape=self.shape,xgrid=self.xgrid,wl=self.wls, wg=self.weights)
+        x      (vmr) : {xgrid}
+        data oredered following p, t, x, wn, g
+        shape        : {shape}
+        """.format(wg=self.weights, xgrid=self.xgrid, shape=self.shape)
         return output
 
     def bin_down(self, wnedges=None, ggrid=None, weights=None, num=300, use_rebin=False, write=0):

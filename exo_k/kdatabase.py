@@ -145,6 +145,17 @@ class Kdatabase(object):
         output='The available molecules are: \n'
         for mol, ktab in self.ktables.items():
             output+=mol+'->'+ktab.filename+'\n'
+        if self.consolidated_wn_grid:
+            output+='All tables share a common spectral grid\n'
+        else:
+            output+='All tables do NOT have common spectral grid\n'
+            output+='You will need to run bin_down or sample before using the database\n'
+        if self.consolidated_PT_grid:
+            output+='All tables share a common logP-T grid\n'
+        else:
+            output+='All tables do NOT have common logP-T grid\n'
+            output+='You will need to run remap_logPT to perform some operations\n'
+
         return output
 
     def __getitem__(self, molecule):
@@ -377,7 +388,7 @@ class Kdatabase(object):
         ktab5d=var_gas_mix.copy(ktab5d=True)
         ktab5d.xgrid=np.array(x_array)
         ktab5d.Nx=ktab5d.xgrid.size
-        print(ktab5d.shape)
+        print('shape of the output Ktable5d (p,t,x,wn,g):',ktab5d.shape)
         new_kdata=np.zeros(ktab5d.shape)
         for iX, vmr in enumerate(ktab5d.xgrid):
             new_kdata[:,:,iX,:,:]=var_gas_mix.RandOverlap(background_mix,vmr,1.-vmr, **kwargs)

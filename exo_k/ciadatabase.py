@@ -85,6 +85,12 @@ class CIAdatabase(object):
         for mol1, dico in self.cia_tables.items():
             for mol2, cia_tab in dico.items():
                 output+=mol1+'-'+mol2+'->'+cia_tab.filename+'\n'
+        if self.wns is not None:
+            output+='All tables share a common spectral grid\n'
+        else:
+            output+='All tables do NOT have common spectral grid\n'
+            output+='You will need to run sample before using the database\n'
+
         return output
 
     def sample(self, wngrid, remove_zeros=False):

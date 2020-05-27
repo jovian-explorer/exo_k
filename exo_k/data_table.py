@@ -34,6 +34,7 @@ class Data_table(object):
                        # A None value means that we have either a regular Ktable or a Xtable.
         self.p_unit='unspecified'
         self.kdata_unit='unspecified'
+        self.wn_unit='cm^-1'
         self._settings=Settings()
 
     def copy_attr(self, other, cp_kdata=False):
@@ -81,7 +82,7 @@ class Data_table(object):
         minvalue=np.amin(self.kdata[mask])
         self.kdata[~mask]=minvalue/(10.**deltalog_min_value)
 
-    def convert_p_unit(self,p_unit='unspecified',old_p_unit='unspecified'):
+    def convert_p_unit(self,p_unit='unspecified',file_p_unit='unspecified'):
         """Converts pressure to a new unit (in place)
 
         Parameters
@@ -90,19 +91,19 @@ class Data_table(object):
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
-            old_p_unit : str, optional
+            file_p_unit : str, optional
                 String to specify the current pressure unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
         """
-        if p_unit==old_p_unit and self.p_unit != 'unspecified': return
+        #if p_unit==file_p_unit and self.p_unit != 'unspecified': return
         current_p_unit=self.p_unit
         self.p_unit,conversion_factor=unit_convert( \
-            'p_unit',unit_file=current_p_unit,unit_in=old_p_unit,unit_out=p_unit)
+            'p_unit',unit_file=current_p_unit,unit_in=file_p_unit,unit_out=p_unit)
         self.pgrid=self.pgrid*conversion_factor
         self.logpgrid=np.log10(self.pgrid)
 
-    def convert_kdata_unit(self,kdata_unit='unspecified',old_kdata_unit='unspecified'):
+    def convert_kdata_unit(self,kdata_unit='unspecified',file_kdata_unit='unspecified'):
         """Converts kdata to a new unit (in place)
 
         Parameters
@@ -117,13 +118,13 @@ class Data_table(object):
                 Opacities per unit mass are not supported yet.
                 Note that you do not need to specify the '/molec' or
                 '/molecule' in the unit.
-            old_kdata_unit : str
+            file_kdata_unit : str
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
         """
-        if kdata_unit==old_kdata_unit and self.kdata_unit != 'unspecified': return
-        tmp_k_u_in=old_kdata_unit.replace('/molecule','').replace('/molec','')
+        #if kdata_unit==file_kdata_unit and self.kdata_unit != 'unspecified': return
+        tmp_k_u_in=file_kdata_unit.replace('/molecule','').replace('/molec','')
         tmp_k_u_out=kdata_unit.replace('/molecule','').replace('/molec','')
         tmp_k_u_file=self.kdata_unit.replace('/molecule','').replace('/molec','')
         self.kdata_unit,conversion_factor=unit_convert(  \
@@ -284,9 +285,12 @@ class Data_table(object):
         p grid       : {p}
         p unit       : {p_unit}
         t grid   (K) : {t}
-        kdata unit  : {kdata_unit}
-        """.format(file=self.filename,mol=self.mol,
-            p=self.pgrid,p_unit=self.p_unit, t=self.tgrid,kdata_unit=self.kdata_unit)
+        wn grid      : {wn}
+        wn unit      : {wnu}
+        kdata unit   : {kdata_unit}""".format(file=self.filename,mol=self.mol,
+            p=self.pgrid, p_unit=self.p_unit, t=self.tgrid,
+            wn=self.wns, wnu=self.wn_unit,
+            kdata_unit=self.kdata_unit)
         return output
 
     def plot_spectrum(self, ax, p=1.e-5, t=200., x=1., g=None,

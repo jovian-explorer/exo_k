@@ -4,6 +4,7 @@
 
 Library of useful functions for handling filenames
 """
+import os
 import numpy as np
 import h5py
 
@@ -67,6 +68,28 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
                     res.append(fname)
         return np.array(res).reshape((logpgrid.size,tgrid.size,xgrid.size))
 
+def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None,nb_digit=3):
+    """Creates a grid of filenames consistent with Kspectrum/LMDZ
+    from the number of pressure, temperatures (, and vmr) points (respectively) in the grid.
+    """    
+    res=[]
+    ii=1
+    if Nx is None:
+        for _ in range(Np):
+            for _ in range(Nt):
+                res.append('k'+str(ii).zfill(nb_digit))
+                ii+=1
+        return np.array(res).reshape((Np,Nt))
+    else:
+        for _ in range(Nx):
+            for _ in range(Np):
+                for _ in range(Nt):
+                    res.append('k'+str(ii).zfill(nb_digit))
+                    ii+=1
+        res=np.array(res).reshape((Nx,Np,Nt))
+        return np.transpose(res,(2,1,0))
+
+
 def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
     """Creates the right links for a LMDZ type directory to be read by the LMDZ generic GCM.
       => you must have run write_LMDZcorrk for your IR and VI channels.
@@ -80,7 +103,6 @@ def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
         VIsize: int
             Number of VI spectral bins
     """
-    import os
     newdir=os.path.join(corrkname,str(IRsize)+'x'+str(VIsize))
     try:
         os.mkdir(newdir)

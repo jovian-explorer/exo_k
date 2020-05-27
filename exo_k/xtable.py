@@ -17,8 +17,8 @@ class Xtable(Data_table):
     """
 
     def __init__(self, *filename_filters, filename=None,
-        p_unit='unspecified', old_p_unit='unspecified',
-        kdata_unit='unspecified', old_kdata_unit='unspecified',
+        p_unit='unspecified', file_p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
         remove_zeros=False, search_path=None, mol=None):
         """Initializes cross section table and
         supporting data from a file based on its extension.
@@ -67,8 +67,8 @@ class Xtable(Data_table):
             if self._settings._convert_to_mks:
                 if p_unit is 'unspecified': p_unit='Pa'
                 if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,old_p_unit=old_p_unit)
-            self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
+            self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
+            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
             if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     @property
@@ -108,7 +108,7 @@ class Xtable(Data_table):
         if 'p_unit' in raw.keys():
             self.p_unit=raw['p_unit']
         else:
-            self.p_unit='unspecified'
+            self.p_unit='bar'
         self.pgrid=raw['p']
         self.logpgrid=np.log10(self.pgrid)
 
@@ -116,8 +116,10 @@ class Xtable(Data_table):
         if 'kdata_unit' in raw.keys():
             self.kdata_unit=raw['kdata_unit']
         else:
-            self.kdata_unit='unspecified'
+            self.kdata_unit='cm^2/molec'
         self.kdata=raw['xsecarr']
+
+        if 'wn_unit' in raw.keys(): self.wn_unit=raw['wn_unit']
 
         self.Np,self.Nt,self.Nw=self.kdata.shape
 
@@ -137,6 +139,7 @@ class Xtable(Data_table):
                  'p_unit':self.p_unit,
                  't':self.tgrid,
                  'wno':self.wns,
+                 'wn_unit':self.wn_unit,
                  'xsecarr':self.kdata,
                  'kdata_unit':self.kdata_unit}
         #print(dictout)
@@ -165,6 +168,8 @@ class Xtable(Data_table):
         self.wns=f['bin_edges'][...]
         self.wnedges=np.concatenate(  \
             ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+        if 'units' in f['bin_edges'].attrs:
+            self.wn_unit=f['bin_edges'].attrs['units']
         self.kdata=f['xsecarr'][...]
         self.kdata_unit=f['xsecarr'].attrs['units']
         self.tgrid=f['t'][...]
@@ -195,6 +200,7 @@ class Xtable(Data_table):
         f.create_dataset("xsecarr", data=self.kdata,compression=compression)
         f["xsecarr"].attrs["units"] = self.kdata_unit
         f.create_dataset("bin_edges", data=self.wns,compression=compression)
+        f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()
 
     def read_exo_transmit(self, filename, mol=None):
@@ -245,7 +251,7 @@ class Xtable(Data_table):
   
 
     def hires_to_xsec(self, path=None, filename_grid=None, logpgrid=None, tgrid=None,
-        write=0, mol=None, kdata_unit='unspecified', old_kdata_unit='unspecified',
+        write=0, mol=None, kdata_unit='unspecified', file_kdata_unit='unspecified',
         k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
@@ -310,7 +316,7 @@ class Xtable(Data_table):
                 self.kdata[iP,iT]=np.interp(self.wns,wn_hr[1:-1],k_hr[1:-1])
         self.kdata_unit='m^2' #default unit assumed for the input file
         if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
+        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
 
     def bin_down(self, wnedges=None, remove_zeros=False, write=0):
         """Method to bin down a xsec table to a new grid of wavenumbers (in place)
@@ -436,9 +442,7 @@ class Xtable(Data_table):
         """
         out1=super().__repr__()
         output=out1+"""
-        data oredered following p, t, wl
+        data oredered following p, t, wn
         shape        : {shape}
-        wl (microns) : {wl}
-        xsec unit    : {kdata_unit}
-        """.format(shape=self.shape, wl=self.wls, kdata_unit=self.kdata_unit)
+        """.format(shape=self.shape)
         return output

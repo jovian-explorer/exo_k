@@ -182,13 +182,24 @@ def rebin(f_fine,fine_grid,coarse_grid):
     return f_coarse
 
 #@numba.njit(nogil=True,fastmath=True)
-def RandOverlap_2_kdata_prof(Nlay,Nw,Ng,kdata1,kdata2,weights,ggrid):
-    """Function to randomely mix the opacities of 2 species.
+def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
+    """Function to randomely mix the opacities of 2 species in an atmospheric profile.
 
     Parameters
     ----------
-    Output    :
-       kcoeff table of the mix.
+        Nlay, Nw, Ng: int
+            Number of layers, spectral bins, and gauss points. 
+        kdata1, kdata2: arrays of size (Nlay, Nw, Ng)
+            vmr weighted cross-sections for the two species.
+        weights: array
+            gauss weights.
+        ggrid: array
+            g-points.
+    
+    Retunrs
+    -------
+        array
+            k-coefficient array of the mix over the atmospheric column.
     """
     kdataconv=np.zeros((Nlay,Nw,Ng**2))
     weightsconv=np.zeros(Ng**2)
@@ -221,10 +232,11 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
             The name of the pysical quantity handled for potential error messages
         unit_file, unit_in, unit_out: str
             Respectively:
-            * String with the unit of the initial data,
-            * The unit we think the initial data are in if unit_file is 'unspecified'
-              or (we believe) wrong,
-            * The unit we want to convert to. If unspecified, we do not convert.
+
+              * String with the unit found in (or assumed from the format of) the initial data,
+              * The unit we think the initial data are in if unit_file is 'unspecified'
+                or (we believe) wrong,
+              * The unit we want to convert to. If unspecified, we do not convert.
     Returns
     -------
         unit_to_write: str
@@ -259,6 +271,11 @@ def rm_molec(unit_name):
     ---------
         unit_name: str
             String to be changed.
+        
+    Returns
+    -------
+        str
+            The unit name without the ending "/molecule" or "/molec"
     """
     return unit_name.replace('/molecule','').replace('/molec','')
 
@@ -273,7 +290,7 @@ def is_sorted(a):
 
 
 def gauss_legendre(order):
-    """Computes the weights and abscissa for a Gauss Legendre quadrature of order oerder
+    """Computes the weights and abscissa for a Gauss Legendre quadrature of order `order`
 
     Parameters
     ----------
@@ -342,7 +359,31 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
 @numba.njit()
 def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicestosum, \
         wngrid_filter, wn_weigths, num, use_rebin):
-    """Non mais Allo koi
+    """bins down a kcoefficient table (see Ktable.bin_down for details)
+    
+    Parameters
+    ----------
+        newshape : array
+            Shape of kdata.
+        kdata : array
+            table to bin down.
+        old_ggrid : array
+            Grid of old g-point abscissas for kdata.
+        new_ggrid : array
+            New g-points for the binned-down k-coefficients.
+        gedges : array
+            Cumulative sum of the weights. Goes from 0 to 1.
+            Used only if use_rebin=True
+        indicestosum: list of lists
+            Indices of wavenumber bins to be used for the averaging
+        wngrid_filter: array
+            Indices of the new table where there will actually be data (zero elsewhere)
+        wn_weigths: list of lists
+            Weights to be used for the averaging (same size as indicestosum)
+        num: int
+            Number of points to fine sample the g function in log-k space
+        use_rebin: boolean
+            Whether to use rebin or interp method. 
     """
     ggrid0to1=np.copy(old_ggrid)
     ggrid0to1[0]=0.

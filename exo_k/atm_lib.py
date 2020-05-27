@@ -105,14 +105,15 @@ class Atm_profile(object):
             self.compute_layer_col_density()
 
     def set_adiab_profile(self, Tsurf=None, Tstrat=None, rcp=0.28):
-        """Initializes atmospheric the logP-T profile with an adiabat with index R/cp=rcp
+        """Initializes the logP-T atmospheric profile with an adiabat with index R/cp=rcp
 
         Parameters
         ----------
             Tsurf: float
-                Surface temperature
-            Tstrat: float
-                Temperature of the stratosphere
+                Surface temperature.
+            Tstrat: float, optional
+                Temperature of the stratosphere. If None is given,
+                an isothermal atmosphere with T=Tsurf is returned.
             rcp: float
                 R/c_p of the atmosphere
         """

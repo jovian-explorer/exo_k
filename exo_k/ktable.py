@@ -23,8 +23,8 @@ class Ktable(Data_table):
     """
     
     def __init__(self, *filename_filters, filename=None, xsec=None, path=None,
-        p_unit='unspecified', old_p_unit='unspecified',
-        kdata_unit='unspecified', old_kdata_unit='unspecified',
+        p_unit='unspecified', file_p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
         remove_zeros=False, search_path=None, mol=None,
         **kwargs):
         """Initializes k coeff table and supporting data from various sources
@@ -58,7 +58,7 @@ class Ktable(Data_table):
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
-            old_p_unit : str, optional
+            file_p_unit : str, optional
                 String to specify the current pressure unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
@@ -72,7 +72,7 @@ class Ktable(Data_table):
                 always be assumed to be a number or volume mixing ratio.
                 Opacities per unit mass are not supported yet.
                 Note that you do not need to specify the '/molec' or '/molecule' in the unit.
-            old_kdata_unit : str, optional
+            file_kdata_unit : str, optional
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
@@ -113,8 +113,8 @@ class Ktable(Data_table):
             if self._settings._convert_to_mks:
                 if p_unit is 'unspecified': p_unit='Pa'
                 if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,old_p_unit=old_p_unit)
-            self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
+            self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
+            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
             if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     @property
@@ -156,18 +156,18 @@ class Ktable(Data_table):
         self.ggrid=raw['samples']
         self.gedges=np.insert(np.cumsum(self.weights),0,0.)
         self.kdata=raw['kcoeff']
-
-        self.logk=False
     
         if 'p_unit' in raw.keys():
             self.p_unit=raw['p_unit']
         else:
-            self.p_unit='unspecified'
+            self.p_unit='bar'
 
         if 'kdata_unit' in raw.keys():
             self.kdata_unit=raw['kdata_unit']
         else:
-            self.kdata_unit='unspecified'
+            self.kdata_unit='cm^2/molec'
+
+        if 'wn_unit' in raw.keys(): self.wn_unit=raw['wn_unit']
 
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
@@ -188,6 +188,7 @@ class Ktable(Data_table):
                  't':self.tgrid,
                  'bin_centers':self.wns,
                  'bin_edges':self.wnedges,
+                 'wn_unit':self.wn_unit,
                  'weights':self.weights,
                  'samples':self.ggrid,
                  'kcoeff':self.kdata,
@@ -215,6 +216,8 @@ class Ktable(Data_table):
             self.mol=mol
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
+        if 'units' in f['bin_edges'].attrs:
+            self.wn_unit=f['bin_edges'].attrs['units']
         self.kdata=f['kcoeff'][...]
         self.kdata_unit=f['kcoeff'].attrs['units']
         self.tgrid=f['t'][...]
@@ -254,6 +257,7 @@ class Ktable(Data_table):
         f.create_dataset("weights", data=self.weights,compression=compression)
         f.create_dataset("bin_edges", data=self.wnedges,compression=compression)
         f.create_dataset("bin_centers", data=self.wns,compression=compression)
+        f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()    
 
 
@@ -451,7 +455,7 @@ class Ktable(Data_table):
         logpgrid=None, tgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', old_kdata_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
         k_to_xsec=True):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
@@ -560,7 +564,7 @@ class Ktable(Data_table):
             if k_to_xsec: self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
         self.kdata_unit='m^2' #default unit assumed for the input file
         if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,old_kdata_unit=old_kdata_unit)
+        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
 
     def copy(self, cp_kdata=True, ktab5d=False):
         """Creates a new instance of :class:`Ktable` object and (deep) copies data into it
@@ -649,11 +653,10 @@ class Ktable(Data_table):
         """
         out1=super().__repr__()
         output=out1+"""
-        data oredered following p, t, wl, g
-        shape        : {shape}
-        wl (microns) : {wl}
         weights      : {wg}
-        """.format(shape=self.shape,wl=self.wls, wg=self.weights)
+        data oredered following p, t, wn, g
+        shape        : {shape}
+        """.format(wg=self.weights, shape=self.shape)
         return output
 
     def RandOverlap(self, other, x_self, x_other, write=0, use_rebin=False):
