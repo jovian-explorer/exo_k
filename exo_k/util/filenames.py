@@ -7,6 +7,7 @@ Library of useful functions for handling filenames
 import os
 import numpy as np
 import h5py
+from exo_k.util.kspectrum import Kspectrum
 
 class EndOfFile(Exception):
     """Error for an end of file
@@ -68,23 +69,51 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
                     res.append(fname)
         return np.array(res).reshape((logpgrid.size,tgrid.size,xgrid.size))
 
-def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None,nb_digit=3):
+def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
     """Creates a grid of filenames consistent with Kspectrum/LMDZ
     from the number of pressure, temperatures (, and vmr) points (respectively) in the grid.
+    Parameters
+    ----------
+        Np, Nt: int
+            Number of Pressure and temperature points.
+        Nx: int, optional
+            Number of vmr points if there is a variable gas
+        suffix: str, optional
+            String to add behind the 'k001'
+        nb_digit: int, optional
+            Total number of digit including the zeros ('k001' is 3)
+    
+    Returns
+    -------
+        list of str
+            List of the files in the right order and formating to be 
+            given to hires_to_ktable or hires_to_xsec.
+
+    Examples
+    --------
+
+        >>> exo_k.create_fname_grid_Kspectrum_LMDZ(2,3)                  
+        array([['k001', 'k002', 'k003'],
+       ['k004', 'k005', 'k006']], dtype='<U4')
+
+        >>> exo_k.create_fname_grid_Kspectrum_LMDZ(2,3,suffix='.h5')                  
+        array([['k001.h5', 'k002.h5', 'k003.h5'],
+       ['k004.h5', 'k005.h5', 'k006.h5']], dtype='<U7')
+
     """    
     res=[]
     ii=1
     if Nx is None:
         for _ in range(Np):
             for _ in range(Nt):
-                res.append('k'+str(ii).zfill(nb_digit))
+                res.append('k'+str(ii).zfill(nb_digit)+suffix)
                 ii+=1
         return np.array(res).reshape((Np,Nt))
     else:
         for _ in range(Nx):
             for _ in range(Np):
                 for _ in range(Nt):
-                    res.append('k'+str(ii).zfill(nb_digit))
+                    res.append('k'+str(ii).zfill(nb_digit)+suffix)
                     ii+=1
         res=np.array(res).reshape((Nx,Np,Nt))
         return np.transpose(res,(2,1,0))
@@ -116,8 +145,9 @@ def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
     print('Everything went ok. Your ktable is in:',newdir)
     print("You'll probably need to add Q.dat before using it thouh!")
 
-def convert_kspectrum_to_hdf5(file_in,file_out,skiprows=0):
-    """Converts kspectrum like spectra to hdf5 format for speed and space
+def convert_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
+    """Converts kspectrum like spectra to hdf5 format for speed and space.
+    Helper function. Real work done in class Kspectrum.
 
     Parameters
     ----------
@@ -125,14 +155,14 @@ def convert_kspectrum_to_hdf5(file_in,file_out,skiprows=0):
             Initial kspectrum filename.
         file_out: str
             Name of the final hdf5 file to be created.
+        skiprows: int, optional
+            Number of header lines to skip. For the latest Kspectrum format,
+            the header is skipped automatically. 
     """
-    wn_hr,k_hr=np.loadtxt(file_in,skiprows=skiprows,unpack=True) 
-    f = h5py.File(file_out, 'w')
-    f.create_dataset("wns", data=wn_hr,compression="gzip")
-    f.create_dataset("k", data=k_hr,compression="gzip")
-    f.close()    
+    tmp=Kspectrum(file_in, skiprows=skiprows)
+    tmp.write_hdf5(file_out)
 
-def convert_exo_transmit_to_hdf5(file_in,file_out,mol='unspecified'):
+def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     """Converts exo_transmit like spectra to hdf5 format for speed and space.
 
     Parameters
@@ -183,3 +213,19 @@ def convert_exo_transmit_to_hdf5(file_in,file_out,mol='unspecified'):
     f.create_dataset("bin_edges", data=wns,compression=compression)
     f.close()    
 
+####### OLD FUNCTIONS ###################
+def convert_old_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
+    """Converts kspectrum like spectra to hdf5 format for speed and space
+
+    Parameters
+    ----------
+        file_in: str
+            Initial kspectrum filename.
+        file_out: str
+            Name of the final hdf5 file to be created.
+    """
+    wn_hr,k_hr=np.loadtxt(file_in,skiprows=skiprows,unpack=True) 
+    f = h5py.File(file_out, 'w')
+    f.create_dataset("wns", data=wn_hr,compression="gzip")
+    f.create_dataset("k", data=k_hr,compression="gzip")
+    f.close()   

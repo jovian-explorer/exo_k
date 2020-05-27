@@ -13,19 +13,22 @@ classes in the library). To do so, the library needs to
 know the units used in the input files read. 
 
 There are two possible cases:
+
   1. Self defining formats can directly specify the units in the file. 
-     This is the case of all the hdf5 an pickle files created with `exo_k` and for new generation
+     This is the case for all the hdf5 and pickle files created with `exo_k`, and for new generation
      Exomol hdf5 files. 
+
   2. Some specific formats use fixed, known units. The ones we handle for the moment are:
 
      * Old pickle Exomol files (cm^2/molecule, bar)
      * LMDZ correlated-k tables (cm^2/molecule, mbar)
-     * Exo_transmit (m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit or Kempton et al. (2016) for details
+     * Exo_transmit (m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
+       or Kempton et al. (2016) for details
      * kspectrum (m^2/molecule)
      * HITRAN cia tables (cia coefficient in cm^5/molecule)
 
 In any case, the code can be forced to assume that the input file is using different units
-by using the `old_kdata_unit` and `old_p_unit` keywords in the initialization methods for
+by using the `file_kdata_unit` and `file_p_unit` keywords in the initialization methods for
 cross sections and correlated-k tables (see the Getting Started section).
 
 Then, the data can be converted to another unit system by simply calling the

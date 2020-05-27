@@ -14,6 +14,8 @@ from .data_table import Data_table
 from .ktable5d import Ktable5d
 from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
+from .util.kspectrum import Kspectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ
 from .util.cst import KBOLTZ
 
 
@@ -455,8 +457,7 @@ class Ktable(Data_table):
         logpgrid=None, tgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', file_kdata_unit='unspecified',
-        k_to_xsec=True):
+        kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
 
@@ -465,7 +466,9 @@ class Ktable(Data_table):
             path : String
                 directory with the input files
             filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size)
-                Names of the input high-res spectra.
+                Names of the input high-res spectra. If None, the files are assumed to
+                follow Kspectrum/LMDZ convention, i.e.
+                be of the type 'k001', 'k002', etc.
             logpgrid: Array
                 Grid in log(pressure/Pa) of the input
             tgrid: Array
@@ -491,13 +494,10 @@ class Ktable(Data_table):
             mol: string, optional
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec: boolean, optional
-                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
-        filename_grid=np.array(filename_grid)
         self.filename=path
         if mol is not None:
             self.mol=mol
@@ -519,7 +519,7 @@ class Ktable(Data_table):
         self.Ng=self.weights.size
 
         self.p_unit='Pa'
-        self.logpgrid=np.array(logpgrid)
+        self.logpgrid=np.array(logpgrid)*1.
 
         self.Np=self.logpgrid.size
         self.pgrid=10**self.logpgrid
@@ -535,23 +535,20 @@ class Ktable(Data_table):
         self.Nw=self.wns.size
         
         self.kdata=np.zeros(self.shape)
+        if filename_grid is None:
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,**kwargs)
+        else:
+            filename_grid=np.array(filename_grid)
         
         for iP in range(self.Np):
           for iT in range(self.Nt):
-            if filename_grid is None:
-                inum+=1
-                filename='k'+str(inum).zfill(3)
-            else:
-                filename=filename_grid[iP,iT]
+            filename=filename_grid[iP,iT]
             fname=os.path.join(path,filename)
             if write >= 3 : print(fname)
-            if fname.lower().endswith(('.hdf5', '.h5')):
-                f = h5py.File(fname, 'r')
-                wn_hr=f['wns'][...]
-                k_hr=f['k'][...]
-                f.close()
-            else:
-                wn_hr,k_hr=np.loadtxt(fname,skiprows=0,unpack=True)  
+
+            spec_hr=Kspectrum(fname)
+            wn_hr=spec_hr.wns
+            k_hr=spec_hr.kdata
             if mid_dw:
                 dwn_hr=(wn_hr[2:]-wn_hr[:-2])*0.5
                 wn_hr=wn_hr[1:-1]
@@ -561,7 +558,8 @@ class Ktable(Data_table):
                 wn_hr=wn_hr[:-1]
                 k_hr=k_hr[:-1]
             self.kdata[iP,iT]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-            if k_to_xsec: self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
+            if not spec_hr.is_xsec:
+                self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
         self.kdata_unit='m^2' #default unit assumed for the input file
         if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
         self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)

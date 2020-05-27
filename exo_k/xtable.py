@@ -10,7 +10,8 @@ import numpy as np
 from .data_table import Data_table
 from .util.interp import rebin_ind_weights
 from .util.cst import KBOLTZ
-
+from .util.kspectrum import Kspectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ
 
 class Xtable(Data_table):
     """A class that handles tables of cross sections. Based on Data_table.
@@ -251,8 +252,7 @@ class Xtable(Data_table):
   
 
     def hires_to_xsec(self, path=None, filename_grid=None, logpgrid=None, tgrid=None,
-        write=0, mol=None, kdata_unit='unspecified', file_kdata_unit='unspecified',
-        k_to_xsec=True):
+        write=0, mol=None, kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
 
@@ -269,13 +269,10 @@ class Xtable(Data_table):
             mol: str, optional
                 give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec : boolean, optional
-                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         first=True
 
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
-        filename_grid=np.array(filename_grid)
         self.filename=path
         if mol is not None:
             self.mol=mol
@@ -292,19 +289,17 @@ class Xtable(Data_table):
         self.Nt=self.tgrid.size
         if write >= 3 : print(self.Nt,self.tgrid)
         
+        if filename_grid is None:
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,**kwargs)
+        else:
+            filename_grid=np.array(filename_grid)
         for iP in range(self.Np):
           for iT in range(self.Nt):
             fname=os.path.join(path,filename_grid[iP,iT])
-            if fname.lower().endswith('.dat'):
-                wn_hr,k_hr=np.loadtxt(fname,skiprows=0,unpack=True)  
-            elif fname.lower().endswith(('.hdf5', '.h5')):
-                f = h5py.File(fname, 'r')
-                wn_hr=f['wns'][...]
-                k_hr=f['k'][...]
-                f.close()
-            else:
-                raise NotImplementedError('Input file format not recognized.')
-            if k_to_xsec: 
+            spec_hr=Kspectrum(fname)
+            wn_hr=spec_hr.wns
+            k_hr=spec_hr.kdata
+            if not spec_hr.is_xsec: 
                 k_hr=k_hr*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
             if first:
                 self.wns=wn_hr[1:-1]  #to be consistent with kcorr

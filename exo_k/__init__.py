@@ -6,6 +6,7 @@ __init__ module to load the exo_k library
 from exo_k.util.radiation import *
 from exo_k.util.cst import *
 from exo_k.util.spectrum import Spectrum
+from exo_k.util.kspectrum import Kspectrum
 from exo_k.util.filenames import *
 from .ktable import Ktable
 from .ktable5d import Ktable5d

@@ -12,6 +12,8 @@ from .data_table import Data_table
 from .util.interp import rm_molec, rebin_ind_weights, rebin, \
         gauss_legendre, spectrum_to_kdist
 from .util.cst import KBOLTZ
+from .util.kspectrum import Kspectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ
 
 
 class Ktable5d(Data_table):
@@ -278,7 +280,7 @@ class Ktable5d(Data_table):
         logpgrid=None, tgrid=None, xgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
         mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', file_kdata_unit='unspecified', k_to_xsec=True):
+        kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
 
@@ -315,8 +317,6 @@ class Ktable5d(Data_table):
             mol: string, optional
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
-            k_to_xsec: boolean, optional
-                If true, performs a conversion from absorption coefficient (m^-1) to xsec.
         """        
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
@@ -360,23 +360,19 @@ class Ktable5d(Data_table):
         self.Nw=self.wns.size
         
         self.kdata=np.zeros(self.shape)
-        inum=0
-        for iX in range(self.Nx):
-          for iP in range(self.Np):
-            for iT in range(self.Nt):
-                if filename_grid is None:
-                    inum+=1
-                    filename='k'+str(inum).zfill(3)
-                else:
-                    filename=filename_grid[iP,iT,iX]
+        if filename_grid is None:
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,self.Nx, **kwargs)
+        else:
+            filename_grid=np.array(filename_grid)
+        for iP in range(self.Np):
+          for iT in range(self.Nt):
+            for iX in range(self.Nx):
+                filename=filename_grid[iP,iT,iX]
                 fname=os.path.join(path,filename)
                 if write >= 3 : print(fname)
-                if fname.lower().endswith(('.hdf5', '.h5')):
-                    f = h5py.File(fname, 'r')
-                    wn_hr=f['wns'][...]
-                    k_hr=f['k'][...]
-                else:
-                    wn_hr,k_hr=np.loadtxt(fname,skiprows=0,unpack=True)  
+                spec_hr=Kspectrum(fname)
+                wn_hr=spec_hr.wns
+                k_hr=spec_hr.kdata
                 if mid_dw:
                     dwn_hr=(wn_hr[2:]-wn_hr[:-2])*0.5
                     wn_hr=wn_hr[1:-1]
@@ -386,7 +382,7 @@ class Ktable5d(Data_table):
                     wn_hr=wn_hr[:-1]
                     k_hr=k_hr[:-1]
                 self.kdata[iP,iT,iX]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-                if k_to_xsec: 
+                if not spec_hr.is_xsec:
                     self.kdata[iP,iT,iX]=self.kdata[iP,iT,iX]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
         self.kdata_unit='m^2' #default unit assumed for the input file
         if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
