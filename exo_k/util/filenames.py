@@ -143,7 +143,7 @@ def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
     os.symlink('../VI'+str(VIsize)+'/corrk_gcm_VI.dat',os.path.join(newdir,'corrk_gcm_VI.dat'))
     os.symlink('../VI'+str(VIsize)+'/narrowbands_VI.in',os.path.join(newdir,'narrowbands_VI.in'))
     print('Everything went ok. Your ktable is in:',newdir)
-    print("You'll probably need to add Q.dat before using it thouh!")
+    print("You'll probably need to add Q.dat before using it though!")
 
 def convert_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
     """Converts kspectrum like spectra to hdf5 format for speed and space.

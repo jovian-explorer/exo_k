@@ -166,12 +166,6 @@ class Kdatabase(object):
         return self.ktables[molecule]
 
     @property
-    def shape(self):
-        """Returns the shape of self.kdata
-        """
-        return np.array([self.Np,self.Nt,self.Nw,self.Ng])
-
-    @property
     def wls(self):
         """Returns the wavelength array for the bin centers
         """
@@ -342,15 +336,15 @@ class Kdatabase(object):
         else:
             print('Do not have all the molecules in my database')
             mol_to_be_done=mol_to_be_done.intersection(set(self.molecules))
-            print('Molecules to be treated: ',mol_to_be_done)
+            print('Molecules to be treated: ', mol_to_be_done)
         first_mol=True
         for mol in mol_to_be_done:
             if first_mol:
                 res=self.ktables[mol].copy(cp_kdata=True)
                 try:
-                    res.kdata=res.VolMixRatioNormalize(gas_mixture[mol])
+                    res.kdata=res.vmr_normalize(gas_mixture[mol])
                 except TypeError:
-                    print('gave bad mixing ratio format to VolMixRatioNormalize')
+                    print('gave bad mixing ratio format to vmr_normalize')
                     raise TypeError('bad mixing ratio type')            
                 if len(mol_to_be_done)==1:
                     print('only 1 molecule:',mol)
@@ -358,7 +352,7 @@ class Kdatabase(object):
                 first_mol=False
             else:
               print('treating molecule ',mol)
-              res.kdata=res.RandOverlap(self.ktables[mol],None,gas_mixture[mol])
+              res.kdata=res.RandOverlap(self.ktables[mol], None, gas_mixture[mol])
               # no need to re normalize with respect to 
               # the abundances of the molecules already done.
         return res  
@@ -368,8 +362,8 @@ class Kdatabase(object):
         """Creates a Ktable5d for a mix of molecules with a variable gas.
         In essence, the regular create_mix_ktable is called to create
         two mixes:
-        * The background mix specified by bg_comp={}, bg_inac_species=[]
-        * The variable gas specified by vgas_comp={}, vgas_inac_species=[]
+        * The background mix specified by composition=bg_comp, inactive_species=bg_inac_species
+        * The variable gas specified by composition=vgas_comp, inactive_species=vgas_inac_species
 
         See create_mix_ktable for details.
 
@@ -383,14 +377,14 @@ class Kdatabase(object):
         """
         if x_array is None:
             raise RuntimeError('x_array is None: pas bien!!!')
-        background_mix=self.create_mix_ktable(bg_comp,inactive_species=bg_inac_species)
-        var_gas_mix=self.create_mix_ktable(vgas_comp,inactive_species=vgas_inac_species)
+        background_mix=self.create_mix_ktable(bg_comp, inactive_species=bg_inac_species)
+        var_gas_mix=self.create_mix_ktable(vgas_comp, inactive_species=vgas_inac_species)
         ktab5d=var_gas_mix.copy(ktab5d=True)
         ktab5d.xgrid=np.array(x_array)
         ktab5d.Nx=ktab5d.xgrid.size
-        print('shape of the output Ktable5d (p,t,x,wn,g):',ktab5d.shape)
+        print('shape of the output Ktable5d (p,t,x,wn,g):', ktab5d.shape)
         new_kdata=np.zeros(ktab5d.shape)
         for iX, vmr in enumerate(ktab5d.xgrid):
-            new_kdata[:,:,iX,:,:]=var_gas_mix.RandOverlap(background_mix,vmr,1.-vmr, **kwargs)
+            new_kdata[:,:,iX,:,:]=var_gas_mix.RandOverlap(background_mix, vmr, 1.-vmr, **kwargs)
         ktab5d.set_kdata(new_kdata)
         return ktab5d

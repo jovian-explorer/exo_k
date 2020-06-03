@@ -9,6 +9,7 @@ import numpy as np
 import astropy.units as u
 from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
+#from .ktable import Ktable
 from .util.interp import rm_molec, rebin_ind_weights, rebin, \
         gauss_legendre, spectrum_to_kdist
 from .util.cst import KBOLTZ
@@ -191,7 +192,7 @@ class Ktable5d(Data_table):
         self.tgrid=np.loadtxt(os.path.join(path,'T.dat'),skiprows=1)
         self.Nt=self.tgrid.size
 
-        _, self.var_mol, self.Nx, self.xgrid = read_Qdat(os.path.join(path,'Q.dat'))
+        _, self.mol, self.Nx, self.xgrid = read_Qdat(os.path.join(path,'Q.dat'))
 
         if band is None:
             raw=np.loadtxt(os.path.join(path,res,'narrowbands.in'), skiprows=1, unpack=True)
@@ -330,9 +331,10 @@ class Ktable5d(Data_table):
         if weights is not None:
             self.weights=weights
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is None: \
-                raise RuntimeError('If weights are given, ggrid must be specified too.')
-            self.ggrid=ggrid
+            if ggrid is not None: 
+                self.ggrid=np.array(ggrid)
+            else:
+                self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
@@ -429,9 +431,9 @@ class Ktable5d(Data_table):
             wngrid_limit: list or array, optional
                 if an array is given, interpolates only within this array
             log_interp: bool, dummy
-                Dummy variable to be consistent with interpolate_kdata in data_table
-                Whether the interpolation is linear in kdata or in log(kdata)
-                is controlled by self._settings._log_interp but only when the ktable is loaded.
+                Dummy variable to be consistent with interpolate_kdata in data_table.
+                Whether the interpolation is linear in kdata or in log(kdata) is actually
+                controlled by self._settings._log_interp but only when the ktable is loaded.
                 If you change that after the loading, you should rerun setup_interpolation().
 
         """
@@ -569,6 +571,40 @@ class Ktable5d(Data_table):
         """.format(wg=self.weights, xgrid=self.xgrid, shape=self.shape)
         return output
 
+    def combine_with(self, other, x_other=None, **kwargs):
+        """Method to create a new :class:`Ktable5d` where the kdata of 'self' are
+        randomly mixed with 'other' (that must be a :class:`Ktable`).
+
+        Parameters
+        ----------
+            other : :class:`Ktable`
+                A :class:`Ktable` object to be mixed with. Dimensions should be the same as self.
+            x_other : float or array, optional
+                Volume mixing ratio of the species to be mixed with (other).
+
+        If x_other is set to `None` (default), the kcoeffs of this
+        species are considered to be already normalized with respect to the mixing ratio.
+
+        Returns
+        -------
+            :class:`Ktable`
+                A new Ktable of the mix
+        """
+        if not ((self.Np == other.Np) and (self.Nt == other.Nt) and (self.Nw == other.Nw) \
+            and (self.Ng == other.Ng)):
+            raise TypeError("""in combine_with: kdata tables do not have the same dimensions.
+                I'll stop now!""")
+#        if not isinstance(other, Ktable):
+#            raise TypeError("in combine_with: must mix with a Ktable object.")
+        res=self.copy(cp_kdata=True)
+        tmp=other.copy()
+        for iX in range(self.Nx):
+            tmp.kdata=self.kdata[:,:,iX,:,:]
+            res.kdata[:,:,iX,:,:]= \
+                tmp.RandOverlap(other, None, x_other*(1.-self.xgrid[iX]), **kwargs)
+        res.setup_interpolation()
+        return res
+
     def bin_down(self, wnedges=None, ggrid=None, weights=None, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers
 
@@ -640,7 +676,6 @@ class Ktable5d(Data_table):
             self.weights=weights
             self.Ng=new_ggrid.size
         self.setup_interpolation()
-
 
     def bin_down2(self,wngrid,num=300,use_rebin=False,write=0):
         """Obsolete. Do NOT use.

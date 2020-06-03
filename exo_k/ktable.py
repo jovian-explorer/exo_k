@@ -593,11 +593,6 @@ class Ktable(Data_table):
         res.gedges  = np.copy(self.gedges)
         return res
 
-#    def ktable_to_ktable5d(self, ktab):
-#        """Creates a Ktable5d from a ktable. 
-#        It essentially copies all the meta data.
-#        """
-
     def gindex(self, g):
         """Finds the index corresponding to the given g
         """
@@ -619,7 +614,7 @@ class Ktable(Data_table):
         """
         if g is None: raise RuntimeError('A gauss point should be provided with the g= keyword.')
         gindex=self.gindex(g)
-        return self.interpolate_kdata(log10(p),t)[0,:,gindex]*x
+        return self.interpolate_kdata(log10(p), t, x)[0,:,gindex]
 
     def plot_distrib(self, ax, p=1.e-5, t=200., wl=1., x=1., xscale=None, yscale='log', **kwarg):
         """Plot the distribution for a given point
@@ -658,7 +653,7 @@ class Ktable(Data_table):
         return output
 
     def RandOverlap(self, other, x_self, x_other, write=0, use_rebin=False):
-        """Method to randomely mix the opacities of 2 species (self and other).
+        """Method to randomly mix the opacities of 2 species (self and other).
 
         Parameters
         ----------
@@ -683,13 +678,13 @@ class Ktable(Data_table):
         Ng=self.Ng
         weights=self.weights
         try:
-            kdatas=self.VolMixRatioNormalize(x_self)
+            kdatas=self.vmr_normalize(x_self)
         except TypeError:
-            raise TypeError('Gave bad mixing ratio format to VolMixRatioNormalize')
+            raise TypeError('Gave bad mixing ratio format to vmr_normalize')
         try:
-            kdatao=other.VolMixRatioNormalize(x_other)
+            kdatao=other.vmr_normalize(x_other)
         except TypeError:
-            raise TypeError('Gave bad mixing ratio format to VolMixRatioNormalize')
+            raise TypeError('Gave bad mixing ratio format to vmr_normalize')
         kdataconv=np.zeros((self.Np,self.Nt,self.Nw,Ng**2))
         weightsconv=np.zeros(Ng**2)
         newkdata=np.zeros(self.shape)
@@ -722,6 +717,35 @@ class Ktable(Data_table):
 
         return newkdata
 
+    def combine_with(self, other, x_self=None, x_other=None, **kwargs):
+        """Method to create a new Ktable where the kdata of 'self' are
+        randomly mixed with 'other'.
+
+        Parameters
+        ----------
+            other : :class:`Ktable`
+                A :class:`Ktable` object to be mixed with. Dimensions should be the same as self.
+            x_self : float or array, optional
+                Volume mixing ratio of self.
+            x_other : float or array, optional
+                Volume mixing ratio of the species to be mixed with (other).
+
+        If either x_self or x_other are set to `None` (default),
+        the kcoeffs of the species in question
+        are considered to be already normalized with respect to the mixing ratio.
+
+        Returns
+        -------
+            :class:`Ktable`
+                A new Ktable of the mix
+        """
+        if not np.array_equal(self.shape,other.shape):
+            raise TypeError("""in combine_with: kdata tables do not have the same dimensions.
+                I'll stop now!""")
+        res=self.copy(cp_kdata=False)
+        res.kdata=self.RandOverlap(other, x_self, x_other, **kwargs)
+
+        
     def bin_down(self, wnedges=None, weights=None, ggrid=None,
         remove_zeros=False, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers

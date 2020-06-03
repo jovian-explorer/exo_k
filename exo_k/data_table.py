@@ -141,7 +141,9 @@ class Data_table(object):
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array=1.,
             log_interp=None, wngrid_limit=None):
         """interpolate_kdata interpolates the kdata at on a given temperature and
-        log pressure profile. 
+        log pressure profile. If a volume mixing ratio profile (`x_array`) is given,
+        the cross section computed for the species is multiplied by `x_array` to account for the
+        'dilution' of the opacity.
 
         Parameters
         ----------
@@ -149,12 +151,13 @@ class Data_table(object):
                 log 10 pressure array to interpolate to
             t_array: array, same size a logp_array
                 Temperature array to interpolate to
+            x_array: None
+                Volume mixing ratio array used to renormalize the cross section.
+
         If floats are given, they are interpreted as arrays of size 1.
 
-        Parameters
-        ----------
-            x_array: None
-                Dummy argument to be consistent with interpolate_kdata in Ktable5d
+        Other Parameters
+        ----------------
             wngrid_limit: list or array
                 if an array of to values is given, interpolates only within this array
             log_interp: bool, optional
@@ -329,24 +332,28 @@ class Data_table(object):
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 
-    def spectrum_to_plot(self, p=1.e-5, t=200., x=1.,g=None):
+    def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """Dummy function to be defined in inheriting classes
         """
         raise NotImplementedError()
 
-
-    def VolMixRatioNormalize(self, x_self):
+    def vmr_normalize(self, x_self):
         """Rescales kdata to account for the fact that the gas is not a pure species
 
         Parameters
         ----------
             x_self: float or array of shape (`self.Np,self.Nt`)
                 The volume mixing ratio of the species.
+        
+        Returns
+        -------
+            array
+                The vmr normalized kdata (x_self*self.kdata)
         """
         if x_self is None : return self.kdata
         if isinstance(x_self, float): return x_self*self.kdata
         if not isinstance(x_self,np.ndarray):
-            print("""in VolMixRatioNormalize:
+            print("""in vmr_normalize:
             x_self should be a float or a numpy array: I'll probably stop now!""")
             raise TypeError('bad mixing ratio type')
         if np.array_equal(x_self.shape,self.kdata.shape[0:2]):
@@ -355,7 +362,7 @@ class Data_table(object):
             else:                
                 return x_self[:,:,None,None]*self.kdata
         else:
-            print("""in VolMixRatioNormalize:
+            print("""in vmr_normalize:
             x_self shape should be (pgrid.size,tgrid.size): I'll stop now!""")
             raise TypeError('bad mixing ratio type')
 
