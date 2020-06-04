@@ -339,6 +339,11 @@ class RadAtm(Atm_profile):
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the Kdatabase used with RadAtm.")
+            if (not self.kdatabase.consolidated_p_unit) \
+                or (not self.kdatabase.consolidated_kdata_unit):
+                raise RuntimeError( \
+                    """All tables in the database should have the same units to proceed.
+                    You should probably use convert_to_mks().""")
 
     def set_CIAdatabase(self, CIAdatabase):
         """Change the CIA database attached to the current instance of AtmRad
@@ -385,8 +390,8 @@ class RadAtm(Atm_profile):
         if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
         Use the kdatabase keyword during initialization or use the set_database method.""")
         if not self.kdatabase.consolidated_wn_grid: raise RuntimeError("""
-           All tables in the database should have the same wavenumber grid to proceed.
-           You should probably use bin_down().""")
+            All tables in the database should have the same wavenumber grid to proceed.
+            You should probably use bin_down().""")
         if self.CIAdatabase is not None and \
             (not np.array_equal(self.CIAdatabase.wns,self.kdatabase.wns)):
             raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
@@ -446,7 +451,7 @@ class RadAtm(Atm_profile):
                 self.kdata+=cont_sig[:,:,None]
 
     def emission_spectrum(self, integral=True, mu0=0.5, **kwargs):
-        """Computes the emission flux at the top of the atmosphere (in W/m**2/cm**-1)
+        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
         ----------
@@ -458,7 +463,7 @@ class RadAtm(Atm_profile):
         Returns
         -------
             Spectrum object 
-                A spectrum with the Spectral flux at the top of the atmosphere (in W/m**2/cm**-1)
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
         #if self.dtau is None:
         #    self.rad_prop(**kwargs)
@@ -506,7 +511,7 @@ class RadAtm(Atm_profile):
 
 
     def surf_bb(self, integral=True):
-        """Computes the surface black body flux (in W/m**2/cm**-1)
+        """Computes the surface black body flux (in W/m^2/cm^-1)
 
         Parameters
         ----------
@@ -518,7 +523,7 @@ class RadAtm(Atm_profile):
         Returns
         -------
             Spectrum object
-                Spectral flux at the surface (in W/m**2/cm**-1)
+                Spectral flux at the surface (in W/m^2/cm^-1)
         """
         if integral:
             piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[-1])/np.diff(self.wnedges)
@@ -527,7 +532,7 @@ class RadAtm(Atm_profile):
         return Spectrum(piBatm,self.wns,self.wnedges)
 
     def top_bb(self, integral=True):
-        """Computes the top of atmosphere black body flux (in W/m**2/cm**-1)
+        """Computes the top of atmosphere black body flux (in W/m^2/cm^-1)
 
         Parameters
         ----------
@@ -539,7 +544,7 @@ class RadAtm(Atm_profile):
         Returns
         -------
             Spectrum object
-                Spectral flux of a bb at the temperature at the top of atmosphere (in W/m**2/cm**-1)
+                Spectral flux of a bb at the temperature at the top of atmosphere (in W/m^2/cm^-1)
         """
         if integral:
             piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[0])/np.diff(self.wnedges)

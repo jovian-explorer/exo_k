@@ -23,7 +23,7 @@ class Ktable(Data_table):
     """A class that handles 4D tables of k-coefficients.
     Based on the Data_table class that handles basic operations common to Xtable.
     """
-    
+        
     def __init__(self, *filename_filters, filename=None, xsec=None, path=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
@@ -716,7 +716,7 @@ class Ktable(Data_table):
         if write >= 3 : end=time.time();print("kdata rebin with loop: ",end - start)        
 
         return newkdata
-
+        
     def bin_down(self, wnedges=None, weights=None, ggrid=None,
         remove_zeros=False, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers

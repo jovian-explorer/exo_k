@@ -31,7 +31,7 @@ class Cia_table(object):
                 in the Settings()._search_path
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
-                The filename_filters can contain *.
+                The filename_filters can contain '*'.
 
         Other Parameters
         ----------------
@@ -70,7 +70,7 @@ class Cia_table(object):
             if remove_zeros : self.remove_zeros()
 
     def _init_empty(self):
-        """Initializes attributes to none
+        """Initializes attributes to none.
         """
         self.mol1=None
         self.mol2=None
@@ -133,7 +133,7 @@ class Cia_table(object):
         Parameters
         ----------
             file: file stream
-                file to be read
+                file to be read.
         """
         line=file.readline()
         if line is None or line=='':
@@ -383,7 +383,7 @@ class Cia_table(object):
         return 10000./self.wns
 
     def remove_zeros(self, deltalog_min_value=0.):
-        """Finds zeros in the abs_coeff and set them to (10.**-deltalog_min_value)
+        """Finds zeros in the abs_coeff and set them to (10.^-deltalog_min_value)
         times the minimum positive value in the table.
         This is to be able to work in logspace. 
         """

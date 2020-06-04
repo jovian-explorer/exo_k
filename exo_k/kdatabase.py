@@ -43,6 +43,8 @@ class Kdatabase(object):
         self._settings=Settings()
         self.consolidated_wn_grid=True
         self.consolidated_PT_grid=True
+        self.consolidated_p_unit=True
+        self.consolidated_kdata_unit=True
 
         delim=self._settings._delimiter
 
@@ -102,14 +104,14 @@ class Kdatabase(object):
                     'All elements in a database must have the same type (Ktable or Xtable).')
                 if (self.Ng is not None) and (not np.array_equal(tmp_ktable.ggrid,self.ggrid)):
                     raise RuntimeError('All Ktables in a database must have the same g grid.')
-                if (self.p_unit != tmp_ktable.p_unit) or \
-                        (rm_molec(self.kdata_unit) != rm_molec(tmp_ktable.kdata_unit)):
-                    print('Kdatabase units for p and kdata: {p}, {k}'.format(\
-                        p=self.p_unit, k=self.kdata_unit))
-                    print('{mol} Ktable units for p and kdata: {p}, {k}'.format(\
-                        mol=tmp_ktable.mol, p=tmp_ktable.p_unit, k=tmp_ktable.kdata_unit))
-                    raise RuntimeError("""You naughty:
-                    all Ktables in a database must have the same p and kdata units""")
+                if self.p_unit != tmp_ktable.p_unit:
+                    print("""Carefull, not all tables have the same p unit.
+                        You'll need to use convert_p_unit""")
+                    self.consolidated_p_unit=False
+                if rm_molec(self.kdata_unit) != rm_molec(tmp_ktable.kdata_unit):
+                    print("""Carefull, not all tables have the same kdata unit.
+                        You'll need to use convert_kdata_unit""")
+                    self.consolidated_kdata_unit=False
                 self.ktables[tmp_ktable.mol]=tmp_ktable
                 if not np.array_equal(tmp_ktable.wns,self.wns):
                     self.consolidated_wn_grid=False
@@ -155,6 +157,16 @@ class Kdatabase(object):
         else:
             output+='All tables do NOT have common logP-T grid\n'
             output+='You will need to run remap_logPT to perform some operations\n'
+        if self.consolidated_p_unit:
+            output+='All tables share a common p unit\n'
+        else:
+            output+='All tables do NOT have common p unit\n'
+            output+='You will need to run convert_p_unit to perform some operations\n'
+        if self.consolidated_kdata_unit:
+            output+='All tables share a common kdata unit\n'
+        else:
+            output+='All tables do NOT have common kdata unit\n'
+            output+='You will need to run convert_kdata_unit to perform some operations\n'
 
         return output
 
@@ -183,6 +195,9 @@ class Kdatabase(object):
 
         See Data_table.remap_logPT() for details.
         """
+        if not self.consolidated_p_unit: raise RuntimeError( \
+            """All tables in the database should have the same p unit to proceed.
+            You should probably use convert_p_unit().""")
         for mol in self.molecules:
             self.ktables[mol].remap_logPT(logp_array=logp_array,t_array=t_array)
         self.logpgrid=np.array(logp_array)
@@ -260,26 +275,44 @@ class Kdatabase(object):
         res.sample(wngrid, **kwargs)
         return res
 
-    def clip_wl_range(self, wl_range=None):
-        """Limits the data to the provided wavelength range (micron: wl_range)
-        """
-        if wl_range is None: return
-        self.clip_wn_range(10000./np.array(wl_range))
+    def clip_spectral_range(self, wn_range=None, wl_range=None):
+        """Limits the data to the provided spectral range:
 
-    def clip_wn_range(self, wn_range=None):
-        """Limits the data to the provided wavenumber range (cm^-1: wn_range)
+           * Wavenumber in cm^-1 if using wn_range argument
+           * Wavelength in micron if using wl_range
         """
-        if wn_range is None: return
         first=True
         for mol in self.molecules:
-            self.ktables[mol].clip_wn_range(wn_range)
+            self.ktables[mol].clip_spectral_range(wn_range=wn_range, wl_range=wl_range)
             if first:
                 self.wns=self.ktables[mol].wns
                 self.wnedges=self.ktables[mol].wnedges
                 self.Nw=self.ktables[mol].Nw
 
+    def convert_p_unit(self, p_unit='unspecified'):
+        """Converts pressure unit of all Data_tables.
+        See Data_table.convert_p_unit() for details.
+        """
+        first=True
+        for mol in self.molecules:
+            self[mol].convert_p_unit(p_unit=p_unit)
+            if first:
+                self.p_unit=self[mol].p_unit
+        self.consolidated_p_unit=True
+
+    def convert_kdata_unit(self, kdata_unit='unspecified'):
+        """Converts kdata unit of all Data_tables.
+        See Data_table.convert_kdata_unit() for details.
+        """
+        first=True
+        for mol in self.molecules:
+            self[mol].convert_kdata_unit(kdata_unit=kdata_unit)
+            if first:
+                self.kdata_unit=self[mol].kdata_unit
+        self.consolidated_kdata_unit=True
+
     def convert_to_mks(self):
-        """Converts units of all Ktables or Xtables to MKS
+        """Converts units of all `Data_table`s to MKS
         """
         first=True
         for mol in self.molecules:
@@ -287,6 +320,8 @@ class Kdatabase(object):
             if first:
                 self.p_unit=self[mol].p_unit
                 self.kdata_unit=self[mol].kdata_unit
+        self.consolidated_p_unit=True
+        self.consolidated_kdata_unit=True
 
     def create_mix_ktable(self, composition, inactive_species=[]):
         """creates the kdata table for a mix of molecules.
@@ -312,15 +347,21 @@ class Kdatabase(object):
             Ktable object
                 A new ktable for the mix
         """
-        if self.Ng is None: raise RuntimeError("""
-           Create_mix_ktable cannot work with a database of cross sections.
-           Please load correlated-k data.""")
-        if not self.consolidated_wn_grid: raise RuntimeError("""
-           All tables in the database should have the same wavenumber grid to proceed.
-           You should probably use bin_down().""")
-        if not self.consolidated_PT_grid: raise RuntimeError("""
-           All tables in the database should have the same PT grid to proceed.
-           You should probably use remap_logPT().""")
+        if self.Ng is None: raise RuntimeError( \
+            """Create_mix_ktable cannot work with a database of cross sections.
+            Please load correlated-k data.""")
+        if not self.consolidated_wn_grid: raise RuntimeError( \
+            """All tables in the database should have the same wavenumber grid to proceed.
+            You should probably use bin_down().""")
+        if not self.consolidated_PT_grid: raise RuntimeError( \
+            """All tables in the database should have the same PT grid to proceed.
+            You should probably use remap_logPT().""")
+        if not self.consolidated_p_unit: raise RuntimeError( \
+            """All tables in the database should have the same p unit to proceed.
+            You should probably use convert_p_unit().""")
+        if not self.consolidated_kdata_unit: raise RuntimeError( \
+            """All tables in the database should have the same p unit to proceed.
+            You should probably use convert_kdata_unit().""")
         mol_to_be_done=set(composition.keys())
         mol_to_be_done=mol_to_be_done-set(inactive_species)
         if not mol_to_be_done:

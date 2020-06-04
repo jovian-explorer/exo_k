@@ -94,7 +94,7 @@ class EquChemTable(object):
             self.remove_zeros()
 
     def remove_zeros(self,deltalog_min_value=30.):
-        """Finds zeros in the chem data and set them to (10.**-deltalog_min_value)
+        """Finds zeros in the chem data and set them to (10.^-deltalog_min_value)
         times the minimum positive value
         in the table. This is to be able to work in logspace. 
         """

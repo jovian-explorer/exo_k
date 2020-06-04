@@ -33,7 +33,7 @@ class Xtable(Data_table):
                 a file in the Settings()._search_path
                 The Settings()._search_path will be searched for a file
                 with all the filename_filters in the name.
-                The filename_filters can contain *.
+                The filename_filters can contain '*'.
 
         If there is no filename or filename_filters provided,
         just creates an empty object to be filled later

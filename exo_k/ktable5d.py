@@ -9,7 +9,6 @@ import numpy as np
 import astropy.units as u
 from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
-#from .ktable import Ktable
 from .util.interp import rm_molec, rebin_ind_weights, rebin, \
         gauss_legendre, spectrum_to_kdist
 from .util.cst import KBOLTZ
@@ -25,9 +24,9 @@ class Ktable5d(Data_table):
     LMDZ type ktable where there is a variable gas.
     """
     
-    def __init__(self,filename=None,path=None,
-        p_unit='unspecified',kdata_unit='unspecified',
-        remove_zeros=False,**kwargs):
+    def __init__(self, filename=None, path=None,
+        p_unit='unspecified', kdata_unit='unspecified',
+        remove_zeros=False, mol=None, **kwargs):
         """Initializes k coeff table with variable gas and
         supporting data from various sources (see below by order of precedence)
 
@@ -65,12 +64,12 @@ class Ktable5d(Data_table):
             self.filename=filename
         if self.filename is not None:
             if self.filename.lower().endswith(('.hdf5', '.h5')):
-                self.read_hdf5(filename=self.filename)
+                self.read_hdf5(filename=self.filename, mol=mol)
             else:
                 raise NotImplementedError( \
                     'Requested format not recognized. Should end with .pickle, .hdf5, or .h5')
         elif path is not None:
-            self.read_LMDZ(path=path, **kwargs)
+            self.read_LMDZ(path=path, mol=mol, **kwargs)
         else:                  #if there is no input file, just create an empty object 
             self.wnedges=None
             self.weights=None
@@ -94,7 +93,7 @@ class Ktable5d(Data_table):
         """
         return np.array([self.Np,self.Nt,self.Nx,self.Nw,self.Ng])
 
-    def read_hdf5(self, filename=None):
+    def read_hdf5(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
         Parameters
@@ -109,6 +108,7 @@ class Ktable5d(Data_table):
             self.mol=f.attrs['mol_name']
         else:
             self.mol='unspecified'
+        if mol is not None: self.mol=mol
         self.wns=f['bin_centers'][...]
         if 'units' in f['bin_edges'].attrs:
             self.wn_unit=f['bin_edges'].attrs['units']
@@ -157,7 +157,7 @@ class Ktable5d(Data_table):
         f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()    
 
-    def read_LMDZ(self, path=None, res=None, band=None):
+    def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file
         in a gcm friendly format.
         Units are assumed to be cm^2 for kdata and mbar for pressure. 
@@ -193,6 +193,7 @@ class Ktable5d(Data_table):
         self.Nt=self.tgrid.size
 
         _, self.mol, self.Nx, self.xgrid = read_Qdat(os.path.join(path,'Q.dat'))
+        if mol is not None: self.mol=mol
 
         if band is None:
             raw=np.loadtxt(os.path.join(path,res,'narrowbands.in'), skiprows=1, unpack=True)
@@ -397,10 +398,12 @@ class Ktable5d(Data_table):
         self._local_log_interp=log_interp
         if self._local_log_interp:
             self._finterp_kdata=RegularGridInterpolator( \
-                (self.logpgrid,self.tgrid,np.log(self.xgrid)), np.log(self.kdata) )
+                (self.logpgrid,self.tgrid,np.log(self.xgrid)), np.log(self.kdata), \
+                bounds_error=False )
         else:
             self._finterp_kdata=RegularGridInterpolator( \
-                (self.logpgrid,self.tgrid,np.log(self.xgrid)), self.kdata )
+                (self.logpgrid,self.tgrid,np.log(self.xgrid)), self.kdata, \
+                bounds_error=False  )
 
     def set_kdata(self, new_kdata):
         """Changes kdata. this is preferred to directly accessing kdata because one

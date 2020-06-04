@@ -3,7 +3,7 @@
 @author: jeremy leconte
 """
 import numpy as np
-from .util.interp import unit_convert,interp_ind_weights,bilinear_interpolation
+from .util.interp import rm_molec,unit_convert,interp_ind_weights,bilinear_interpolation
 from .settings import Settings
 
 class Data_table(object):
@@ -86,7 +86,7 @@ class Data_table(object):
         minvalue=np.amin(self.kdata[mask])
         self.kdata[~mask]=minvalue/(10.**deltalog_min_value)
 
-    def convert_p_unit(self,p_unit='unspecified',file_p_unit='unspecified'):
+    def convert_p_unit(self, p_unit='unspecified', file_p_unit='unspecified'):
         """Converts pressure to a new unit (in place)
 
         Parameters
@@ -107,7 +107,7 @@ class Data_table(object):
         self.pgrid=self.pgrid*conversion_factor
         self.logpgrid=np.log10(self.pgrid)
 
-    def convert_kdata_unit(self,kdata_unit='unspecified',file_kdata_unit='unspecified'):
+    def convert_kdata_unit(self, kdata_unit='unspecified', file_kdata_unit='unspecified'):
         """Converts kdata to a new unit (in place)
 
         Parameters
@@ -450,21 +450,23 @@ class Data_table(object):
 
         Parameters
         ----------
-        key: can be slices, like for a numpy array.
+            key: can be slices, like for a numpy array.
         """
         return self.kdata[key]
 
-    def clip_wl_range(self, wl_range=None):
-        """Limits the data to the provided wavelength range (micron: wl_range)
-        """
-        if wl_range is None: return
-        self.clip_wn_range(10000./np.array(wl_range))
+    def clip_spectral_range(self, wn_range=None, wl_range=None):
+        """Limits the data to the provided spectral range:
 
-    def clip_wn_range(self, wn_range=None):
-        """Limits the data to the provided wavenumber range (cm^-1: wn_range)
+           * Wavenumber in cm^-1 if using wn_range argument
+           * Wavelength in micron if using wl_range
         """
-        if wn_range is None: return
-        _wn_range=np.sort(np.array(wn_range))
+        if (wn_range is None) and (wl_range is None): return
+        if wl_range is not None:
+            if wn_range is not None:
+                raise RuntimeError('Should provide either wn_range or wl_range, not both!')
+            _wn_range=np.sort(10000./np.array(wl_range))
+        else:
+            _wn_range=np.sort(np.array(wn_range))
         iw_min, iw_max=np.searchsorted(self.wnedges, _wn_range, side='left')
         iw_max-=1
         self.wnedges=self.wnedges[iw_min:iw_max+1]

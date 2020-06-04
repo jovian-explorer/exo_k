@@ -14,11 +14,16 @@ class Settings(Singleton):
     """
 
     def init(self, *args, **kwds):
-        self._search_path = [os.path.abspath('.')]
+        self.reset_search_path()
         self._log_interp = True
         self._convert_to_mks = False
         self._delimiter = '_'
         self._case_sensitive = False
+
+    def reset_search_path(self):
+        """Set default search path.
+        """
+        self._search_path = [os.path.abspath('.')]
 
     def add_search_path(self, *search_paths):
         """Add path(s) to the list of paths that will be searched for
