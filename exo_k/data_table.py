@@ -11,6 +11,10 @@ class Data_table(object):
     This class includes all the interpolation and remapping methods.
     """
 
+    __array_priority__=1000
+    # this allows __rmul__ to take precedence over numpy array broadcasting in multiplications
+    # See https://stackoverflow.com/questions/40694380/forcing-multiplication-to-use-rmul-instead-of-numpy-array-mul-or-byp/44634634#44634634
+
     def __init__(self):
         """Initializes all attributes to `None`"""
         self.filename=None
@@ -351,7 +355,7 @@ class Data_table(object):
                 The vmr normalized kdata (x_self*self.kdata)
         """
         if x_self is None : return self.kdata
-        if isinstance(x_self, float): return x_self*self.kdata
+        if isinstance(x_self, (float,int)): return x_self*self.kdata
         if not isinstance(x_self,np.ndarray):
             print("""in vmr_normalize:
             x_self should be a float or a numpy array: I'll probably stop now!""")
@@ -365,6 +369,69 @@ class Data_table(object):
             print("""in vmr_normalize:
             x_self shape should be (pgrid.size,tgrid.size): I'll stop now!""")
             raise TypeError('bad mixing ratio type')
+
+    def __rmul__(self, vmr):
+        """Defines the right "*" operator with a vmr
+        """
+        res=self.copy()
+        res.kdata=self.vmr_normalize(vmr)
+        return res
+
+    def __mul__(self, vmr):
+        """Defines the "*" operator with a vmr
+        """
+        return self.__rmul__(vmr)
+
+    def combine_with(self, other, x_self=None, x_other=None, **kwargs):
+        """Method to create a new `Data_table` where the kdata of 'self' are:
+
+            * randomly mixed with 'other' for a `Ktable`.
+            * added to 'other' for an `Xtable`
+
+        Parameters
+        ----------
+            other : same class as self
+                A :class:`Data_table` object to be mixed with.
+                Dimensions should be the same as self.
+            x_self : float or array, optional
+                Volume mixing ratio of self.
+            x_other : float or array, optional
+                Volume mixing ratio of the species to be mixed with (other).
+
+        If either x_self or x_other are set to `None` (default),
+        the cross section of the species in question
+        are considered to be already normalized with respect to the mixing ratio.
+
+        Returns
+        -------
+            :class:`Data_table`
+                A new table for the mix
+        """
+        if other.Nx is not None:
+            # if other is a Ktable5d, use the method for this class instead. 
+            return other.combine_with(self, x_self=x_other, x_other=x_self, **kwargs)
+        if not np.array_equal(self.shape,other.shape):
+            raise TypeError("""in combine_with: kdata tables do not have the same dimensions.
+                I'll stop now!""")
+        if (self.p_unit!=other.p_unit) or \
+            (rm_molec(self.kdata_unit)!=rm_molec(other.kdata_unit)):
+            raise RuntimeError("""in combine_with: tables do not have the same units.
+                I'll stop now!""")
+        res=self.copy(cp_kdata=False)
+        if self.Ng is None:
+            res.kdata=self.vmr_normalize(x_self) + other.vmr_normalize(x_other)
+        else:
+            res.kdata=self.RandOverlap(other, x_self, x_other, **kwargs)
+        return res
+
+    def __add__(self, other):
+        """Defines the "+" operator with another Data_table
+
+        .. warning::
+            __radd__ is not implmented because we want to use the __add__ (or combine_with)
+            method of the left object.
+        """
+        return self.combine_with(other)
 
     @property
     def wls(self):
@@ -437,6 +504,8 @@ class Data_table(object):
             self.logk=False
             self.kdata=np.power(10.,self.kdata)
         return
+
+############# OLD METHODS ################
 
     def interpolate_kdata2(self, logp_array=None, t_array=None, x_array=None,
             log_interp=None,wngrid_limit=None):

@@ -571,37 +571,63 @@ class Ktable5d(Data_table):
         """.format(wg=self.weights, xgrid=self.xgrid, shape=self.shape)
         return output
 
-    def combine_with(self, other, x_other=None, **kwargs):
+    def combine_with(self, other, x_self=None, x_other=None, **kwargs):
         """Method to create a new :class:`Ktable5d` where the kdata of 'self' are
         randomly mixed with 'other' (that must be a :class:`Ktable`).
+
+        The main purpose is to add the opacity of a trace species to the background gas
+        of the :class:`Ktable5d` instance. 
+
+        .. warning::
+            Because:
+            
+              * the opacity from the background and variable gases cannot be
+                isolated,
+              * The values of the array for the vmr of the variable gas (self.xgrid)
+                are not modified (diluted),
+
+            the treatment here is valid only if `x_other` << 1.
+            
+            For this reason, `x_self` should be either left to None, or 1-`x_other` depending
+            exactly what you want to do. But if you put `x_self`<<1, you are on your own.
 
         Parameters
         ----------
             other : :class:`Ktable`
-                A :class:`Ktable` object to be mixed with. Dimensions should be the same as self.
+                A :class:`Ktable` object to be mixed with. Dimensions should be the same as self
+                (except for xgrid).
+            x_self : float only, optional
+                Volume mixing ratio of self.
             x_other : float or array, optional
                 Volume mixing ratio of the species to be mixed with (other).
 
-        If x_other is set to `None` (default), the kcoeffs of this
-        species are considered to be already normalized with respect to the mixing ratio.
+        If either x_self or x_other are set to `None` (default),
+        the cross section of the species in question
+        are considered to be already normalized with respect to the mixing ratio.
 
         Returns
         -------
-            :class:`Ktable`
-                A new Ktable of the mix
+            :class:`Ktable5d`
+                A new Ktable5d with the opacity of the new species added. 
         """
         if not ((self.Np == other.Np) and (self.Nt == other.Nt) and (self.Nw == other.Nw) \
             and (self.Ng == other.Ng)):
             raise TypeError("""in combine_with: kdata tables do not have the same dimensions.
                 I'll stop now!""")
-#        if not isinstance(other, Ktable):
-#            raise TypeError("in combine_with: must mix with a Ktable object.")
+        if other.Nx is not None:
+            raise TypeError("""in combine_with: cannot combine 2 Ktable5d""")
+        if (self.p_unit!=other.p_unit) or \
+            (rm_molec(self.kdata_unit)!=rm_molec(other.kdata_unit)):
+            raise RuntimeError("""in combine_with: tables do not have the same units.
+                I'll stop now!""")
         res=self.copy(cp_kdata=True)
         tmp=other.copy()
+        if x_other is None:
+            x_other=1.
         for iX in range(self.Nx):
             tmp.kdata=self.kdata[:,:,iX,:,:]
             res.kdata[:,:,iX,:,:]= \
-                tmp.RandOverlap(other, None, x_other*(1.-self.xgrid[iX]), **kwargs)
+                tmp.RandOverlap(other, x_self, x_other*(1.-self.xgrid[iX]), **kwargs)
         res.setup_interpolation()
         return res
 
