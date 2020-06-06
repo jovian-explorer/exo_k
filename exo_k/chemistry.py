@@ -4,7 +4,7 @@
 """
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
-from .util.cst import calculate_species_molar_mass
+from .util.molar_mass import Molar_mass
 
 
 class EquChemTable(object):
@@ -207,7 +207,7 @@ class gas_mix(object):
 
         for mol,vmr in self.composition.items():
             if mol!='inactive_gas':
-                Mmol=calculate_species_molar_mass(mol)
+                Mmol=Molar_mass().fetch(mol)
                 mol_mass_active_gases+=vmr*Mmol
                 vmr_active_gases+=vmr
         mol_mass=mol_mass_active_gases/vmr_active_gases     

@@ -8,3 +8,4 @@ from .cst import *
 from .spectrum import Spectrum
 from .kspectrum import Kspectrum
 from .filenames import *
+from .molar_mass import Molar_mass

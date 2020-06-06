@@ -377,10 +377,7 @@ class Data_table(object):
         res.kdata=self.vmr_normalize(vmr)
         return res
 
-    def __mul__(self, vmr):
-        """Defines the "*" operator with a vmr
-        """
-        return self.__rmul__(vmr)
+    __mul__ = __rmul__
 
     def combine_with(self, other, x_self=None, x_other=None, **kwargs):
         """Method to create a new `Data_table` where the kdata of 'self' are:
