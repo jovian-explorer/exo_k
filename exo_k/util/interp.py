@@ -123,6 +123,8 @@ def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
 def kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng):
     """Computes the convolution of two atmospheric kdata profiles.
 
+    Nothing is returned. kdataconv is changed in place. 
+
     Parameters
     ----------
         kdata1,kdata2 : arrays
@@ -196,7 +198,7 @@ def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
         ggrid: array
             g-points.
     
-    Retunrs
+    Returns
     -------
         array
             k-coefficient array of the mix over the atmospheric column.
@@ -230,7 +232,8 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
     ----------
         quantity: str
             The name of the pysical quantity handled for potential error messages
-        unit_file, unit_in, unit_out: str
+        unit_file/unit_in/unit_out: str
+
             Respectively:
 
               * String with the unit found in (or assumed from the format of) the initial data,
@@ -265,10 +268,10 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
     return unit_to_write,u.Unit(starting_unit).to(u.Unit(unit_to_write))
 
 def rm_molec(unit_name):
-    """Remove "/molecule" or "/molec" for a unit string.
+    """Removes "/molecule" or "/molec" from a unit string.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
         unit_name: str
             String to be changed.
         
@@ -296,6 +299,7 @@ def gauss_legendre(order):
     ----------
         order: int
             Order of the quadrature wanted.
+
     Returns
     -------
         weights: array(order)
@@ -359,7 +363,7 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
 @numba.njit()
 def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicestosum, \
         wngrid_filter, wn_weigths, num, use_rebin):
-    """bins down a kcoefficient table (see Ktable.bin_down for details)
+    """bins down a kcoefficient table (see :func:`~exo_k.ktable.Ktable.bin_down` for details)
     
     Parameters
     ----------

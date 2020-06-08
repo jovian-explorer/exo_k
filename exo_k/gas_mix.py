@@ -29,7 +29,15 @@ class Gas_mix(object):
         self.iw_max=None
 
     def set_composition(self, composition, bg_gas=None):
-        """Rest composition and computes the vmr of the 'background' gas.
+        """Reset composition and computes the vmr of the 'background' gas.
+
+        Parameters
+        ----------
+            composition: dict
+                Keys are molecule names. Values are vmr or arrays of vmr.
+            bg_gas: str
+                Name of the background molecule. 
+                If None, it is inferred from the molecule for which vmr='background'.
         """
         self.composition=composition.copy()
         self.bg_gas=bg_gas
@@ -59,12 +67,9 @@ class Gas_mix(object):
         Uses the fact that self.composition is a dictionary
         with the name of the molecules as keys and the vmr as values.
         vmr are either float or arrays.
-        The background gas must have a vmr='background'
         
-        Returns
-        -------
-            float or array:
-                Vol. Mix. Ratio of the background gas
+        At this stage, the background gas should be identified by `self.bg_gas`,
+        and its Vol. Mix. Ratio will be updated in the composition dict. 
         """
         other_vmr=0.
         if self.bg_gas is None: # should never happen
@@ -93,11 +98,6 @@ class Gas_mix(object):
     def molar_mass(self):
         """Computes the molar mass of a mix of gases
 
-        Parameters
-        ----------
-            composition: dict
-                Dictionary with the name of the molecules as keys
-                and the vmr as values. vmr are either float or arrays.
         Returns
         -------
             float or array:
@@ -147,7 +147,7 @@ class Gas_mix(object):
 
         Parameters
         ----------
-            k_database: :class:`Kdatabase` object
+            k_database: :class:`~exo_k.kdatabase.Kdatabase` object
                 New Kdatabase to use.
         """
         self.kdatabase=k_database
@@ -174,7 +174,7 @@ class Gas_mix(object):
 
         Parameters
         ----------
-            cia_database: :class:`CIAdatabase` object
+            cia_database: :class:`~exo_k.ciadatabase.CIAdatabase` object
                 New CIAdatabase to use.
         """
         self.cia_database=cia_database

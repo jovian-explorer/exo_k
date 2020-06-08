@@ -9,7 +9,8 @@ import numpy as np
 from .cia_table import Cia_table
 
 class CIAdatabase(object):
-    """Class to group CIA tables and combine them in radiative transfer
+    """Class to group :class:`~exo_k.cia_table.Cia_table` objects
+    and combine them in radiative transfer
     """
 
     def __init__(self, filenames, *str_filters, remove_zeros=True, **kwargs):
@@ -23,7 +24,7 @@ class CIAdatabase(object):
                 
         A local search path can be specified with 'search_path='
 
-        See the options of Cia_table.__init__()
+        See the options of :class:`~exo_k.cia_table.Cia_table` __init__ method.
         """
         self.cia_tables={}
         self.wns=None
@@ -36,11 +37,11 @@ class CIAdatabase(object):
                 self.add_cia_tables(tmp_cia_table)
     
     def add_cia_tables(self, *cia_tables):
-        """Adds news cia tables to a CIA database.
+        """Adds new :class:`~exo_k.cia_table.Cia_table` objects to a CIA database.
 
         Parameters
         ----------
-            cia_tables: :class:`CIA_table`
+            cia_tables: :class:`~exo_k.cia_table.Cia_table`
                 As many cia tables as you want.
         """
         for cia_table in cia_tables:
@@ -127,14 +128,14 @@ class CIAdatabase(object):
         ----------
             logP_array: array
 
-            T_array   : array
+            T_array: array
                 log10 Pressure and temperature profiles
 
-            gas_comp  : :class:`chemistry.Gas_mix` object
-                behaves like a dict with mol names as keys and vmr as values
+            gas_comp: :class:`~exo_k.gas_mix.Gas_mix` object
+                behaves like a dict with mol names as keys and vmr as values.
 
             wngrid_limit: array, optional
-                Smaller and bigger wavenumbers inside which to perform the calculation
+                Smaller and bigger wavenumbers inside which to perform the calculation.
 
         Returns:
             array:

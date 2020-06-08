@@ -37,11 +37,12 @@ class Ktable(Data_table):
             filename : str, optional
                 Relative or absolute name of the file to be loaded. 
             filename_filters : sequence of string
-                As many strings as necessary to uniquely define a file
-                in the `Settings()._search_path`.
-                The Settings()._search_path will be searched for a file
+                As many strings as necessary to uniquely define
+                a file in the global search path defined in
+                :class:`~exo_k.settings.Settings`.
+                This path will be searched for a file
                 with all the filename_filters in the name.
-                The filename_filters can contain *.
+                The filename_filters can contain '*'.
             xsec : Xtable object
                 If no filename nor filename_filters are provided, this xsec object will be used to
                 create a ktable. In this case, wavenumber bins must be given
@@ -82,8 +83,10 @@ class Ktable(Data_table):
                 If True, the zeros in the kdata table are replaced by
                 a value 10 orders of magnitude smaller than the smallest positive value
             search_path : str, optional
-                If search_path is provided, it locally overrides the global _search_path settings
-                and only files in search_path are returned.            
+                If search_path is provided,
+                it locally overrides the global _search_path
+                in :class:`~exo_k.settings.Settings`
+                and only files in search_path are returned.
         """
         super().__init__()
 
@@ -384,26 +387,28 @@ class Ktable(Data_table):
 
     def xsec_to_ktable(self, xsec=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre', order=20, mid_dw=True, write=0):
-        """Fills the :class:`Ktable` object with a k-coeff table computed
-        from a :class:`Xtable` object.
-        The p and kcorr units are inherited from the :class:`Xtable` object.
+        """Fills the :class:`~exo_k.ktable.Ktable` object with a k-coeff table computed
+        from a :class:`~exo_k.xtable.Xtable` object.
+
+        The p and kcorr units are inherited from the :class:`~exo_k.xtable.Xtable` object.
 
         Parameters
         ----------
-            xsec : :class:`Xtable`
+            xsec: :class:`~exo_k.xtable.Xtable`
                 input Xtable object instance
-            wnedges : Array
+            wnedges: Array
                 edges of the wavenumber bins to be used to compute the corrk
 
         Other Parameters
         ----------------
             weights: array, optional
                 If weights are provided, they are used instead of the legendre quadrature. 
-            quad : string, optional
+            quad: string, optional
                 Type of quadrature used. Default is 'legendre'
-            order : Integer, optional
+            order: Integer, optional
                 Order of the Gauss legendre quadrature used. Default is 20.
             mid_dw: boolean, optional
+
                 * If True, the Xsec values in the high resolution xsec data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
@@ -460,6 +465,9 @@ class Ktable(Data_table):
         kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
+
+        .. warning::
+            (log) Pressures here must be specified in Pa!!!
 
         Parameters
         ----------

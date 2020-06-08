@@ -13,10 +13,10 @@ class EndOfFile(Exception):
     """Error for an end of file
     """
 
-def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
+def create_fname_grid(base_string, logpgrid=None, tgrid=None, xgrid=None,
         p_kw=None, t_kw=None, x_kw=None):
-    """Creates a grid of filenames from an array of pressures, temperatures,
-    and vmr if there is a variable gas.
+    """Creates a grid of filenames from an array of pressures, temperatures (
+    and vmr if there is a variable gas).
 
     Parameters
     ----------
@@ -29,11 +29,19 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
             Grid in temperature of the input
         xgrid: Array
             Input grid in vmr of the variable gas
-        The values in the above arrays must be convertible in integers
+        
+    .. warning::
+        The result of this function is much more predictable 
+        if the values in the above arrays are given as integers. 
+        If you want to use floats anyway, good luck. 
+
+    Parameters
+    ----------
         p_kw: str
         t_kw: str
         x_kw: str
-            Input grid in vmr of the variable gas
+            The pattern string that will be recognized as keywords between
+            {} in base_string (See examples).
 
     Examples
     --------
@@ -54,7 +62,7 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
     if xgrid is None:
         for iP in range(logpgrid.size):
             for iT in range(tgrid.size):
-                dict_opt={p_kw:str(int(logpgrid[iP])),t_kw:str(int(tgrid[iT]))}
+                dict_opt={p_kw:str(logpgrid[iP]),t_kw:str(tgrid[iT])}
                 fname=base_string.format(**dict_opt)
                 res.append(fname)
         return np.array(res).reshape((logpgrid.size,tgrid.size))
@@ -63,8 +71,8 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
         for iP in range(logpgrid.size):
             for iT in range(tgrid.size):
                 for iX in range(xgrid.size):
-                    dict_opt={p_kw:str(int(logpgrid[iP])), \
-                        t_kw:str(int(tgrid[iT])),x_kw:str(int(xgrid[iX]))}
+                    dict_opt={p_kw:str(logpgrid[iP]), \
+                        t_kw:str(tgrid[iT]),x_kw:str(xgrid[iX])}
                     fname=base_string.format(**dict_opt)
                     res.append(fname)
         return np.array(res).reshape((logpgrid.size,tgrid.size,xgrid.size))
@@ -72,6 +80,7 @@ def create_fname_grid(base_string,logpgrid=None, tgrid=None, xgrid=None,
 def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
     """Creates a grid of filenames consistent with Kspectrum/LMDZ
     from the number of pressure, temperatures (, and vmr) points (respectively) in the grid.
+
     Parameters
     ----------
         Np, Nt: int
@@ -94,11 +103,11 @@ def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
 
         >>> exo_k.create_fname_grid_Kspectrum_LMDZ(2,3)                  
         array([['k001', 'k002', 'k003'],
-       ['k004', 'k005', 'k006']], dtype='<U4')
+        ['k004', 'k005', 'k006']], dtype='<U4')
 
         >>> exo_k.create_fname_grid_Kspectrum_LMDZ(2,3,suffix='.h5')                  
         array([['k001.h5', 'k002.h5', 'k003.h5'],
-       ['k004.h5', 'k005.h5', 'k006.h5']], dtype='<U7')
+        ['k004.h5', 'k005.h5', 'k006.h5']], dtype='<U7')
 
     """    
     res=[]
@@ -119,9 +128,15 @@ def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
         return np.transpose(res,(2,1,0))
 
 
-def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
+def finalize_LMDZ_dir(corrkname, IRsize, VIsize):
     """Creates the right links for a LMDZ type directory to be read by the LMDZ generic GCM.
-      => you must have run write_LMDZcorrk for your IR and VI channels.
+
+    You will need to create a proper Q.dat before using with the LMDZ GCM. 
+
+    .. important::
+        You must have run :func:`exo_k.ktable.Ktable.write_LMDZ` or
+        :func:`exo_k.ktable5d.Ktable5d.write_LMDZ` for both of your IR and VI channels
+        beforehand.
 
     Parameters
     ----------
@@ -147,7 +162,7 @@ def finalize_LMDZ_dir(corrkname,IRsize,VIsize):
 
 def convert_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
     """Converts kspectrum like spectra to hdf5 format for speed and space.
-    Helper function. Real work done in class Kspectrum.
+    Helper function. Real work done in class :class:`~exo_k.util.kspectrum.Kspectrum`.
 
     Parameters
     ----------
@@ -215,7 +230,9 @@ def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
 
 ####### OLD FUNCTIONS ###################
 def convert_old_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
-    """Converts kspectrum like spectra to hdf5 format for speed and space
+    """Deprecated.
+    
+    Converts kspectrum like spectra to hdf5 format for speed and space
 
     Parameters
     ----------

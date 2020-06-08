@@ -6,7 +6,10 @@ from re import findall
 from exo_k.util.singleton import Singleton
 
 class Molar_mass(Singleton):
-    """A class to store the molar mass (in kg/mol) of custom gases.
+    """A class to compute the molar mass (in kg/mol) of regular molecules
+    with a name written in a regular way (e.g. CO2, H2O, etc.).
+    This class can also store the molar mass of custom gases with arbitrary names
+    (for example: My_gas, earth_background).
     """
     
     def init(self, *args, **kwds):
@@ -32,12 +35,14 @@ class Molar_mass(Singleton):
 
     def fetch(self, molecule_name):
         """Computes the molar mass of a molecule in kg/mol
+        
         Parameters:
             molecule_name: str
-                Name of the molecule
+                Name of the molecule.
+
         Returns:
             float:
-                Molar mass in kg/mol
+                Molar mass in kg/mol.
         """
         if molecule_name in self._custom_mol_mass.keys():
             return self._custom_mol_mass[molecule_name]

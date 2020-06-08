@@ -2,7 +2,7 @@
 """
 @author: jeremy leconte
 
-Contains classes for the atmospheric profile and its radiative properties.
+Contains classes for atmospheric profiles and their radiative properties.
 That's where forward models are computed. 
 """
 import numpy as np
@@ -17,9 +17,9 @@ from .util.spectrum import Spectrum
 
 class Atm_profile(object):
     """A class defining an atmospheric PT profile with some global data
-    (gravity, Molar mass, etc.)
+    (gravity, etc.)
 
-    :any:`Atm` is based on :class:`Atm_profile` and handles
+    The derived class :class:`~exo_k.atm.Atm` handles
     radiative transfer calculations.
 
     """

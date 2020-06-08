@@ -27,9 +27,10 @@ class Cia_table(object):
             filename: str, optional
                 Relative or absolute name of the file to be loaded. 
             filename_filters: sequence of string
-                As many strings as necessary to uniquely define a file
-                in the Settings()._search_path
-                The Settings()._search_path will be searched for a file
+                As many strings as necessary to uniquely define
+                a file in the global search path defined in
+                :class:`~exo_k.settings.Settings`.
+                This path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
 
@@ -45,8 +46,10 @@ class Cia_table(object):
                 If True, the zeros in the kdata table are replaced by
                     a value 10 orders of magnitude smaller than the smallest positive value
             search_path: str, optional
-                If search_path is provided, it locally overrides the global _search_path settings
-                and only files in search_path are returned.            
+                If search_path is provided,
+                it locally overrides the global _search_path
+                in :class:`~exo_k.settings.Settings`
+                and only files in search_path are returned.
         """
         self._init_empty()
         self._settings=Settings()

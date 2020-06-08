@@ -14,7 +14,7 @@ from .util.kspectrum import Kspectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ
 
 class Xtable(Data_table):
-    """A class that handles tables of cross sections. Based on Data_table.
+    """A class that handles tables of cross sections.
     """
 
     def __init__(self, *filename_filters, filename=None,
@@ -30,8 +30,9 @@ class Xtable(Data_table):
                 Relative or absolute path to the input file.
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define
-                a file in the Settings()._search_path
-                The Settings()._search_path will be searched for a file
+                a file in the global search path defined in
+                :class:`~exo_k.settings.Settings`.
+                This path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
 
@@ -42,7 +43,8 @@ class Xtable(Data_table):
         ----------------
             search_path: str, optional
                 If search_path is provided,
-                it locally overrides the global _search_path settings
+                it locally overrides the global _search_path
+                in :class:`~exo_k.settings.Settings`
                 and only files in search_path are returned.
 
         For unit options, see Ktable init function.

@@ -36,7 +36,7 @@ def Bnu(nu, T):
         float
             Bnu in W/m^2/str/cm^-1 (not SI units).
 
-    sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
+    sigma*T^4=Int(Bnu dnu) where nu is expressed in cm^-1
     """
     sigma=nu*1.e2
     return PLANCK_CST1*sigma**3/(np.exp(PLANCK_CST2*sigma/T)-1.)
@@ -57,7 +57,7 @@ def Bnu_integral(nu_edges, T):
         array
             Bnu_integral in W/m^2/str.
 
-    sigma*T**4/PI=sum of Bnu_integral
+    sigma*T^4/PI=sum of Bnu_integral
     """
     nu_edges=np.array(nu_edges)
     res=np.empty(nu_edges.size-1)
@@ -83,7 +83,8 @@ def Bnu_integral_num(nu_edges, T, n=30):
         Array of shape (T_array.size,nu_edges.size-1)
             Bnu_integral_num: Integral of the source function at 
             temperatures T_array inside the bins in W/m^2/str
-            sigma*T**4=sum of Bnu_integral_num
+    
+    sigma*T^4=sum of Bnu_integral_num
     """
     kp=PLANCK_CST2/T
     res=np.zeros(nu_edges.size)
@@ -121,7 +122,8 @@ def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
         Array of shape (T_array.size,nu_edges.size-1)
             Bnu_integral_num: Integral of the source function at
             temperatures T_array inside the bins in W/m^2/str
-            sigma*T**4=sum of Bnu_integral_num
+    
+    sigma*T^4=sum of Bnu_integral_num
     """
     res=np.empty((Nt,Nw))
     for iT in range(Nt):
@@ -145,9 +147,13 @@ def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
     return res
 
 def Bnu_integral_old(nu_edges, T):
-    """Computes the integral of the Planck function in wavenumber bins.
+    """Deprecated.
+    
+    Computes the integral of the Planck function in wavenumber bins.
     nu_edges is an array of the edges of the wavenumber bins in cm^-1.
-    sigma*T**4=sum of Bnu_integral
+    
+    sigma*T^4=sum of Bnu_integral
+
     Bnu_integral is in W/m^2/str
     """
     a1=1.e8*2.*PLANCK*C_LUM**2
@@ -173,8 +179,7 @@ def Bmicron(lamb, T):
         float
             Bmicron in W/m^2/str/micron (not SI units).
 
-    sigma*T**4=Int(Bmicron d lamb)
-    where lamb is expressed in microns
+    sigma*T^4=Int(Bmicron d lamb) where lamb is expressed in microns
     """
     lambda_si=lamb*1.e-6
     return PLANCK_CST1_lamb/(lambda_si**5   \
@@ -200,7 +205,7 @@ def BBnu_Stellar_Spectrum(nu, T, Flux):
         float
             BBnu_Stellar_Spectrum is in W/m^2/cm^-1 (not SI units).
     
-    sigma*T**4=Int(Bnu dnu) where nu is expressed in cm^-1
+    sigma*T^4=Int(Bnu dnu) where nu is expressed in cm^-1
     """
     Scaling_Factor=PI/(SIG_SB*T**4)*Flux
     return Scaling_Factor*Bnu(nu,T)
@@ -224,8 +229,7 @@ def BBmicron_Stellar_Spectrum(lamb, T, Flux):
         float
             BBmicron_Stellar_Spectrum is in W/m^2/micron (not SI units).
             
-    sigma*T**4=Int(Bmicron d lamb)
-    where lamb is expressed in microns.
+    sigma*T^4=Int(Bmicron d lamb) where lamb is expressed in microns.
     
     """
     Scaling_Factor=PI/(SIG_SB*T**4)*Flux
@@ -234,12 +238,36 @@ def BBmicron_Stellar_Spectrum(lamb, T, Flux):
 def wavelength_grid_R(lambda_min, lambda_max, R):
     """Creates a wavelength grid starting from lambda_min and ending at lambda_max
     with a resolution of R (roughly).
+
+    Parameters
+    ----------
+        lambda_min/lambda_max: int or float
+            Min/max wavelength (in micron).
+        R: int or float
+            Resolution.
+
+    Returns
+    -------
+        array
+            Grid of wavelength.
     """
     return np.append(np.exp(np.arange(np.log(lambda_min),np.log(lambda_max),1./R)),lambda_max)
 
 def wavenumber_grid_R(nu_min, nu_max, R):
     """Creates a wavenumber grid starting from nu_min and ending at nu_max
     with a resolution of R (roughly).
+
+    Parameters
+    ----------
+        nu_min/nu_max: int or float
+            Min/max wavenumber (in cm^-1).
+        R: int or float
+            Resolution.
+
+    Returns
+    -------
+        array
+            Grid of wavenumber.
     """
     return np.append(np.exp(np.arange(np.log(nu_min),np.log(nu_max),1./R)),nu_max)
 
@@ -259,10 +287,10 @@ def rad_prop_corrk(dcol_density, opacity_prof, mu0):
 
     Returns
     -------
-        self.dtau: Array
-            optical depth of each layer for each wavenumber.
-        self.tau: Array
+        tau: Array
             cumulative optical depth from the top (with zeros at the top of the first layer)
+        dtau: Array
+            optical depth of each layer for each wavenumber.
    """
     Nlev,Nw,Ng=opacity_prof.shape
     OvMu=1./mu0
@@ -274,7 +302,7 @@ def rad_prop_corrk(dcol_density, opacity_prof, mu0):
                 dtau_tmp=dcol_density[lev]*opacity_prof[lev,iW,ig]*OvMu
                 dtau[lev,iW,ig]=dtau_tmp
                 tau[lev+1,iW,ig]=tau[lev,iW,ig]+dtau_tmp
-    return tau,dtau
+    return tau, dtau
 
 @numba.njit
 def rad_prop_xsec(dcol_density, opacity_prof, mu0):
@@ -292,10 +320,10 @@ def rad_prop_xsec(dcol_density, opacity_prof, mu0):
 
     Returns
     -------
-        self.dtau: Array
-            optical depth of each layer for each wavenumber.
-        self.tau: Array
+        tau: Array
             cumulative optical depth from the top (with zeros at the top of the first layer)
+        dtau: Array
+            optical depth of each layer for each wavenumber.
     """
     Nlev,Nw=opacity_prof.shape
     OvMu=1./mu0
@@ -332,7 +360,7 @@ def path_integral_corrk(Nlay, Nw, Ng, tangent_path, density_prof, opacity_prof, 
     Returns
     -------
         transmittance: array
-            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma)).
+            Transmittance for each layer and wavenumber bin (Exp(-tau_sigma)).
     """
     exp_min_tau=np.zeros((Nlay,Nw,Ng))
     transmittance=np.zeros((Nlay,Nw))
@@ -372,7 +400,7 @@ def path_integral_xsec(Nlay, Nw, tangent_path, density_prof, opacity_prof):
     Returns
     -------
         transmittance: array
-            Transmisstance for each layer and wavenumber bin (Exp(-tau_sigma)).
+            Transmittance for each layer and wavenumber bin (Exp(-tau_sigma)).
     """
     transmittance=np.zeros((Nlay,Nw))
     for ilay in range(Nlay):

@@ -15,7 +15,7 @@ from .kdatabase import Kdatabase
 from .xtable import Xtable
 from .cia_table import Cia_table
 from .ciadatabase import CIAdatabase
-from .atm_lib import Atm_profile,Atm
+from .atm import Atm_profile,Atm
 from .chemistry import EquChemTable
 from .gas_mix import Gas_mix
 from .settings import Settings

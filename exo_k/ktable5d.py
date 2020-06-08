@@ -286,6 +286,9 @@ class Ktable5d(Data_table):
         """Computes a k coeff table from high resolution cross sections
         in the usual k-spectrum format.
 
+        .. warning::
+            (log) Pressures here must be specified in Pa!!!
+
         Parameters
         ----------
             path : String
