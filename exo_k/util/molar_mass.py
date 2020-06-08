@@ -12,7 +12,6 @@ class Molar_mass(Singleton):
     def init(self, *args, **kwds):
         """Initializes empty dictionary of custom molecular masses.
         """
-        print('entering init')
         self._custom_mol_mass={}
 
     def add_species(self, species_dict):
@@ -40,7 +39,6 @@ class Molar_mass(Singleton):
             float:
                 Molar mass in kg/mol
         """
-        print('entering call')
         if molecule_name in self._custom_mol_mass.keys():
             return self._custom_mol_mass[molecule_name]
         #s = re.findall('([A-Z][a-z]?)([0-9]*)', molecule_name)

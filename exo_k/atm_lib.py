@@ -8,7 +8,7 @@ That's where forward models are computed.
 import numpy as np
 import astropy.units as u
 from numba.typed import List
-from .chemistry import gas_mix
+from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
 from .util.interp import RandOverlap_2_kdata_prof, rm_molec
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
@@ -61,7 +61,7 @@ class Atm_profile(object):
           This will be used to define the surface and top pressures.
           Nlev becomes the size of the arrays. 
         """
-        self.gas_mix=gas_mix(composition)
+        self.gas_mix=Gas_mix(composition)
         self.rcp=rcp
         if logplev is None:
             self.psurf=psurf
@@ -153,7 +153,7 @@ class Atm_profile(object):
                 If True, the column density per layer of the atmosphere is recomputed.
                 This si mostly to save time when we know this will be done later on.
         """
-        self.gas_mix=gas_mix(composition_dict)
+        self.gas_mix=Gas_mix(composition_dict)
         self.set_Mgas(Mgas=None, compute_col_dens=compute_col_dens)
 
     def set_Mgas(self, Mgas=None, compute_col_dens=True):

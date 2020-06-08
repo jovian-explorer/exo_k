@@ -5,7 +5,7 @@
 import numpy as np
 from .ktable import Ktable
 from .xtable import Xtable
-from .chemistry import gas_mix
+from .gas_mix import Gas_mix
 from .settings import Settings
 from .util.interp import rm_molec
 
@@ -332,7 +332,7 @@ class Kdatabase(object):
                 Keys are the molecule names (they must match the names in the database).
                 Values are either numbers or arrays of volume mixing ratios
                 with shape (pgrid.size,tgrid.size).
-                This composition will instantiate a gas_mix object.
+                This composition will instantiate a :class:`Gas_mix` object.
                 In particular, if a value is 'background', this gas will
                 be used to fill up to sum(vmr)=1 (See chemistry.gas_type for details).
                 For each (P,T) point, the sum of all the mixing ratios
@@ -370,7 +370,7 @@ class Kdatabase(object):
             res=self[self.molecules[0]].copy(cp_kdata=False)
             res.kdata=np.zeros(res.shape)
             return res
-        gas_mixture=gas_mix(composition)
+        gas_mixture=Gas_mix(composition)
         if all(elem in self.molecules for elem in mol_to_be_done):
             print('I have all the requested molecules in my database')
             print(mol_to_be_done)
