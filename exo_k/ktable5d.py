@@ -25,7 +25,8 @@ class Ktable5d(Data_table):
     """
     
     def __init__(self, filename=None, path=None,
-        p_unit='unspecified', kdata_unit='unspecified',
+        p_unit='unspecified', file_p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
         remove_zeros=False, mol=None, **kwargs):
         """Initializes k coeff table with variable gas and
         supporting data from various sources (see below by order of precedence)
@@ -38,25 +39,13 @@ class Ktable5d(Data_table):
                 If none of the above is specifed,
                 path can point to a directory with a LMDZ type k coeff table.
                 In this case, see read_LMDZ for the keywords to specify.
-            p_unit: str
-                String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
-                or any pressure unit recognized by the astropy.units library).
-                If ='unspecified', no conversion is done.
-            kdata_unit: str
-                String to identify the units to convert to.
-                Accepts 'cm^2', 'm^2' or any surface unit recognized by the 
-                astropy.units library. If ='unspecified', no conversion is done.
-                In general, kdata should be kept in 'per number' or 'per volume'
-                units (as opposed to 'per mass' units) as composition will
-                always be assumed to be a number or volume mixing ratio.
-                Opacities per unit mass are not supported yet.
-                Note that that you do not need to specify the '/molec'
-                or '/molecule' in the unit.
-            remove_zeros: boolean
-                If True, the zeros in the kdata table are replaced by
-                    a value 10 orders of magnitude smaller than the smallest positive value
 
         If there is no input, just creates an empty object to be filled later
+
+        See :class:`~exo_k.ktable.Ktable` __init__ mehthod for documentation on
+        `p_unit`, `file_p_unit`, `kdata_unit`, `file_kdata_unit`, `remove_zeros`,
+        `search_path`, and `mol` keywords.
+
         """
         super().__init__()
 
@@ -78,13 +67,11 @@ class Ktable5d(Data_table):
             self.xgrid=None
             self._finterp_kdata=None
 
+        super().finalize_init(p_unit=p_unit, file_p_unit=file_p_unit,
+            kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
+            remove_zeros=remove_zeros)
+
         if self.kdata is not None:
-            if self._settings._convert_to_mks:
-                if p_unit is 'unspecified': p_unit='Pa'
-                if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,file_p_unit='unspecified')
-            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit='unspecified')
-            if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
             self.setup_interpolation()
 
     @property

@@ -39,15 +39,9 @@ class Xtable(Data_table):
         If there is no filename or filename_filters provided,
         just creates an empty object to be filled later
 
-        Other Parameters
-        ----------------
-            search_path: str, optional
-                If search_path is provided,
-                it locally overrides the global _search_path
-                in :class:`~exo_k.settings.Settings`
-                and only files in search_path are returned.
-
-        For unit options, see Ktable init function.
+        See :class:`~exo_k.ktable.Ktable` __init__ mehthod for documentation on
+        `p_unit`, `file_p_unit`, `kdata_unit`, `file_kdata_unit`, `remove_zeros`,
+        `search_path`, and `mol` keywords.
         """
         super().__init__()
         if filename is not None:
@@ -66,13 +60,9 @@ class Xtable(Data_table):
                 raise NotImplementedError("""Requested format not recognized.
                 Currently recognized formats are Exomol .pickle, .hdf5, and Exo_Transmit .dat.""")
 
-        if self.kdata is not None:
-            if self._settings._convert_to_mks:
-                if p_unit is 'unspecified': p_unit='Pa'
-                if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
-            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
-            if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+        super().finalize_init(p_unit=p_unit, file_p_unit=file_p_unit,
+            kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
+            remove_zeros=remove_zeros)
 
     @property
     def shape(self):

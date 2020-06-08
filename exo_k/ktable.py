@@ -82,6 +82,8 @@ class Ktable(Data_table):
             remove_zeros : boolean, optional
                 If True, the zeros in the kdata table are replaced by
                 a value 10 orders of magnitude smaller than the smallest positive value
+            mol: str, optional
+                The name of the gas or molecule described by the :class:`Ktable`
             search_path : str, optional
                 If search_path is provided,
                 it locally overrides the global _search_path
@@ -114,13 +116,10 @@ class Ktable(Data_table):
             self.ggrid=None
             self.gedges=None
 
-        if self.kdata is not None:
-            if self._settings._convert_to_mks:
-                if p_unit is 'unspecified': p_unit='Pa'
-                if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-            self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
-            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
-            if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+        super().finalize_init(p_unit=p_unit, file_p_unit=file_p_unit,
+            kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
+            remove_zeros=remove_zeros)
+
 
     @property
     def shape(self):

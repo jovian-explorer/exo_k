@@ -41,6 +41,20 @@ class Data_table(object):
         self.wn_unit='cm^-1'
         self._settings=Settings()
 
+    def finalize_init(self, p_unit='unspecified', file_p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
+        remove_zeros=False):
+        """Common code at the end of the initialization of
+        inheriting classes put here to avoid duplicates
+        """
+        if self.kdata is not None:
+            if self._settings._convert_to_mks:
+                if p_unit is 'unspecified': p_unit='Pa'
+                if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
+            self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
+            self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
+            if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+
     def copy_attr(self, other, cp_kdata=False):
         """Copy attributes from other
 
