@@ -9,11 +9,15 @@ from .rayleigh import Rayleigh
 
 class Gas_mix(object):
     """Dict-like class to handle gas composition (with background gas) and molar mass.
+
+    If `logp_array`, `t_array`, and radiative databases are provided, :any:`cross_section`
+    can be used to compute the opacity of the gas
     """
 
     def __init__(self, composition, bg_gas=None, logp_array=None, t_array=None,
         k_database=None, cia_database=None):
-        """Instantiates a Gas_mix object and computes the vmr of the 'background' gas.
+        """__init_ Instantiates
+        a Gas_mix object and computes the vmr of the 'background' gas.
         """
         self.set_composition(composition, bg_gas=bg_gas)
         self.set_logPT(logp_array=logp_array, t_array=t_array)
@@ -46,9 +50,9 @@ class Gas_mix(object):
             if self.logp_array.size != self.t_array.size:
                 raise TypeError(\
                     'logp_array and t_array should be 1d lists or arrays of the same size')
-            self.Nlay=self.logp_array.size
+            self.Narray=self.logp_array.size
         else:
-            self.Nlay=None
+            self.Narray=None
 
     def get_background_vmr(self):
         """Computes the volume mixing ratio of the background gas in a mix
@@ -139,7 +143,7 @@ class Gas_mix(object):
         return res, cst_array
 
     def set_k_database(self, k_database=None):
-        """Change the radiative database attached to the current instance of AtmRad
+        """Change the radiative database attached to the current instance of Gas_mix
 
         Parameters
         ----------
@@ -158,7 +162,7 @@ class Gas_mix(object):
                 to force automatic conversion to mks of all newly loaded data.
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
-                raise RuntimeError("Bad units in the Kdatabase used with RadAtm.")
+                raise RuntimeError("Bad units in the Kdatabase used with Gas_mix.")
             if (not self.kdatabase.consolidated_p_unit) \
                 or (not self.kdatabase.consolidated_kdata_unit):
                 raise RuntimeError( \
@@ -166,7 +170,7 @@ class Gas_mix(object):
                     You should probably use convert_to_mks().""")
 
     def set_cia_database(self, cia_database=None):
-        """Change the CIA database attached to the current instance of AtmRad
+        """Change the CIA database attached to the current instance of Gas_mix
 
         Parameters
         ----------
@@ -182,7 +186,7 @@ class Gas_mix(object):
                 to force automatic conversion to mks of all newly loaded data.
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
-                raise RuntimeError("Bad units in the CIAdatabase used with RadAtm.")
+                raise RuntimeError("Bad units in the CIAdatabase used with Gas_mix.")
 
     def set_spectral_range(self, wn_range=None, wl_range=None):
         """Sets the spectral range in which computations will be done by specifying
@@ -216,11 +220,10 @@ class Gas_mix(object):
                 & (self.kdatabase.wnedges <= self._wn_range[1]))[0][[0,-1]]
             # to be consistent with interpolate_kdata
 
-    def opacity(self, wl_range=None, wn_range=None, rayleigh=True,
+    def cross_section(self, wl_range=None, wn_range=None, rayleigh=True,
             write=0, random_overlap=False, **kwargs):
-        """Computes the opacity of each of the layers for the composition given
-        for every wavelength (and possibly g point).
-        For the moment the kcoeff are added to each other (maximum recovery assumption).
+        """Computes the cross section (m^2/total number of molecule) for the mix
+        at each of the logPT points as a function of wavenumber (and possibly g point).
 
         Parameters
         ----------
@@ -243,8 +246,7 @@ class Gas_mix(object):
             wnedges: array
                 Wavenumber of the edges of the bins.
             kdata_array: array
-                opacity (cross section) of each layer
-                for each wavenumber (and potentially g point).
+                Cross section array of shape (layer number, Nw (, Ng if corrk)).
         """
         if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
         Use the kdatabase keyword during initialization or use the set_database method.""")
@@ -255,7 +257,7 @@ class Gas_mix(object):
             (not np.array_equal(self.cia_database.wns,self.kdatabase.wns)):
             raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
             You should probably run something like CIAdatabase.sample(Kdatabase.wns).""")
-        if self.Nlay is None:
+        if self.Narray is None:
             raise RuntimeError('You must prescribe logP (in Pa) and T arrays first.')
 
         molecs=self.composition.keys()
@@ -274,7 +276,7 @@ class Gas_mix(object):
         wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
         Nw=wns.size
 
-        vmr_prof, cst_prof=self.get_vmr_array((self.Nlay,))
+        vmr_prof, cst_prof=self.get_vmr_array((self.Narray,))
         first_mol=True
         for mol in mol_to_be_done:
             tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
@@ -285,7 +287,7 @@ class Gas_mix(object):
                 first_mol=False
             else:
                 if random_overlap and (self.kdatabase.Ng is not None):
-                    kdata_array=RandOverlap_2_kdata_prof(self.Nlay,
+                    kdata_array=RandOverlap_2_kdata_prof(self.Narray,
                         Nw,self.kdatabase.Ng, 
                         kdata_array,tmp_kdata,self.kdatabase.weights,
                         self.kdatabase.ggrid)
@@ -293,7 +295,7 @@ class Gas_mix(object):
                     kdata_array+=tmp_kdata
 
         if rayleigh or (self.cia_database is not None):
-            cont_sig=np.zeros((self.Nlay,Nw))
+            cont_sig=np.zeros((self.Narray,Nw))
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
                     self.t_array, vmr_prof, wngrid_limit=self._wn_range)
@@ -357,7 +359,7 @@ class Gas_mix(object):
             k_database=self.kdatabase, cia_database=self.cia_database)
         res.logp_array=np.copy(self.logp_array)
         res.t_array=np.copy(self.t_array)
-        res.Nlay=self.Nlay
+        res.Narray=self.Narray
         res._wn_range=np.copy(self._wn_range)
         res.iw_min=self.iw_min
         res.iw_max=self.iw_max

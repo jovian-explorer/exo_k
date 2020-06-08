@@ -10,7 +10,8 @@ from .settings import Settings
 from .util.interp import rm_molec
 
 class Kdatabase(object):
-    """This object contains mainly a dictionary of individual Ktable objects for each molecule. 
+    """This object contains mainly a dictionary of individual :class:`~exo_k.ktable.Ktable`
+    or :class:`~exo_k.xtable.Xtable` objects for each molecule. 
 
     In addition, the informations about the P, T, Wn, g grids
     are reloaded as atributes of the Kdatabase object.
@@ -25,7 +26,8 @@ class Kdatabase(object):
             molecules: list or dict
                 * If a list of molecules is provided,
                   the file starting with the molecule name and containing all the str_filters
-                  are searched in the Settings()._search_path
+                  are searched in the global search path defined in
+                  :class:`~exo_k.settings.Settings`.
                 * If a dictionary is provided, the keys are the molecules to load,
                   and the values are the path to the corresponding file.
                   If a None value is given, the str_filters will be used as above.
@@ -33,7 +35,7 @@ class Kdatabase(object):
                 If search_path is provided, it locally overrides the global _search_path settings
                 and only files in search_path are returned.            
 
-        See the options of Ktable.__init__()
+        See also the options of :class:`~exo_k.ktable.Ktable`
 
         >>> Kdatabase(None)
 
@@ -73,7 +75,8 @@ class Kdatabase(object):
                 self.add_ktables(tmp_ktable)
         
     def add_ktables(self, *ktables):
-        """Adds as many Ktables to the database as you want.
+        """Adds as many :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable`
+        to the database as you want.
 
         Parameters
         ----------
@@ -133,7 +136,8 @@ class Kdatabase(object):
             self.molecules=list(self.ktables.keys())
 
     def copy(self):
-        """Creates a new instance of :class:`Kdatabase` object and (deep) copies data into it
+        """Creates a new instance of :class:`~exo_k.kdatabase.Kdatabase`
+        object and (deep) copies data into it
         """
         res=Kdatabase(None)
         if self.molecules is not None:
@@ -193,7 +197,7 @@ class Kdatabase(object):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same PT grid.
 
-        See Data_table.remap_logPT() for details.
+        See :func:`exo_k.data_table.Data_table.remap_logPT` for details.
         """
         if not self.consolidated_p_unit: raise RuntimeError( \
             """All tables in the database should have the same p unit to proceed.
@@ -211,7 +215,8 @@ class Kdatabase(object):
         """Applies the bin_down method to all the tables in the database. This can be used 
         to put all the tables onthe same wavenumber grid.
 
-        See Ktable.bin_down() or Xtable.bin_down() for details.
+        See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`
+        for details.
         """
         first=True
         for mol in self.molecules:

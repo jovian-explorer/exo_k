@@ -10,16 +10,18 @@ import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
-from .util.interp import RandOverlap_2_kdata_prof, rm_molec
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
-from .rayleigh import Rayleigh
 from .util.spectrum import Spectrum
 
 
 class Atm_profile(object):
     """A class defining an atmospheric PT profile with some global data
     (gravity, Molar mass, etc.)
+
+    :any:`Atm` is based on :class:`Atm_profile` and handles
+    radiative transfer calculations.
+
     """
     
     def __init__(self, composition={}, psurf=None, ptop=None, logplev=None, tlev=None,
@@ -73,7 +75,6 @@ class Atm_profile(object):
             self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
             self.play=10**self.logplay
             self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat, rcp=rcp)
-            self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         else:
             self.set_logPT_profile(logplev, tlev, compute_col_dens=False)
         self.set_grav(grav,compute_col_dens=False)
@@ -100,6 +101,7 @@ class Atm_profile(object):
         self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         self.Nlev=log_plev.size
         self.Nlay=self.Nlev-1
+        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
         if compute_col_dens:
             self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
             self.compute_layer_col_density()
@@ -120,6 +122,8 @@ class Atm_profile(object):
         if Tstrat is None: Tstrat=Tsurf
         self.tlev=Tsurf*(self.plev/self.psurf)**rcp
         self.tlev=np.where(self.tlev<Tstrat,Tstrat,self.tlev)
+        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
+        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
 
     def set_grav(self, grav=None, compute_col_dens=True):
         """Sets the surface gravity of the planet
@@ -153,7 +157,7 @@ class Atm_profile(object):
                 If True, the column density per layer of the atmosphere is recomputed.
                 This si mostly to save time when we know this will be done later on.
         """
-        self.gas_mix=Gas_mix(composition_dict)
+        self.gas_mix.set_composition(composition_dict)
         self.set_Mgas(Mgas=None, compute_col_dens=compute_col_dens)
 
     def set_Mgas(self, Mgas=None, compute_col_dens=True):
@@ -258,197 +262,67 @@ class Atm_profile(object):
             self.tangent_path.append(2.*dl)
 
 
+class Atm(Atm_profile):
+    """Class based on Atm_profile that handles radiative trasnfer calculations.
 
-class RadAtm(Atm_profile):
-    """Class based on Atm_profile that contains the link to the radiative data.
+    Radiative data are accessed through the :any:`gas_mix.Gas_mix` class.
     """
     
-    def __init__(self, kdatabase=None, CIAdatabase=None, wl_range=None, **kwargs):
+    def __init__(self, k_database=None, cia_database=None,
+        wn_range=None, wl_range=None, **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
-        self.set_database(kdatabase)
-        self.set_CIAdatabase(CIAdatabase)
-        if wl_range is not None:
-            self.set_wl_range(wl_range)
-        else:
-            self._wn_range=None
+        self.set_k_database(k_database)
+        self.set_cia_database(cia_database)
+        self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
 
-    def set_wl_range(self, wl_range):
-        """Sets the wavelength range in which computations will be done.
+    def set_k_database(self, k_database=None):
+        """Change the radiative database used by the
+        :class:`Gas_mix` object handling opacities inside
+        :class:`Atm`.
 
-        Parameters
-        ----------
-            wl_range: Array of size 2
-                Minimum and maximum wavelength
-        """
-        self.set_wn_range(np.sort(10000./np.array(wl_range)))
-
-    def set_wn_range(self, wn_range):
-        """Sets the wavenumber range in which computations will be done.
+        See :any:`gas_mix.Gas_mix.set_k_database` for details.
 
         Parameters
         ----------
-            wn_range: Array of size 2
-                Minimum and maximum wavenumber
-        """
-        self._wn_range=np.sort(np.array(wn_range))
-
-    def compute_wn_range_indices(self):
-        """Compute the starting and ending indices to be used for current wn_range
-        """
-        if self._wn_range is None:
-            self.iw_min=0
-            self.iw_max=self.kdatabase.Nw
-        else:
-            self.iw_min, self.iw_max = np.where((self.kdatabase.wnedges > self._wn_range[0]) \
-                & (self.kdatabase.wnedges <= self._wn_range[1]))[0][[0,-1]]
-            # to be consistent with interpolate_kdata
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        return 10000./self.wns
-
-    @property
-    def wledges(self):
-        """Returns the wavelength array for the bin edges.
-        """
-        return 10000./self.wnedges
-
-    def set_database(self, kdatabase=None):
-        """Change the radiative database attached to the current instance of AtmRad
-
-        Parameters
-        ----------
-            kdatabase: Kdatabase object
+            k_database: :class:`Kdatabase` object
                 New Kdatabase to use.
         """
-        self.kdatabase=kdatabase
-        if self.kdatabase is None:
-            self.Ng=None
-        else:
-            self.Ng=self.kdatabase.Ng
-            if self.kdatabase.p_unit != 'Pa' or rm_molec(self.kdatabase.kdata_unit) != 'm^2':
-                print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
-                You can convert to mks using convert_to_mks.
-                More generally, you can specify exo_k.Settings().set_mks(True) 
-                to force automatic conversion to mks of all newly loaded data.
-                You will have to reload all your data though.
-                (A good thing it does not take so long). """)
-                raise RuntimeError("Bad units in the Kdatabase used with RadAtm.")
-            if (not self.kdatabase.consolidated_p_unit) \
-                or (not self.kdatabase.consolidated_kdata_unit):
-                raise RuntimeError( \
-                    """All tables in the database should have the same units to proceed.
-                    You should probably use convert_to_mks().""")
+        self.gas_mix.set_k_database(k_database=k_database)
+        self.kdatabase=self.gas_mix.kdatabase
+        self.Ng=self.gas_mix.Ng
+        # to know whether we are dealing with corr-k or not and access some attributes. 
 
-    def set_CIAdatabase(self, CIAdatabase):
-        """Change the CIA database attached to the current instance of AtmRad
+    def set_cia_database(self, cia_database=None):
+        """Change the CIA database used by the
+        :class:`Gas_mix` object handling opacities inside
+        :class:`Atm`.
+
+        See :any:`gas_mix.Gas_mix.set_cia_database` for details.
 
         Parameters
         ----------
-            CIAdatabase: CIAdatabase object
+            cia_database: :class:`CIAdatabase` object
                 New CIAdatabase to use.
         """
-        self.CIAdatabase=CIAdatabase
-        if self.CIAdatabase is not None:
-            if self.CIAdatabase.abs_coeff_unit != 'm^5':
-                print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
-                You can convert to mks using convert_to_mks.
-                More generally, you can specify exo_k.Settings().set_mks(True) 
-                to force automatic conversion to mks of all newly loaded data.
-                You will have to reload all your data though.
-                (A good thing it does not take so long). """)
-                raise RuntimeError("Bad units in the CIAdatabase used with RadAtm.")
+        self.gas_mix.set_cia_database(cia_database=cia_database)
 
-    def opacity(self, wl_range=None, wn_range=None, rayleigh=True,
-            write=0, random_overlap=False, **kwargs):
-        """Computes the opacity of each of the layers for the composition given
-        for every wavelength (and possibly g point).
-        For the moment the kcoeff are added to each other (maximum recovery assumption).
+    def set_spectral_range(self, wn_range=None, wl_range=None):
+        """Sets the spectral range in which computations will be done by specifying
+        either the wavenumber (in cm^-1) or the wavelength (in micron) range.
 
-        Parameters
-        ----------
-            wl_range: array or list of two values, optional
-                Wavelength range to cover.
-            wn_range: array or list of two values, optional
-                Wavenumber range to cover.
-            rayleigh: boolean, optional
-                Whether to compute rayleigh scattering.
-            random_overlap: boolean, optional
-                Whether Ktable opacities are added linearly (False),
-                or using random overlap method (True).
-        Returns
-        -------
-            array
-                opacity (cross section) of each layer
-                for each wavenumber (and potentially g point).
+        See :any:`gas_mix.Gas_mix.set_spectral_range` for details.
         """
-        if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
-        Use the kdatabase keyword during initialization or use the set_database method.""")
-        if not self.kdatabase.consolidated_wn_grid: raise RuntimeError("""
-            All tables in the database should have the same wavenumber grid to proceed.
-            You should probably use bin_down().""")
-        if self.CIAdatabase is not None and \
-            (not np.array_equal(self.CIAdatabase.wns,self.kdatabase.wns)):
-            raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
-            You should probably run something like CIAdatabase.sample(Kdatabase.wns).""")
-        kdatabase=self.kdatabase
-        first_mol=True
-        molecs=self.gas_mix.keys()
-        mol_to_be_done=list(set(molecs).intersection(kdatabase.molecules))
-        if all(elem in kdatabase.molecules for elem in molecs):
-            if write>3 : print("""I have all the molecules present in the atmosphere
-              in ktables provided:""")
-        else:
-            if write>3 : print("""Some missing molecules in my database,
-             I ll compute opacites with the available ones:""")
-        if write>3 : print(mol_to_be_done)
+        self.gas_mix.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
 
-        if wl_range is not None:
-            if wn_range is not None:
-                print('Cannot specify both wl and wn range!')
-                raise RuntimeError()
-            else:
-                self.set_wl_range(wl_range)
-        else:
-            if wn_range is not None:
-                self.set_wn_range(wn_range)
-        self.compute_wn_range_indices()
-        self.wnedges=kdatabase.wnedges[self.iw_min:self.iw_max+1]
-        self.wns=kdatabase.wns[self.iw_min:self.iw_max]
-        self.Nw=self.wns.size
-        vmr_prof, cst_prof=self.gas_mix.get_vmr_array((self.Nlay,))
-        for mol in mol_to_be_done:
-            tmp_kdata=kdatabase[mol].interpolate_kdata(logp_array=self.logplay, \
-                t_array=self.tlay, x_array=vmr_prof[mol], wngrid_limit=self._wn_range, **kwargs)
-            if first_mol:
-                self.kdata=tmp_kdata
-                first_mol=False
-            else:
-                if random_overlap and (self.Ng is not None):
-                    self.kdata=RandOverlap_2_kdata_prof(self.Nlay,self.Nw,self.Ng, \
-                        self.kdata,tmp_kdata,self.kdatabase.weights,
-                        self.kdatabase.ggrid)
-                else:
-                    self.kdata+=tmp_kdata
-        if rayleigh or (self.CIAdatabase is not None):
-            cont_sig=np.zeros((self.Nlay,self.Nw))
-            if self.CIAdatabase is not None:
-                cont_sig+=self.CIAdatabase.cia_cross_section( \
-                    self.logplay, self.tlay, vmr_prof, wngrid_limit=self._wn_range)
-            if rayleigh:
-                if cst_prof:
-                    cont_sig+=Rayleigh().sigma(self.wns, self.gas_mix)
-                else:
-                    cont_sig+=Rayleigh().sigma_array(self.wns, vmr_prof)
-            if self.Ng is None:
-                self.kdata+=cont_sig
-            else:
-                self.kdata+=cont_sig[:,:,None]
+    def opacity(self, **kwargs):
+        """Computes the opacity of each of the layers.
+
+        See :any:`gas_mix.Gas_mix.cross_section` for details.
+        """
+        self.Nw, self.wns, self.wnedges, self.kdata = self.gas_mix.cross_section(**kwargs)
 
     def emission_spectrum(self, integral=True, mu0=0.5, **kwargs):
         """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
