@@ -7,11 +7,12 @@ from math import log10
 import pickle
 import h5py
 import numpy as np
+import astropy.units as u
 from .data_table import Data_table
 from .util.interp import rebin_ind_weights
 from .util.cst import KBOLTZ
-from .util.kspectrum import Kspectrum
-from .util.filenames import create_fname_grid_Kspectrum_LMDZ
+from .util.hires_spectrum import Hires_spectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 
 class Xtable(Data_table):
     """A class that handles tables of cross sections.
@@ -241,26 +242,21 @@ class Xtable(Data_table):
             self.mol=mol
         else:
             self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
-  
 
-    def hires_to_xsec(self, path=None, filename_grid=None, logpgrid=None, tgrid=None,
-        write=0, mol=None, kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
-        """Computes a k coeff table from high resolution cross sections
-        in the usual k-spectrum format.
+    def hires_to_xtable(self, path=None, filename_grid=None,
+        logpgrid=None, tgrid=None,
+        write=0, mol=None,
+        grid_p_unit='Pa', p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
+        **kwargs):
+        """Loads an `Xtable` from high-resolution spectra.
 
-        Parameters
-        ----------
-            path : String
-                directory with the input files
-            filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size)
-                Names of the input high-res spectra.
-            logpgrid: Array
-                Grid in log(pressure/Pa) of the input
-            tgrid: Array
-                Grid intemperature of the input
-            mol: str, optional
-                give a name to the molecule. Useful when used later in a Kdatabase
-                to track molecules.
+        .. warning::
+            By default, log pressures are specified in Pa in logpgrid!!! If you want
+            to use another unit, do not forget to specify it with the grid_p_unit keyword.
+
+        see :func:`exo_k.ktable.Ktable.hires_to_ktable` method for details
+        on the arguments and options.
         """        
         first=True
 
@@ -271,10 +267,11 @@ class Xtable(Data_table):
         else:
             self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
 
+        conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
+        self.logpgrid=np.array(logpgrid)+np.log10(conversion_factor)
+        self.pgrid=10**self.logpgrid #in Pa
         self.p_unit='Pa'
-        self.logpgrid=np.array(logpgrid)
         self.Np=self.logpgrid.size
-        self.pgrid=10**self.logpgrid
         if write >= 3 : print(self.Np,self.pgrid)
 
         self.tgrid=np.array(tgrid)
@@ -282,16 +279,26 @@ class Xtable(Data_table):
         if write >= 3 : print(self.Nt,self.tgrid)
         
         if filename_grid is None:
-            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,**kwargs)
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
+                **select_kwargs(kwargs,['suffix','nb_digit']))
         else:
             filename_grid=np.array(filename_grid)
+
         for iP in range(self.Np):
           for iT in range(self.Nt):
-            fname=os.path.join(path,filename_grid[iP,iT])
-            spec_hr=Kspectrum(fname)
+            filename=filename_grid[iP,iT]
+            fname=os.path.join(path,filename)
+            if write >= 3 : print(fname)
+
+            spec_hr=Hires_spectrum(fname, file_kdata_unit=file_kdata_unit,
+                **select_kwargs(kwargs,['skiprows','wn_column','mult_factor',
+                    'kdata_column','data_type']))
+            # for later conversion, the real kdata_unit is in spec_hr.kdata_unit
+            self.kdata_unit=spec_hr.kdata_unit
+            was_xsec=(spec_hr.data_type=='xsec')
             wn_hr=spec_hr.wns
             k_hr=spec_hr.kdata
-            if not spec_hr.is_xsec: 
+            if not was_xsec:
                 k_hr=k_hr*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
             if first:
                 self.wns=wn_hr[1:-1]  #to be consistent with kcorr
@@ -301,9 +308,20 @@ class Xtable(Data_table):
                 first=False
             else:
                 self.kdata[iP,iT]=np.interp(self.wns,wn_hr[1:-1],k_hr[1:-1])
-        self.kdata_unit='m^2' #default unit assumed for the input file
-        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
+        if not was_xsec:
+            self.kdata=self.kdata*u.Unit(self.kdata_unit).to(u.Unit('m^-1'))
+            self.kdata_unit='m^2/molecule'
+            # Accounts for the conversion of the abs_coeff to m^-1, so we know that
+            #  self.kdata is now in m^2/molecule. Can now convert to the desired unit.
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified':
+            kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit)
+        # converts from self.kdata_unit wich is either:
+        #   - 'm^2/molecule' data_type was 'abs_coeff'
+        #   - The units after Hires_spectrum (which have already taken
+        #        file_kdata_unit into account)
+        #  to the desired unit.
+        self.convert_p_unit(p_unit=p_unit)
 
     def bin_down(self, wnedges=None, remove_zeros=False, write=0):
         """Method to bin down a xsec table to a new grid of wavenumbers (in place)

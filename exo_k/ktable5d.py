@@ -12,8 +12,8 @@ from .data_table import Data_table
 from .util.interp import rm_molec, rebin_ind_weights, rebin, \
         gauss_legendre, spectrum_to_kdist
 from .util.cst import KBOLTZ
-from .util.kspectrum import Kspectrum
-from .util.filenames import create_fname_grid_Kspectrum_LMDZ
+from .util.hires_spectrum import Hires_spectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 
 
 class Ktable5d(Data_table):
@@ -44,7 +44,7 @@ class Ktable5d(Data_table):
 
         See :class:`~exo_k.ktable.Ktable` __init__ mehthod for documentation on
         `p_unit`, `file_p_unit`, `kdata_unit`, `file_kdata_unit`, `remove_zeros`,
-        `search_path`, and `mol` keywords.
+        `search_path`, and `mol` arguments.
 
         """
         super().__init__()
@@ -147,6 +147,7 @@ class Ktable5d(Data_table):
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file
         in a gcm friendly format.
+
         Units are assumed to be cm^2 for kdata and mbar for pressure. 
 
         Parameters
@@ -204,9 +205,10 @@ class Ktable5d(Data_table):
         return None
 
     def write_LMDZ(self, path, band='IR', fmt='%22.15e', write_only_metadata=False):
-        """Saves data in a LMDZ friendly format. Note that the gcm requires
-        p in mbar and kdata in cm^2/molec
-        (at least up to July 2019). 
+        """Saves data in a LMDZ friendly format.
+        
+        The gcm requires p in mbar and kdata in cm^2/molec.
+        The conversion is done automatically.
 
         Parameters
         ----------
@@ -268,47 +270,25 @@ class Ktable5d(Data_table):
     def hires_to_ktable(self, path=None, filename_grid=None,
         logpgrid=None, tgrid=None, xgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
-        mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
-        """Computes a k coeff table from high resolution cross sections
-        in the usual k-spectrum format.
+        mid_dw=True, write=0, mol=None,
+        grid_p_unit='Pa', p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
+        **kwargs):
+        """Computes a k coeff table from :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
+        objects.
 
-        .. warning::
-            (log) Pressures here must be specified in Pa!!!
-
-        Parameters
-        ----------
-            path : String
-                directory with the input files
-            filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size,xgrid.size)
-                Names of the input high-res spectra.
-            logpgrid: Array
-                Grid in log(pressure/Pa) of the input
-            tgrid: Array
-                Grid in temperature of the input
-            xgrid: Array
-                Input grid in vmr of the variable gas
-            wnedges : Array
-                edges of the wavenumber bins to be used to compute the corrk
+        see :func:`exo_k.ktable.Ktable.hires_to_ktable` method for details
+        on the arguments and options.
 
         Other Parameters
         ----------------
-            weights: array, optional
-                If weights are provided, they are used instead of the legendre quadrature. 
-            quad : string, optional
-                Type of quadrature used. Default is 'legendre'
-            order : Integer, optional
-                Order of the Gauss legendre quadrature used. Default is 20.
-            mid_dw: boolean, optional
-                * If True, the Xsec values in the high resolution xsec data are assumed to
-                  cover a spectral interval that is centered around
-                  the corresponding wavenumber value.
-                  The first and last Xsec values are discarded. 
-                * If False, each interval runs from the wavenumber value to the next one.
-                  The last Xsec value is dicarded.
-            mol: string, optional
-                Give a name to the molecule. Useful when used later in a Kdatabase
-                to track molecules.
+            xgrid: array
+                Input grid in vmr of the variable gas. Needed for a Ktable5d.
+
+        .. warning::
+            By default, log pressures are specified in Pa in logpgrid!!! If you want
+            to use another unit, do not forget to specify it with the grid_p_unit keyword.
+
         """        
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
@@ -333,10 +313,11 @@ class Ktable5d(Data_table):
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
         self.Ng=self.weights.size
 
+        conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
+        self.logpgrid=np.array(logpgrid)+np.log10(conversion_factor)
+        self.pgrid=10**self.logpgrid #in Pa
         self.p_unit='Pa'
-        self.logpgrid=np.array(logpgrid)
         self.Np=self.logpgrid.size
-        self.pgrid=10**self.logpgrid
         if write >= 3 : print(self.Np,self.pgrid)
 
         self.tgrid=np.array(tgrid)
@@ -354,16 +335,24 @@ class Ktable5d(Data_table):
         
         self.kdata=np.zeros(self.shape)
         if filename_grid is None:
-            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,self.Nx, **kwargs)
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
+                **select_kwargs(kwargs,['suffix','nb_digit']))
         else:
             filename_grid=np.array(filename_grid)
+
         for iP in range(self.Np):
           for iT in range(self.Nt):
             for iX in range(self.Nx):
                 filename=filename_grid[iP,iT,iX]
                 fname=os.path.join(path,filename)
                 if write >= 3 : print(fname)
-                spec_hr=Kspectrum(fname)
+
+                spec_hr=Hires_spectrum(fname, file_kdata_unit=file_kdata_unit,
+                    **select_kwargs(kwargs,['skiprows','wn_column','mult_factor',
+                        'kdata_column','data_type']))
+                # for later conversion, the real kdata_unit is in spec_hr.kdata_unit
+                self.kdata_unit=spec_hr.kdata_unit
+                was_xsec=(spec_hr.data_type=='xsec')
                 wn_hr=spec_hr.wns
                 k_hr=spec_hr.kdata
                 if mid_dw:
@@ -375,11 +364,22 @@ class Ktable5d(Data_table):
                     wn_hr=wn_hr[:-1]
                     k_hr=k_hr[:-1]
                 self.kdata[iP,iT,iX]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-                if not spec_hr.is_xsec:
+                if not was_xsec:
                     self.kdata[iP,iT,iX]=self.kdata[iP,iT,iX]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
-        self.kdata_unit='m^2' #default unit assumed for the input file
-        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
+        if not was_xsec:
+            self.kdata=self.kdata*u.Unit(self.kdata_unit).to(u.Unit('m^-1'))
+            self.kdata_unit='m^2/molecule'
+            # Accounts for the conversion of the abs_coeff to m^-1, so we know that
+            #  self.kdata is now in m^2/molecule. Can now convert to the desired unit.
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified':
+            kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit)
+        # converts from self.kdata_unit wich is either:
+        #   - 'm^2/molecule' data_type was 'abs_coeff'
+        #   - The units after Hires_spectrum (which have already taken
+        #        file_kdata_unit into account)
+        #  to the desired unit.
+        self.convert_p_unit(p_unit=p_unit)
 
     def setup_interpolation(self, log_interp=None):
         """Creates interpolating functions to be called later on.
@@ -586,12 +586,12 @@ class Ktable5d(Data_table):
 
         Parameters
         ----------
-            other : :class:`Ktable`
+            other: :class:`~exo_k.ktable.Ktable`
                 A :class:`Ktable` object to be mixed with. Dimensions should be the same as self
                 (except for xgrid).
-            x_self : float only, optional
+            x_self: float only, optional
                 Volume mixing ratio of self.
-            x_other : float or array, optional
+            x_other: float or array, optional
                 Volume mixing ratio of the species to be mixed with (other).
 
         If either x_self or x_other are set to `None` (default),

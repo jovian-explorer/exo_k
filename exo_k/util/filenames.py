@@ -7,11 +7,55 @@ Library of useful functions for handling filenames
 import os
 import numpy as np
 import h5py
-from exo_k.util.kspectrum import Kspectrum
 
 class EndOfFile(Exception):
     """Error for an end of file
     """
+
+def select_kwargs(kwargs, filter_keys_list=[]):
+    """Function to select only some keyword arguments from a
+    kwargs dict to pass to a function afterward.
+    
+    Parameters
+    ----------
+        kwargs: dict
+            Dictionary of keyword arguments and values.
+        filter_keys_list: list of str
+            Names of the keys to select.
+
+    Returns
+    -------
+        filtered_kwargs: dict
+            A dictionary with only the selected keys (if they were
+            present in kwargs).
+        
+    Examples
+    --------
+        >>> def func(allo=None):
+        >>>     print(allo)
+        >>>
+        >>> def bad_global_func(**kwargs):
+        >>>     print(kwargs)
+        >>>     func(**kwargs)
+        >>>
+        >>> def good_global_func(**kwargs):
+        >>>     print(kwargs)
+        >>>     func(**select_kwargs(kwargs,['allo']))
+
+        >>> bad_global_func(allo=3.,yeah=None)        
+        {'allo': 3.0, 'yeah': None}
+        TypeError: func() got an unexpected keyword argument 'yeah'
+
+        >>> good_global_func(allo=3.,yeah=None)        
+        {'allo': 3.0, 'yeah': None}
+        3.0
+
+    """
+    filtered_kwargs=dict()
+    for key in filter_keys_list:
+        if key in kwargs.keys():
+            filtered_kwargs[key]=kwargs[key]
+    return filtered_kwargs
 
 def create_fname_grid(base_string, logpgrid=None, tgrid=None, xgrid=None,
         p_kw=None, t_kw=None, x_kw=None):
@@ -96,7 +140,8 @@ def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
     -------
         list of str
             List of the files in the right order and formating to be 
-            given to hires_to_ktable or hires_to_xsec.
+            given to :func:`exo_k.ktable.Ktable.hires_to_ktable` or 
+            :func:`exo_k.xtable.Xtable.hires_to_xtable`.
 
     Examples
     --------
@@ -159,23 +204,6 @@ def finalize_LMDZ_dir(corrkname, IRsize, VIsize):
     os.symlink('../VI'+str(VIsize)+'/narrowbands_VI.in',os.path.join(newdir,'narrowbands_VI.in'))
     print('Everything went ok. Your ktable is in:',newdir)
     print("You'll probably need to add Q.dat before using it though!")
-
-def convert_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
-    """Converts kspectrum like spectra to hdf5 format for speed and space.
-    Helper function. Real work done in class :class:`~exo_k.util.kspectrum.Kspectrum`.
-
-    Parameters
-    ----------
-        file_in: str
-            Initial kspectrum filename.
-        file_out: str
-            Name of the final hdf5 file to be created.
-        skiprows: int, optional
-            Number of header lines to skip. For the latest Kspectrum format,
-            the header is skipped automatically. 
-    """
-    tmp=Kspectrum(file_in, skiprows=skiprows)
-    tmp.write_hdf5(file_out)
 
 def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     """Converts exo_transmit like spectra to hdf5 format for speed and space.

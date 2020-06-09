@@ -3,10 +3,11 @@
 @author: jeremy leconte
 __init__ module to load the exo_k library
 """
+from exo_k.util.user_func import *
 from exo_k.util.radiation import *
 from exo_k.util.cst import *
 from exo_k.util.spectrum import Spectrum
-from exo_k.util.kspectrum import Kspectrum
+from exo_k.util.hires_spectrum import Hires_spectrum
 from exo_k.util.filenames import *
 from exo_k.util.molar_mass import Molar_mass
 from .ktable import Ktable

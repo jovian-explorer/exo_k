@@ -14,8 +14,8 @@ from .data_table import Data_table
 from .ktable5d import Ktable5d
 from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
-from .util.kspectrum import Kspectrum
-from .util.filenames import create_fname_grid_Kspectrum_LMDZ
+from .util.hires_spectrum import Hires_spectrum
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 from .util.cst import KBOLTZ
 
 
@@ -34,20 +34,20 @@ class Ktable(Data_table):
 
         Parameters
         ----------
-            filename : str, optional
+            filename: str, optional
                 Relative or absolute name of the file to be loaded. 
-            filename_filters : sequence of string
+            filename_filters: sequence of string
                 As many strings as necessary to uniquely define
                 a file in the global search path defined in
                 :class:`~exo_k.settings.Settings`.
                 This path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
-            xsec : Xtable object
+            xsec: Xtable object
                 If no filename nor filename_filters are provided, this xsec object will be used to
                 create a ktable. In this case, wavenumber bins must be given
                 with the wnedges keyword.
-            path : str
+            path: str
                 If none of the above is specifed, path can point to
                 a directory with a LMDZ type k coeff table.
                 In this case, see read_LMDZ for the keywords to specify.
@@ -61,11 +61,11 @@ class Ktable(Data_table):
                 String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
-            file_p_unit : str, optional
+            file_p_unit: str, optional
                 String to specify the current pressure unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
-            kdata_unit : str, optional
+            kdata_unit: str, optional
                 String to identify the unit to convert to.
                 Accepts 'cm^2', 'm^2'
                 or any surface unit recognized by the astropy.units library.
@@ -75,16 +75,16 @@ class Ktable(Data_table):
                 always be assumed to be a number or volume mixing ratio.
                 Opacities per unit mass are not supported yet.
                 Note that you do not need to specify the '/molec' or '/molecule' in the unit.
-            file_kdata_unit : str, optional
+            file_kdata_unit: str, optional
                 String to specify the current kdata unit if it is unspecified or if 
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
-            remove_zeros : boolean, optional
+            remove_zeros: boolean, optional
                 If True, the zeros in the kdata table are replaced by
                 a value 10 orders of magnitude smaller than the smallest positive value
             mol: str, optional
                 The name of the gas or molecule described by the :class:`Ktable`
-            search_path : str, optional
+            search_path: str, optional
                 If search_path is provided,
                 it locally overrides the global _search_path
                 in :class:`~exo_k.settings.Settings`
@@ -132,9 +132,9 @@ class Ktable(Data_table):
 
         Parameters
         ----------
-            filename : str
+            filename: str
                 Name of the input pickle file
-            mol : str, optional
+            mol: str, optional
                 Force the name of the molecule
         """
         if filename is None: raise RuntimeError("You should provide an input pickle filename")
@@ -267,6 +267,7 @@ class Ktable(Data_table):
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file in a gcm friendly format.
+        
         Units are assumed to be cm^2 for kdata and mbar for pressure. 
 
         Parameters
@@ -327,8 +328,9 @@ class Ktable(Data_table):
 
     def write_LMDZ(self, path, band='IR', fmt='%22.15e', write_only_metadata=False):
         """Saves data in a LMDZ friendly format.
-        Note that the gcm requires p in mbar and kdata in cm^2/molec
-        (at least up to July 2019). 
+        
+        The gcm requires p in mbar and kdata in cm^2/molec.
+        The conversion is done automatically.
 
         Parameters
         ----------
@@ -460,28 +462,34 @@ class Ktable(Data_table):
     def hires_to_ktable(self, path=None, filename_grid=None,
         logpgrid=None, tgrid=None, wnedges=None,
         quad='legendre', order=20, weights=None, ggrid=None,
-        mid_dw=True, write=0, mol='unknown',
-        kdata_unit='unspecified', file_kdata_unit='unspecified', **kwargs):
-        """Computes a k coeff table from high resolution cross sections
-        in the usual k-spectrum format.
+        mid_dw=True, write=0, mol=None,
+        grid_p_unit='Pa', p_unit='unspecified',
+        kdata_unit='unspecified', file_kdata_unit='unspecified',
+        **kwargs):
+        """Computes a k coeff table from :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
+        objects.
 
         .. warning::
-            (log) Pressures here must be specified in Pa!!!
+            By default, log pressures are specified in Pa in logpgrid!!! If you want
+            to use another unit, do not forget to specify it with the grid_p_unit keyword.
 
         Parameters
         ----------
             path : String
                 directory with the input files
-            filename_grid : Numpy Array of strings with shape (logpgrid.size,tgrid.size)
+            filename_grid : array of str with shape (logpgrid.size,tgrid.size)
                 Names of the input high-res spectra. If None, the files are assumed to
                 follow Kspectrum/LMDZ convention, i.e.
-                be of the type 'k001', 'k002', etc.
-            logpgrid: Array
-                Grid in log(pressure/Pa) of the input
-            tgrid: Array
-                Grid intemperature of the input
-            wnedges : Array
-                edges of the wavenumber bins to be used to compute the corrk
+                be of the type 'k001', 'k002', etc. 
+                See :func:`~exo_k.util.filenames.create_fname_grid_Kspectrum_LMDZ`
+                for possible additional keyword arguments. 
+            logpgrid: array
+                Grid in log(pressure) of the input. Default unit is Pa, but can be changed
+                with the `grid_p_unit` keyword.
+            tgrid: array
+                Grid in temperature of the input.
+            wnedges : array
+                Edges of the wavenumber bins to be used to compute the corr-k
 
         Other Parameters
         ----------------
@@ -501,6 +509,19 @@ class Ktable(Data_table):
             mol: string, optional
                 Give a name to the molecule. Useful when used later in a Kdatabase
                 to track molecules.
+            p_unit: str, optional
+                Pressure unit to convert to.
+            grid_p_unit : str, optional
+                Unit of the specified `logpgrid`.
+            kdata_unit : str, optional
+                Kdata unit to convert to.
+            file_kdata_unit : str, optional
+                Kdata unit in input files.
+
+        See :func:`~exo_k.util.filenames.create_fname_grid_Kspectrum_LMDZ`
+        or :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
+        for a list of additional arguments that can be provided to those funtion
+        through `**kwargs`.
         """        
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
@@ -525,11 +546,11 @@ class Ktable(Data_table):
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
         self.Ng=self.weights.size
 
+        conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
+        self.logpgrid=np.array(logpgrid)+np.log10(conversion_factor)
+        self.pgrid=10**self.logpgrid #in Pa
         self.p_unit='Pa'
-        self.logpgrid=np.array(logpgrid)*1.
-
         self.Np=self.logpgrid.size
-        self.pgrid=10**self.logpgrid
         if write >= 3 : print(self.Np,self.pgrid)
 
         self.tgrid=np.array(tgrid)
@@ -543,7 +564,8 @@ class Ktable(Data_table):
         
         self.kdata=np.zeros(self.shape)
         if filename_grid is None:
-            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np,self.Nt,**kwargs)
+            filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
+                **select_kwargs(kwargs,['suffix','nb_digit']))
         else:
             filename_grid=np.array(filename_grid)
         
@@ -553,7 +575,12 @@ class Ktable(Data_table):
             fname=os.path.join(path,filename)
             if write >= 3 : print(fname)
 
-            spec_hr=Kspectrum(fname)
+            spec_hr=Hires_spectrum(fname, file_kdata_unit=file_kdata_unit,
+                **select_kwargs(kwargs,['skiprows','wn_column','mult_factor',
+                    'kdata_column','data_type']))
+            # for later conversion, the real kdata_unit is in spec_hr.kdata_unit
+            self.kdata_unit=spec_hr.kdata_unit
+            was_xsec=(spec_hr.data_type=='xsec')
             wn_hr=spec_hr.wns
             k_hr=spec_hr.kdata
             if mid_dw:
@@ -565,11 +592,23 @@ class Ktable(Data_table):
                 wn_hr=wn_hr[:-1]
                 k_hr=k_hr[:-1]
             self.kdata[iP,iT]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
-            if not spec_hr.is_xsec:
+            if not was_xsec:
                 self.kdata[iP,iT]=self.kdata[iP,iT]*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
-        self.kdata_unit='m^2' #default unit assumed for the input file
-        if self._settings._convert_to_mks and kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
-        self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
+        if not was_xsec:
+            self.kdata=self.kdata*u.Unit(self.kdata_unit).to(u.Unit('m^-1'))
+            self.kdata_unit='m^2/molecule'
+            # Accounts for the conversion of the abs_coeff to m^-1, so we know that
+            #  self.kdata is now in m^2/molecule. Can now convert to the desired unit.
+        if self._settings._convert_to_mks and kdata_unit is 'unspecified':
+            kdata_unit='m^2/molecule'
+        self.convert_kdata_unit(kdata_unit=kdata_unit)
+        # converts from self.kdata_unit wich is either:
+        #   - 'm^2/molecule' data_type was 'abs_coeff'
+        #   - The units after Hires_spectrum (which have already taken
+        #        file_kdata_unit into account)
+        #  to the desired unit.
+        self.convert_p_unit(p_unit=p_unit)
+
 
     def copy(self, cp_kdata=True, ktab5d=False):
         """Creates a new instance of :class:`Ktable` object and (deep) copies data into it
@@ -664,11 +703,11 @@ class Ktable(Data_table):
 
         Parameters
         ----------
-            other : :class:`Ktable`
+            other: :class:`Ktable`
                 A :class:`Ktable` object to be mixed with. Dimensions should be the same as self.
-            x_self : float or array
+            x_self: float or array
                 Volume mixing ratio of the first species
-            x_other : float or array
+            x_other: float or array
                 Volume mixing ratio of the species to be mixed with.
 
         If one of these is None, the kcoeffs of the species in question

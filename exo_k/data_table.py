@@ -142,9 +142,9 @@ class Data_table(object):
                 you know that the kdata grid and the kdata unit do not correspond)
         """
         #if kdata_unit==file_kdata_unit and self.kdata_unit != 'unspecified': return
-        tmp_k_u_in=file_kdata_unit.replace('/molecule','').replace('/molec','')
-        tmp_k_u_out=kdata_unit.replace('/molecule','').replace('/molec','')
-        tmp_k_u_file=self.kdata_unit.replace('/molecule','').replace('/molec','')
+        tmp_k_u_in=rm_molec(file_kdata_unit)
+        tmp_k_u_out=rm_molec(kdata_unit)
+        tmp_k_u_file=rm_molec(self.kdata_unit)
         self.kdata_unit,conversion_factor=unit_convert(  \
             'kdata_unit',unit_file=tmp_k_u_file,unit_in=tmp_k_u_in,unit_out=tmp_k_u_out)
         self.kdata_unit=self.kdata_unit+'/molecule'
@@ -489,13 +489,12 @@ class Data_table(object):
         """Create a copy of the instance and bins it down using the methods in 
         Ktable or Xtable.
 
-        Parameters
-        ----------
-            See :class:`Ktable` or :class:`Xtable` for details on parameters
+        See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`
+        for details on parameters.
 
         Returns
         -------
-            :class:`Ktable` or :class:`Xtable` object
+            :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable` object
                 the binned down table
         """
         res=self.copy()

@@ -256,7 +256,7 @@ def unit_convert(quantity,unit_file='unspecified',unit_in='unspecified',unit_out
       if unit_file=='unspecified':
         raise NotImplementedError("""I could not find the {quantity} used in the file.
             So you should tell me what unit you think is used by specifying 
-            the keyword argument: old_{quantity}= a unit recognized by the astropy.units library.
+            the keyword argument: file_{quantity}= a unit recognized by the astropy.units library.
             If you want to convert to another unit, add the {quantity} keyword
             with the desired unit.""".format(quantity=quantity))
       else:
