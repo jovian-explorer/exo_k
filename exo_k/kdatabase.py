@@ -204,7 +204,7 @@ class Kdatabase(object):
             You should probably use convert_p_unit().""")
         for mol in self.molecules:
             self.ktables[mol].remap_logPT(logp_array=logp_array,t_array=t_array)
-        self.logpgrid=np.array(logp_array)
+        self.logpgrid=np.array(logp_array, dtype=float)
         self.pgrid   =10**self.logpgrid
         self.tgrid   =np.array(t_array)
         self.Np      =self.logpgrid.size

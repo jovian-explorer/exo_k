@@ -14,19 +14,24 @@ class Gas_mix(object):
     can be used to compute the opacity of the gas
     """
 
-    def __init__(self, composition, bg_gas=None, logp_array=None, t_array=None,
+    def __init__(self, composition={}, bg_gas=None, logp_array=None, t_array=None,
         k_database=None, cia_database=None):
         """__init_ Instantiates
         a Gas_mix object and computes the vmr of the 'background' gas.
         """
+        self.Narray=None
+        self._wn_range=None
+        self.iw_min=None
+        self.iw_max=None
+        self.wns=None
+        self.wnedges=None
+        self.Nw=None
+
         self.set_composition(composition, bg_gas=bg_gas)
         self.set_logPT(logp_array=logp_array, t_array=t_array)
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
 
-        self._wn_range=None
-        self.iw_min=None
-        self.iw_max=None
 
     def set_composition(self, composition, bg_gas=None):
         """Reset composition and computes the vmr of the 'background' gas.
@@ -53,14 +58,20 @@ class Gas_mix(object):
         """Sets the pressure (in Pa) and temperature fields.
         """
         if logp_array is not None:
-            self.logp_array=np.array(logp_array)
-            self.t_array=np.array(t_array)
+            if hasattr(logp_array, "__len__"):
+                self.logp_array=np.array(logp_array, dtype=float)
+            else:
+                self.logp_array=np.array([logp_array], dtype=float)
+
+            if hasattr(t_array, "__len__"):
+                self.t_array=np.array(t_array)
+            else:
+                self.t_array=np.array([t_array])
+
             if self.logp_array.size != self.t_array.size:
                 raise TypeError(\
                     'logp_array and t_array should be 1d lists or arrays of the same size')
             self.Narray=self.logp_array.size
-        else:
-            self.Narray=None
 
     def get_background_vmr(self):
         """Computes the volume mixing ratio of the background gas in a mix
@@ -220,7 +231,8 @@ class Gas_mix(object):
                 & (self.kdatabase.wnedges <= self._wn_range[1]))[0][[0,-1]]
             # to be consistent with interpolate_kdata
 
-    def cross_section(self, wl_range=None, wn_range=None, rayleigh=True,
+    def cross_section(self, composition=None, logp_array=None, t_array=None,
+            wl_range=None, wn_range=None, rayleigh=True,
             write=0, random_overlap=False, **kwargs):
         """Computes the cross section (m^2/total number of molecule) for the mix
         at each of the logPT points as a function of wavenumber (and possibly g point).
@@ -239,14 +251,15 @@ class Gas_mix(object):
 
         Returns
         -------
-            Nw: int
-                Number of wavenumber bins.
-            wns: array
-                Wavenumber array.
-            wnedges: array
-                Wavenumber of the edges of the bins.
             kdata_array: array
                 Cross section array of shape (layer number, Nw (, Ng if corrk)).
+
+        After every computation, the following variables are updated to account for any possible
+        change in spectral range:
+
+          * self.Nw, Number of wavenumber bins
+          * self.wns, Wavenumber array
+          * self.wnedges, Wavenumber of the edges of the bins
         """
         if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
         Use the kdatabase keyword during initialization or use the set_database method.""")
@@ -257,9 +270,13 @@ class Gas_mix(object):
             (not np.array_equal(self.cia_database.wns,self.kdatabase.wns)):
             raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
             You should probably run something like CIAdatabase.sample(Kdatabase.wns).""")
+        
+        self.set_logPT(logp_array=logp_array, t_array=t_array)
         if self.Narray is None:
             raise RuntimeError('You must prescribe logP (in Pa) and T arrays first.')
 
+        if composition is not None:
+            self.set_composition(composition)
         molecs=self.composition.keys()
         mol_to_be_done=list(set(molecs).intersection(self.kdatabase.molecules))
         if all(elem in self.kdatabase.molecules for elem in molecs):
@@ -272,9 +289,9 @@ class Gas_mix(object):
 
         self.set_spectral_range(wl_range=wl_range, wn_range=wn_range)
         self.compute_wn_range_indices()
-        wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
-        wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
-        Nw=wns.size
+        self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
+        self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
+        self.Nw=self.wns.size
 
         vmr_prof, cst_prof=self.get_vmr_array((self.Narray,))
         first_mol=True
@@ -288,28 +305,28 @@ class Gas_mix(object):
             else:
                 if random_overlap and (self.kdatabase.Ng is not None):
                     kdata_array=RandOverlap_2_kdata_prof(self.Narray,
-                        Nw,self.kdatabase.Ng, 
-                        kdata_array,tmp_kdata,self.kdatabase.weights,
+                        self.Nw, self.kdatabase.Ng, 
+                        kdata_array,tmp_kdata, self.kdatabase.weights,
                         self.kdatabase.ggrid)
                 else:
                     kdata_array+=tmp_kdata
 
         if rayleigh or (self.cia_database is not None):
-            cont_sig=np.zeros((self.Narray,Nw))
+            cont_sig=np.zeros((self.Narray,self.Nw))
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
                     self.t_array, vmr_prof, wngrid_limit=self._wn_range)
             if rayleigh:
                 if cst_prof:
-                    cont_sig+=Rayleigh().sigma(wns, self.composition)
+                    cont_sig+=Rayleigh().sigma(self.wns, self.composition)
                 else:
-                    cont_sig+=Rayleigh().sigma_array(wns, vmr_prof)
+                    cont_sig+=Rayleigh().sigma_array(self.wns, vmr_prof)
             if self.kdatabase.Ng is None:
                 kdata_array+=cont_sig
             else:
                 kdata_array+=cont_sig[:,:,None]
 
-        return Nw, wns, wnedges, kdata_array
+        return kdata_array
     
     def __getitem__(self, molecule):
         """Overrides getitem
@@ -363,6 +380,18 @@ class Gas_mix(object):
         res._wn_range=np.copy(self._wn_range)
         res.iw_min=self.iw_min
         res.iw_max=self.iw_max
+
+    @property
+    def wls(self):
+        """Returns the wavelength array for the bin centers
+        """
+        if self.wns is not None: return 10000./self.wns
+
+    @property
+    def wledges(self):
+        """Returns the wavelength array for the bin edges
+        """
+        if self.wnedges is not None: return 10000./self.wnedges
 
     def mix_with(self, other_gas, vmr_other_gas):
         """Mix with other Gas_mix.

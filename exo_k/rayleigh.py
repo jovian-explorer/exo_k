@@ -49,7 +49,7 @@ class Rayleigh(Singleton):
             if mol is 'He':
                 tmp=((5.484E-14)*(wave**(-4.))*(1+(2.44E5)*(wave**(-2.))))*1E-4
             else:
-                pass
+                tmp=np.zeros(wave.size)
             res+=x*tmp
 
         return res

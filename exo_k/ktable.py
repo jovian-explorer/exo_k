@@ -24,7 +24,7 @@ class Ktable(Data_table):
     Based on the Data_table class that handles basic operations common to Xtable.
     """
         
-    def __init__(self, *filename_filters, filename=None, xsec=None, path=None,
+    def __init__(self, *filename_filters, filename=None, xtable=None, path=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
         remove_zeros=False, search_path=None, mol=None,
@@ -43,8 +43,8 @@ class Ktable(Data_table):
                 This path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
-            xsec: Xtable object
-                If no filename nor filename_filters are provided, this xsec object will be used to
+            xtable: Xtable object
+                If no filename nor filename_filters are provided, this xtable object will be used to
                 create a ktable. In this case, wavenumber bins must be given
                 with the wnedges keyword.
             path: str
@@ -106,8 +106,8 @@ class Ktable(Data_table):
             else:
                 raise NotImplementedError("""Requested format not recognized.
             Should end with .pickle, .hdf5, or .h5""")
-        elif xsec is not None:
-            self.xsec_to_ktable(xsec=xsec, **kwargs)
+        elif xtable is not None:
+            self.xtable_to_ktable(xtable=xtable, **kwargs)
         elif path is not None:
             self.read_LMDZ(path=path, mol=mol, **kwargs)
         else:                  #if there is no input file, just create an empty object 
@@ -386,7 +386,7 @@ class Ktable(Data_table):
                 np.zeros(self.Np*self.Nt*self.Nw)).reshape((1,self.Np*self.Nt*self.Nw*(self.Ng+1)))
             np.savetxt(os.path.join(dirname,'corrk_gcm_'+band+'.dat'),data_to_write,fmt=fmt)
 
-    def xsec_to_ktable(self, xsec=None, wnedges=None, weights=None, ggrid=None,
+    def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre', order=20, mid_dw=True, write=0):
         """Fills the :class:`~exo_k.ktable.Ktable` object with a k-coeff table computed
         from a :class:`~exo_k.xtable.Xtable` object.
@@ -395,7 +395,7 @@ class Ktable(Data_table):
 
         Parameters
         ----------
-            xsec: :class:`~exo_k.xtable.Xtable`
+            xtable: :class:`~exo_k.xtable.Xtable`
                 input Xtable object instance
             wnedges: Array
                 edges of the wavenumber bins to be used to compute the corrk
@@ -410,17 +410,17 @@ class Ktable(Data_table):
                 Order of the Gauss legendre quadrature used. Default is 20.
             mid_dw: boolean, optional
 
-                * If True, the Xsec values in the high resolution xsec data are assumed to
+                * If True, the Xsec values in the high resolution xtable data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
                   The first and last Xsec values are discarded. 
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
         """        
-        if xsec is None: raise TypeError("You should provide an input Xtable object")
+        if xtable is None: raise TypeError("You should provide an input Xtable object")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
-        self.copy_attr(xsec,cp_kdata=False)
+        self.copy_attr(xtable,cp_kdata=False)
         self.wnedges=np.array(wnedges)
         if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=0.5*(self.wnedges[1:]+self.wnedges[:-1])
@@ -443,17 +443,17 @@ class Ktable(Data_table):
         self.Nw=self.wns.size
         self.kdata=np.zeros(self.shape)
         if mid_dw:
-            dwn_hr=(xsec.wns[2:]-xsec.wns[:-2])*0.5
-            wn_hr=xsec.wns[1:-1]
+            dwn_hr=(xtable.wns[2:]-xtable.wns[:-2])*0.5
+            wn_hr=xtable.wns[1:-1]
         else:
-            dwn_hr=(xsec.wns[1:]-xsec.wns[:-1])
-            wn_hr=xsec.wns[:-1]
+            dwn_hr=(xtable.wns[1:]-xtable.wns[:-1])
+            wn_hr=xtable.wns[:-1]
         for iP in range(self.Np):
           for iT in range(self.Nt):
             if mid_dw:
-                k_hr=xsec.kdata[iP,iT,1:-1]
+                k_hr=xtable.kdata[iP,iT,1:-1]
             else:
-                k_hr=xsec.kdata[iP,iT,:-1]
+                k_hr=xtable.kdata[iP,iT,:-1]
             #print(self.ggrid)
             #print(wn_hr[[0,-1]])
             #print(self.wnedges[[0,-1]])
@@ -547,7 +547,7 @@ class Ktable(Data_table):
         self.Ng=self.weights.size
 
         conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
-        self.logpgrid=np.array(logpgrid)+np.log10(conversion_factor)
+        self.logpgrid=np.array(logpgrid, dtype=float)+np.log10(conversion_factor)
         self.pgrid=10**self.logpgrid #in Pa
         self.p_unit='Pa'
         self.Np=self.logpgrid.size

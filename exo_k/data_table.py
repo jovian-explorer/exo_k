@@ -182,9 +182,9 @@ class Data_table(object):
                 Whether the interpolation is linear in kdata or in log(kdata)
         """
         if hasattr(logp_array, "__len__"):
-            logp_array=np.array(logp_array)
+            logp_array=np.array(logp_array, dtype=float)
         else:
-            logp_array=np.array([logp_array])
+            logp_array=np.array([logp_array], dtype=float)
         if hasattr(t_array, "__len__"):
             t_array=np.array(t_array)
         else:
@@ -245,7 +245,7 @@ class Data_table(object):
         """
         if x_array is not None: print('be careful, providing an x_array is usually for Ktable5d')
         t_array=np.array(t_array)
-        logp_array=np.array(logp_array)
+        logp_array=np.array(logp_array, dtype=float)
         tind,tweight=interp_ind_weights(t_array,self.tgrid)
         lpind,lpweight=interp_ind_weights(logp_array,self.logpgrid)
         lpindextended=lpind[:,None]
@@ -545,9 +545,9 @@ class Data_table(object):
         """
         if x_array is not None: print('be careful, providing an x_array is usually for Ktable5d')
         if hasattr(logp_array, "__len__"):
-            logp_array=np.array(logp_array)
+            logp_array=np.array(logp_array, dtype=float)
         else:
-            logp_array=np.array([logp_array])
+            logp_array=np.array([logp_array], dtype=float)
         if hasattr(t_array, "__len__"):
             t_array=np.array(t_array)
         else:

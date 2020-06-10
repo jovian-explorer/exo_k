@@ -322,7 +322,10 @@ class Atm(Atm_profile):
 
         See :any:`gas_mix.Gas_mix.cross_section` for details.
         """
-        self.Nw, self.wns, self.wnedges, self.kdata = self.gas_mix.cross_section(**kwargs)
+        self.kdata = self.gas_mix.cross_section(**kwargs)
+        self.Nw=self.gas_mix.Nw
+        self.wns=self.gas_mix.wns
+        self.wnedges=self.gas_mix.wnedges
 
     def emission_spectrum(self, integral=True, mu0=0.5, **kwargs):
         """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)

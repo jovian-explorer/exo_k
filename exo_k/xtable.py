@@ -268,7 +268,7 @@ class Xtable(Data_table):
             self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
 
         conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
-        self.logpgrid=np.array(logpgrid)+np.log10(conversion_factor)
+        self.logpgrid=np.array(logpgrid, dtype=float)+np.log10(conversion_factor)
         self.pgrid=10**self.logpgrid #in Pa
         self.p_unit='Pa'
         self.Np=self.logpgrid.size
