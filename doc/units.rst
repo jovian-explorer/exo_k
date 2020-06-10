@@ -24,7 +24,7 @@ There are two possible cases:
      * LMDZ correlated-k tables (cm^2/molecule, mbar)
      * Exo_transmit (m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
        or Kempton et al. (2016) for details
-     * kspectrum (m^2/molecule)
+     * kspectrum (absorption coefficients in m^-1)
      * HITRAN cia tables (cia coefficient in cm^5/molecule)
 
 In any case, the code can be forced to assume that the input file is using different units
@@ -63,8 +63,9 @@ and cm^-1 for wavenumbers.
 If the model is given radiative data in another unit system, it will complain. 
 
 For this reason, if you want to use the forward model provided, we recommend the use of
-MKS units that can be enforced throughout the code with a single line::
-    exo_k.Settings().set_mks(True)
+MKS units that can be enforced throughout the code with a single line:
+
+>>> exo_k.Settings().set_mks(True)
 
 After this line, all input data will automatically be converted to the MKS system. 
 
