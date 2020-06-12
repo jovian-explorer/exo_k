@@ -20,12 +20,13 @@ There are two possible cases:
 
   2. Some specific formats use fixed, known units. The ones we handle for the moment are:
 
-     * Old pickle Exomol files (cm^2/molecule, bar)
+     * Old pickle Exomol files (.pickle; cm^2/molecule, bar)
+     * Nemesis binary files (.kta; cm^2/molecule, bar)
      * LMDZ correlated-k tables (cm^2/molecule, mbar)
-     * Exo_transmit (m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
+     * Exo_transmit (.dat; m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
        or Kempton et al. (2016) for details
      * kspectrum (absorption coefficients in m^-1)
-     * HITRAN cia tables (cia coefficient in cm^5/molecule)
+     * HITRAN cia tables (.cia; cia coefficient in cm^5/molecule)
 
 In any case, the code can be forced to assume that the input file is using different units
 by using the `file_kdata_unit` and `file_p_unit` keywords in the initialization methods for

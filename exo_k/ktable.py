@@ -15,7 +15,7 @@ from .ktable5d import Ktable5d
 from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
 from .util.hires_spectrum import Hires_spectrum
-from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
+from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs, read_nemesis_binary
 from .util.cst import KBOLTZ
 
 
@@ -103,9 +103,11 @@ class Ktable(Data_table):
                 self.read_pickle(filename=self.filename, mol=mol)
             elif self.filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename=self.filename, mol=mol)
+            elif self.filename.lower().endswith('.kta'):
+                self.read_nemesis(filename=self.filename, mol=mol)
             else:
                 raise NotImplementedError("""Requested format not recognized.
-            Should end with .pickle, .hdf5, or .h5""")
+            Should end with .pickle, .hdf5, .h5, or .kta""")
         elif xtable is not None:
             self.xtable_to_ktable(xtable=xtable, **kwargs)
         elif path is not None:
@@ -175,7 +177,7 @@ class Ktable(Data_table):
 
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
-    def write_pickle(self,filename):
+    def write_pickle(self, filename):
         """Saves data in a pickle format
 
         Parameters
@@ -238,7 +240,7 @@ class Ktable(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
-    def write_hdf5(self,filename):
+    def write_hdf5(self, filename):
         """Saves data in a hdf5 format
 
         Parameters
@@ -263,7 +265,6 @@ class Ktable(Data_table):
         f.create_dataset("bin_centers", data=self.wns,compression=compression)
         f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()    
-
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file in a gcm friendly format.
@@ -385,6 +386,68 @@ class Ktable(Data_table):
             data_to_write=np.append(data_to_write, \
                 np.zeros(self.Np*self.Nt*self.Nw)).reshape((1,self.Np*self.Nt*self.Nw*(self.Ng+1)))
             np.savetxt(os.path.join(dirname,'corrk_gcm_'+band+'.dat'),data_to_write,fmt=fmt)
+
+    def read_nemesis(self, filename=None, mol=None):
+        """Initializes k coeff table and supporting data from a Nemesis binary file (.kta)
+
+        Parameters
+        ----------
+            file: str
+                Name of the input Nemesis binary file.
+            mol: str, optional
+                Name of the molecule.
+        """
+        if (filename is None or not filename.lower().endswith('.kta')):
+            raise RuntimeError("You should provide an input nemesis (.kta) file")
+        
+        if mol is not None:
+            self.mol=mol
+        else:
+            self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
+
+        self.Np, self.Nt, self.Nw, self.Ng, \
+            self.pgrid, self.tgrid, self.wns, \
+            self.ggrid, self.weights, self.kdata = read_nemesis_binary(filename)
+
+        self.logpgrid=np.log10(self.pgrid)
+        self.wnedges=np.concatenate(  \
+            ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+        self.gedges=np.insert(np.cumsum(self.weights),0,0.)
+        self.p_unit='bar'
+        self.kdata_unit='cm^2/molecule'
+
+    def write_nemesis(self, filename):
+        """Saves data in a nemesis format.
+
+        base on a routine provided by K. Chubb.
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be created and saved
+        """
+        int_format = np.int32
+        float_format = np.float32
+        with open(filename,'wb') as o:
+            o.write(int_format(11+2*self.Ng+2+self.Np+self.Nt+self.Nw).tostring())
+            #int for irec0 (5221)
+            o.write(int_format(self.Nw).tostring()) #int
+            o.write(float_format(self.wls[-1]).tostring()) #float for VMIN (0.30015)
+            o.write(float_format(-1.).tostring()) #float
+            o.write(float_format(0.).tostring()) #float for FWHM
+            o.write(int_format(self.Np).tostring())
+            o.write(int_format(self.Nt).tostring())
+            o.write(int_format(self.Ng).tostring())
+            o.write(int_format(0).tostring()) #IDGAS1 FROM HITRAN
+            o.write(int_format(0).tostring())
+            o.write(float_format(self.ggrid).tostring())
+            o.write(float_format(self.weights).tostring())
+            o.write(float_format(0.).tostring()) #float for 0
+            o.write(float_format(0.).tostring()) #float for 0
+            o.write(float_format(self.pgrid).tostring())
+            o.write(float_format(self.tgrid).tostring())
+            o.write(float_format(self.wls[::-1]).tostring())
+            o.write(float_format(self.kdata[:,:,::-1,:].transpose(2,0,1,3)*1.e20).tostring())
 
     def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre', order=20, mid_dw=True, write=0):

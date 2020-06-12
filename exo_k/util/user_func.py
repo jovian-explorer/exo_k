@@ -5,8 +5,9 @@
 Library of useful functions for users (only).
 
 Functions here CANNOT be called into the library itself: importing this module in others would
-lead to recursion problems.
+lead to recursive import problems.
 """
+import os
 import numpy as np
 from exo_k.ktable import Ktable
 from exo_k.ktable5d import Ktable5d
@@ -69,4 +70,100 @@ def convert_kspectrum_to_hdf5(file_in, file_out=None, **kwargs):
     tmp=Hires_spectrum(file_in, **kwargs)
     if file_out is None: file_out=file_in
     tmp.write_hdf5(file_out)
+
+def create_fname_grid(base_string, logpgrid=None, tgrid=None, xgrid=None,
+        p_kw=None, t_kw=None, x_kw=None):
+    """Creates a grid of filenames from an array of pressures, temperatures (
+    and vmr if there is a variable gas).
+
+    Parameters
+    ----------
+        base_string: str
+            Generic name of the spectra files with specific keywords to be replaced 
+            by the relevant numerical values
+        logpgrid: Array
+            Grid in log(pressure/Pa) of the input
+        tgrid: Array
+            Grid in temperature of the input
+        xgrid: Array
+            Input grid in vmr of the variable gas
+        
+    .. warning::
+        The result of this function is much more predictable 
+        if the values in the above arrays are given as integers. 
+        If you want to use floats anyway, good luck. 
+
+    Parameters
+    ----------
+        p_kw: str
+        t_kw: str
+        x_kw: str
+            The pattern string that will be recognized as keywords between
+            {} in base_string (See examples).
+
+    Examples
+    --------
+
+        >>> logpgrid=[1,2]
+        >>> tgrid=np.array([100.,150.,200.])
+        >>> file_grid=exo_k.create_fname_grid('spectrum_CO2_1e{logp}Pa_{t}K.hdf5',
+                  logpgrid=logpgrid,tgrid=tgrid,p_kw='logp',t_kw='t')                  
+        array([['spectrum_CO2_1e1Pa_100K.hdf5', 'spectrum_CO2_1e1Pa_150K.hdf5',
+        'spectrum_CO2_1e1Pa_200K.hdf5'],
+        ['spectrum_CO2_1e2Pa_100K.hdf5', 'spectrum_CO2_1e2Pa_150K.hdf5',
+        'spectrum_CO2_1e2Pa_200K.hdf5']], dtype='<U28')
+
+    """
+    logpgrid=np.array(logpgrid)
+    tgrid=np.array(tgrid)
+    res=[]
+    if xgrid is None:
+        for iP in range(logpgrid.size):
+            for iT in range(tgrid.size):
+                dict_opt={p_kw:str(logpgrid[iP]),t_kw:str(tgrid[iT])}
+                fname=base_string.format(**dict_opt)
+                res.append(fname)
+        return np.array(res).reshape((logpgrid.size,tgrid.size))
+    else:
+        xgrid=np.array(xgrid)
+        for iP in range(logpgrid.size):
+            for iT in range(tgrid.size):
+                for iX in range(xgrid.size):
+                    dict_opt={p_kw:str(logpgrid[iP]), \
+                        t_kw:str(tgrid[iT]),x_kw:str(xgrid[iX])}
+                    fname=base_string.format(**dict_opt)
+                    res.append(fname)
+        return np.array(res).reshape((logpgrid.size,tgrid.size,xgrid.size))
+
+def finalize_LMDZ_dir(corrkname, IRsize, VIsize):
+    """Creates the right links for a LMDZ type directory to be read by the LMDZ generic GCM.
+
+    You will need to create a proper Q.dat before using with the LMDZ GCM. 
+
+    .. important::
+        You must have run :func:`exo_k.ktable.Ktable.write_LMDZ` or
+        :func:`exo_k.ktable5d.Ktable5d.write_LMDZ` for both of your IR and VI channels
+        beforehand.
+
+    Parameters
+    ----------
+        corrkname: str
+            Path to the directory with the LMDZ ktable to finalize
+        IRsize: int
+            Number of IR spectral bins
+        VIsize: int
+            Number of VI spectral bins
+    """
+    newdir=os.path.join(corrkname,str(IRsize)+'x'+str(VIsize))
+    try:
+        os.mkdir(newdir)
+    except FileExistsError:
+        os.system('rm -rf '+newdir)
+        os.mkdir(newdir)
+    os.symlink('../IR'+str(IRsize)+'/corrk_gcm_IR.dat',os.path.join(newdir,'corrk_gcm_IR.dat'))
+    os.symlink('../IR'+str(IRsize)+'/narrowbands_IR.in',os.path.join(newdir,'narrowbands_IR.in'))
+    os.symlink('../VI'+str(VIsize)+'/corrk_gcm_VI.dat',os.path.join(newdir,'corrk_gcm_VI.dat'))
+    os.symlink('../VI'+str(VIsize)+'/narrowbands_VI.in',os.path.join(newdir,'narrowbands_VI.in'))
+    print('Everything went ok. Your ktable is in:',newdir)
+    print("You'll probably need to add Q.dat before using it though!")
 
