@@ -11,7 +11,7 @@ import astropy.units as u
 from .data_table import Data_table
 from .util.interp import rebin_ind_weights
 from .util.cst import KBOLTZ
-from .util.hires_spectrum import Hires_spectrum
+from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 
 class Xtable(Data_table):

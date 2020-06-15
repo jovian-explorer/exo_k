@@ -7,7 +7,6 @@ from exo_k.util.user_func import *
 from exo_k.util.radiation import *
 from exo_k.util.cst import *
 from exo_k.util.spectrum import Spectrum
-from exo_k.util.hires_spectrum import Hires_spectrum
 from exo_k.util.filenames import *
 from exo_k.util.molar_mass import Molar_mass
 from .ktable import Ktable
@@ -16,6 +15,7 @@ from .kdatabase import Kdatabase
 from .xtable import Xtable
 from .cia_table import Cia_table
 from .ciadatabase import CIAdatabase
+from .hires_spectrum import Hires_spectrum
 from .atm import Atm_profile,Atm
 from .chemistry import EquChemTable
 from .gas_mix import Gas_mix

@@ -12,7 +12,7 @@ import numpy as np
 from exo_k.ktable import Ktable
 from exo_k.ktable5d import Ktable5d
 from exo_k.xtable import Xtable
-from exo_k.util.hires_spectrum import Hires_spectrum
+from exo_k.hires_spectrum import Hires_spectrum
 
 def hires_to_ktable(filename_grid=None, xgrid=None, **kwargs):
     """Emulates :func:`exo_k.ktable.Ktable.hires_to_ktable`

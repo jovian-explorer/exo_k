@@ -34,6 +34,7 @@ class Hires_spectrum(object):
         see :func:`read_ascii` for additional arguments to use with ascii files
         """
         
+        self.filename=None
         self.kdata=None
         self.kdata_unit='unspecified'
         self.wns=None
@@ -78,6 +79,7 @@ class Hires_spectrum(object):
             data_type: 'xsec' or 'abs_coeff'
                 Whether the data read are cross-sections or absorption coefficients.
         """
+        self.filename=filename
         with open(filename, 'r') as file:
             tmp = file.readline().split()
             if tmp[0]=='Pressure':
@@ -115,6 +117,7 @@ class Hires_spectrum(object):
     def read_hdf5(self, filename):
         """Reads kspectrum file from hdf5
         """
+        self.filename=filename
         f = h5py.File(filename, 'r')
         self.data_type=f.attrs['data_type']
         self.wns=f['wns'][...]
@@ -155,4 +158,51 @@ class Hires_spectrum(object):
         else:
             self.kdata_unit=self.kdata_unit
         self.kdata=self.kdata*conversion_factor
- 
+
+    def __repr__(self):
+        """Method to output header
+        """
+        output="""
+        file         : {file}
+        data type    : {dtype}
+        data unit    : {ku}
+        size         : {size}
+        wns          : {wns}
+        wn units     : {wnu}
+        """.format(file=self.filename, ku=self.kdata_unit,
+        wns=self.wns, wnu=self.wn_unit, dtype=self.data_type, size= self.wns.size)
+        return output
+
+    def plot_spectrum(self, ax, x_axis='wls',
+            xscale=None, yscale=None, **kwarg):
+        """Plot the spectrum
+        
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            x_axis: str, optional
+                If 'wls', x axis is wavelength. Wavenumber otherwise.
+            x/yscale: str, optional
+                If 'log' log axes are used.
+        """
+        toplot=self.kdata
+        if x_axis == 'wls':
+            ax.plot(self.wls,toplot,**kwarg)
+            ax.set_xlabel('Wavelength (micron)')
+        else:
+            ax.plot(self.wns,toplot,**kwarg)
+            ax.set_xlabel('Wavenumber (cm$^{-1}$)')
+        if self.data_type=='xsec':
+            ax.set_ylabel('Cross section ('+self.kdata_unit+')')
+        else:
+            ax.set_ylabel('Abs. Coefficient ('+self.kdata_unit+')')
+        ax.grid(True)
+        if xscale is not None: ax.set_xscale(xscale)
+        if yscale is not None: ax.set_yscale(yscale)
+
+    @property
+    def wls(self):
+        """Returns the wavelength array for the bin centers
+        """
+        return 10000./self.wns

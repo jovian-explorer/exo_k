@@ -12,7 +12,7 @@ from .data_table import Data_table
 from .util.interp import rm_molec, rebin_ind_weights, rebin, \
         gauss_legendre, spectrum_to_kdist
 from .util.cst import KBOLTZ
-from .util.hires_spectrum import Hires_spectrum
+from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 
 
