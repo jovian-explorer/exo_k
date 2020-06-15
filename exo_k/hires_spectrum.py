@@ -62,23 +62,26 @@ class Hires_spectrum(object):
 
         self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
        
-    def read_ascii(self, filename, skiprows=0, wn_column=None,
-        kdata_column=None, data_type='abs_coeff'):
+    def read_ascii(self, filename, data_type=None, skiprows=0, wn_column=None,
+        kdata_column=None):
         """Read native kspectrum format
 
         Parameters
         ----------
             filename: str
                 Initial hires-spectrum filename.
+            data_type: 'xsec' or 'abs_coeff'
+                Whether the data read are cross-sections or absorption coefficients.
             skiprows: int, optional
                 Number of header lines to skip. For the latest Kspectrum format,
                 the header is skipped automatically.
             wn_column/kdata_column: int, optional
                 Number of column to be read for wavenumber and kdata in python convention
                 (0 is first, 1 is second, etc.)
-            data_type: 'xsec' or 'abs_coeff'
-                Whether the data read are cross-sections or absorption coefficients.
         """
+        if data_type is None:
+            raise RuntimeError("You did not provide a data_type ('xsec' or 'abs_coeff')")
+        self.data_type=data_type
         self.filename=filename
         with open(filename, 'r') as file:
             tmp = file.readline().split()
@@ -94,8 +97,7 @@ class Hires_spectrum(object):
                 if kdata_column is None: kdata_column=1
 
         if wn_column is None: wn_column=0
-        self.data_type=data_type
-        raw=np.genfromtxt(filename,skip_header=skiprows,
+        raw=np.genfromtxt(filename, skip_header=skiprows,
             usecols=(wn_column,kdata_column), names=('wns','kdata')) 
         self.kdata=raw['kdata']
         self.wns=raw['wns']
