@@ -9,8 +9,8 @@ import numpy as np
 import astropy.units as u
 from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
-from .util.interp import rm_molec, rebin_ind_weights, rebin, \
-        gauss_legendre, spectrum_to_kdist
+from .util.interp import rm_molec, rebin_ind_weights, \
+        gauss_legendre, spectrum_to_kdist, is_sorted, bin_down_corrk_numba
 from .util.cst import KBOLTZ
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
@@ -624,7 +624,8 @@ class Ktable5d(Data_table):
         res.setup_interpolation()
         return res
 
-    def bin_down(self, wnedges=None, ggrid=None, weights=None, num=300, use_rebin=False, write=0):
+    def bin_down(self, wnedges=None, weights=None, ggrid=None,
+        remove_zeros=False, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers
 
         Parameters
@@ -643,107 +644,34 @@ class Ktable5d(Data_table):
                 If not given, they are taken at the midpoints of the array
                 given by the cumulative sum of the weights
         """
-        current_ggrid=self.ggrid
-        if ggrid is not None:
-            if weights is None: raise \
-                RuntimeError("""If a new ggrid is provided,
-                    corresponding weights should be provided as well.""")
-            new_ggrid=np.array(ggrid)
-            gedges=np.insert(np.cumsum(np.array(weights)),0,0.)
-        else:
-            new_ggrid=current_ggrid
-            gedges=self.gedges
+        old_ggrid=self.ggrid
+        if weights is not None:
+            self.weights=np.array(weights)
+            self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
+            if ggrid is not None: 
+                self.ggrid=np.array(ggrid)
+            else:
+                self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
+            self.Ng=self.ggrid.size
         wnedges=np.array(wnedges)
         if wnedges.size<2: raise TypeError('wnedges should at least have two values')
-        indicestosum,wn_weigths=rebin_ind_weights(self.wnedges,wnedges)
+        wngrid_filter = np.where((wnedges <= self.wnedges[-1]) & (wnedges >= self.wnedges[0]))[0]
+        if not is_sorted(wnedges):
+            raise RuntimeError('wnedges should be sorted.')
+        indicestosum,wn_weigths=rebin_ind_weights(self.wnedges, wnedges[wngrid_filter])
         if write> 10 :print(indicestosum);print(wn_weigths)
-        newshape=np.array(self.shape)
-        Nw=wnedges.size-1
-        newshape[-2]=Nw
-        newshape[-1]=new_ggrid.size
-        newkdata=np.zeros(newshape)
-        for iW in range(Nw):
-            tmp_dwn=wn_weigths[iW]
-            for iP in range(self.Np):
-                for iT in range(self.Nt):  
-                    for iX in range(self.Nx):          
-                        tmp_logk=np.log10( \
-                            self.kdata[iP,iT,iX,indicestosum[iW]-1:indicestosum[iW+1]])
-                        logk_min=np.amin(tmp_logk[:,0])
-                        logk_max=np.amax(tmp_logk[:,-1])
-                        if logk_min==logk_max:
-                            newkdata[iP,iT,iX,iW,:]=np.ones(newshape[-1])*10.**logk_max
-                        else:
-                            logk_max=logk_max+(logk_max-logk_min)/(num-3.)
-                            logk_min=logk_min-(logk_max-logk_min)/(num-3.)
-                            logkgrid=np.linspace(logk_min,logk_max,num=num)
-                            newg=np.zeros(logkgrid.size)
-                            for ii in range(tmp_logk.shape[0]):
-                                newg+=np.interp(logkgrid,tmp_logk[ii], \
-                                    current_ggrid,left=0.,right=1.)*tmp_dwn[ii]
-                            if use_rebin:
-                                newkdata[iP,iT,iX,iW,:]=rebin(10.**logkgrid,newg,gedges)
-                            else:
-                                newkdata[iP,iT,iX,iW,:]=np.interp(new_ggrid,newg,10.**logkgrid)
+
+        newkdata=np.zeros((self.Np,self.Nt,self.Nx,wnedges.size-1,self.Ng), dtype=np.float64)
+        for iX in range(self.Nx):
+            newkdata[:,:,iX]=bin_down_corrk_numba((self.Np,self.Nt,wnedges.size-1,self.Ng), \
+                self.kdata[:,:,iX], old_ggrid, self.ggrid, self.gedges, indicestosum, \
+                wngrid_filter, wn_weigths, num, use_rebin)
+        self.kdata=newkdata
         self.wnedges=wnedges
         self.wns=(wnedges[1:]+wnedges[:-1])*0.5
-        self.Nw=Nw
-        self.kdata=newkdata
-        if ggrid is not None:
-            self.ggrid=new_ggrid
-            self.gedges=gedges
-            self.weights=weights
-            self.Ng=new_ggrid.size
-        self.setup_interpolation()
-
-    def bin_down2(self,wngrid,num=300,use_rebin=False,write=0):
-        """Obsolete. Do NOT use.
-        
-        Method to bin down a kcoeff table to a new grid of wavenumbers
-
-        Parameters
-        ----------
-            wngrid : edges of the new bins of wavenumbers (cm-1) onto which
-                the kcoeff should be binned down.
-                if you want Nwnew bin in the end, wngrid.size must be Nwnew+1
-                wngrid[0] should be greater than self.wnedges[0]
-                wngrid[-1] should be lower than self.wnedges[-1]
-        """
-        ggrid=self.ggrid
-        gedges=self.gedges
-        wngrid=np.array(wngrid)
-        indicestosum,wn_weigths=rebin_ind_weights(self.wnedges,wngrid)
-        if write> 10 :print(indicestosum);print(wn_weigths)
-        newshape=np.array(self.shape)
-        newshape[2]=wngrid.size-1
-        newkdata=np.zeros(newshape)
-        for iW in range(newshape[2]):
-            tmp_dwn=wn_weigths[iW]
-            for iP in range(self.Np):
-                for iT in range(self.Nt):  
-                    for iX in range(self.Nx):          
-                        tmp_logk=np.log10( \
-                            self.kdata[iP,iT,iX,indicestosum[iW]-1:indicestosum[iW+1]])
-                        logk_min=np.amin(tmp_logk[:,0])
-                        logk_max=np.amax(tmp_logk[:,-1])
-                        if logk_min==logk_max:
-                            newkdata[iP,iT,iX,iW,:]=np.ones(self.Ng)*10.**logk_max
-                        else:
-                            logk_max=logk_max+(logk_max-logk_min)/(num-3.)
-                            logk_min=logk_min-(logk_max-logk_min)/(num-3.)
-                            logkgrid=np.linspace(logk_min,logk_max,num=num)
-                            newg=np.zeros(logkgrid.size)
-                            for ii in range(tmp_logk.shape[0]):
-                                newg+=np.interp(logkgrid, tmp_logk[ii], \
-                                        ggrid,left=0.,right=1.)*tmp_dwn[ii]
-                            if use_rebin:
-                                newkdata[iP,iT,iX,iW,:]=rebin(10.**logkgrid,newg,gedges)
-                            else:
-                                newkdata[iP,iT,iX,iW,:]=np.interp(ggrid,newg,10.**logkgrid)
-        self.wnedges=wngrid
-        self.wns=(wngrid[1:]+wngrid[:-1])*0.5
         self.Nw=self.wns.size
-        self.kdata=newkdata
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+        self.setup_interpolation()
 
 def read_Qdat(filename):
     """Reads Q.dat files LMDZ style and extract the vmr grid.

@@ -398,6 +398,7 @@ def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicest
         for iP in range(newshape[0]):
             for iT in range(newshape[1]):            
                 tmp_logk=np.log(kdata[iP,iT,indicestosum[iW]-1:indicestosum[iW+1]])
+                #if iP==0 and iT==0: print(tmp_logk)
                 logk_min=np.amin(tmp_logk[:,0])
                 logk_max=np.amax(tmp_logk[:,-1])
                 if logk_min==logk_max:
@@ -409,6 +410,8 @@ def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicest
                     newg=np.zeros(logkgrid.size)
                     for ii in range(tmp_logk.shape[0]):
                         newg+=np.interp(logkgrid,tmp_logk[ii],ggrid0to1)*tmp_dwn[ii]
+                        #newg+=np.interp(logkgrid,tmp_logk[ii],ggrid0to1,
+                        #    left=0., right=1.)*tmp_dwn[ii]
                     if use_rebin:
                         newkdata[iP,iT,newiW,:]=rebin(np.exp(logkgrid), newg, gedges)
                     else:

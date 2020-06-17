@@ -338,7 +338,7 @@ class Data_table(object):
             x/yscale: str, optional
                 If 'log' log axes are used.
         """
-        toplot=self.spectrum_to_plot(p=p,t=t,x=x,g=g)
+        toplot=self.spectrum_to_plot(p=p, t=t, x=x, g=g)
         if x_axis == 'wls':
             ax.plot(self.wls,toplot,**kwarg)
             ax.set_xlabel('Wavelength (micron)')
@@ -486,7 +486,7 @@ class Data_table(object):
         self.kdata=self.kdata[:,:,iw_min:iw_max]
 
     def bin_down_cp(self, wnedges=None, **kwargs):
-        """Create a copy of the instance and bins it down using the methods in 
+        """Creates a copy of the instance and bins it down using the methods in 
         Ktable or Xtable.
 
         See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`

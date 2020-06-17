@@ -150,7 +150,7 @@ class Gas_mix(object):
                 cst_array=False
                 res[mol]=np.array(vmr)
                 if not np.array_equal(res[mol].shape, sh):
-                    raise RuntimeError('Wrong shape in get_gas_array')
+                    raise RuntimeError('Wrong shape in get_vmr_array')
         return res, cst_array
 
     def set_k_database(self, k_database=None):

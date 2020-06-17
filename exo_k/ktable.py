@@ -12,7 +12,7 @@ import numpy as np
 import astropy.units as u
 from .data_table import Data_table
 from .ktable5d import Ktable5d
-from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,is_sorted, \
+from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin, is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs, read_nemesis_binary
