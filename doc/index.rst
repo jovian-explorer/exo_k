@@ -14,8 +14,8 @@ It enables you to:
   * the resolution and quadrature (g) grid,
   * the pressure/temperature grid.
 * Create tables for a mix of gases using tables for individual gases.
-* Create your own tables from high resolution spectra.
-* Use you data in an integrated radiative transfer framework to simulate planetary atmospheres.
+* Create your own tables from high-resolution spectra.
+* Use your data in an integrated radiative transfer framework to simulate planetary atmospheres.
   
 On this website, you'll find a 'Getting Started' section that will show you how to do all that.
 You'll also find all the references to the various classes and methods. This documentation is

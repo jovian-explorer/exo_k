@@ -429,7 +429,7 @@ class Atm(Atm_profile):
             piBatm=PI*Bnu(self.wns[:],self.tlev[0])
         return Spectrum(piBatm,self.wns,self.wnedges)
 
-    def transmittance_profile(self,**kwargs):
+    def transmittance_profile(self, **kwargs):
         """Computes the transmittance profile of an atmosphere,
         i.e. Exp(-tau) for each layer of the model.
         Real work done in the numbafied function path_integral_corrk/xsec

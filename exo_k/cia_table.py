@@ -306,7 +306,7 @@ class Cia_table(object):
         x_x_n_density=10**logP/(KBOLTZ*T)*x_mol1*x_mol2
         #return self.interpolate_cia( \
         # T,wngrid_limit=wngrid_limit)*n_density[:,None]*n_density[:,None]*x_mol1*x_mol2
-        tmp=self.interpolate_cia(t_array=T,wngrid_limit=wngrid_limit)
+        tmp=self.interpolate_cia(t_array=T, wngrid_limit=wngrid_limit)
         return (x_x_n_density*tmp.transpose()).transpose() 
         # trick for the broadcasting to work whether x_x_n_density is a float or an array
 
@@ -474,6 +474,6 @@ class Cia_table(object):
         x_x_n_density=10**logP/(KBOLTZ*T)*x_mol1*x_mol2
         #return self.interpolate_cia( \
         # T,wngrid_limit=wngrid_limit)*n_density[:,None]*n_density[:,None]*x_mol1*x_mol2
-        tmp=self.interpolate_cia(t_array=T,wngrid_limit=wngrid_limit)
+        tmp=self.interpolate_cia(t_array=T, wngrid_limit=wngrid_limit)
         return x_x_n_density[:,None]*tmp
 

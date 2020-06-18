@@ -154,11 +154,13 @@ class CIAdatabase(object):
                         x2=gas_comp[mol2]
                         if first:
                             res=self.cia_tables[mol][mol2].effective_cross_section( \
-                                logP_array,T_array,x1,x2,wngrid_limit=wngrid_limit)
+                                logP_array, T_array, x1, x2, wngrid_limit=wngrid_limit)
                             first=False
                         else:
                             res+=self.cia_tables[mol][mol2].effective_cross_section( \
-                                logP_array,T_array,x1,x2,wngrid_limit=wngrid_limit)
+                                logP_array, T_array, x1, x2, wngrid_limit=wngrid_limit)
+        if first: # means that no molecule was in the database, we need to initialize res
+            res=np.zeros((T_array.size,self.wns.size))
         return res
 
         
