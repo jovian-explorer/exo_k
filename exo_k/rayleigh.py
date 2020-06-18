@@ -42,15 +42,16 @@ class Rayleigh(Singleton):
         res=np.zeros(wns.size)
         wave = 1e8/wns
         for mol, x in vmr.items():
-            if mol is 'H2':
+            to_add=True
+            if mol == 'H2':
                 tmp=((8.14E-13)*(wave**(-4.))* \
                     (1+(1.572E6)*(wave**(-2.))+(1.981E12)*(wave**(-4.))))*1E-4
                 #res+=x*(8.14e-33+1.28e-42*wns**2+1.61e-51*wns**4)*wns**4/1.e16
-            if mol is 'He':
+            elif mol == 'He':
                 tmp=((5.484E-14)*(wave**(-4.))*(1+(2.44E5)*(wave**(-2.))))*1E-4
             else:
-                tmp=np.zeros(wave.size)
-            res+=x*tmp
+                to_add=False
+            if to_add: res+=x*tmp
 
         return res
 
@@ -78,11 +79,11 @@ class Rayleigh(Singleton):
             if first_mol:
                 res=np.zeros((x_array.size,wns.size))
                 first_mol=False
-            if mol is 'H2':
+            if mol == 'H2':
                 tmp=((8.14E-13)*(wave**(-4.))* \
                     (1+(1.572E6)*(wave**(-2.))+(1.981E12)*(wave**(-4.))))*1E-4
                 #res+=x*(8.14e-33+1.28e-42*wns**2+1.61e-51*wns**4)*wns**4/1.e16
-            if mol is 'He':
+            elif mol == 'He':
                 tmp=((5.484E-14)*(wave**(-4.))*(1+(2.44E5)*(wave**(-2.))))*1E-4
             else:
                 to_add=False
