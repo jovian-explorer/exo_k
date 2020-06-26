@@ -24,10 +24,11 @@ class Ktable5d(Data_table):
     LMDZ type ktable where there is a variable gas.
     """
     
-    def __init__(self, filename=None, path=None,
+    def __init__(self, *filename_filters, filename=None, path=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
-        remove_zeros=False, mol=None, **kwargs):
+        remove_zeros=False, search_path=None, mol=None,
+        **kwargs):
         """Initializes k coeff table with variable gas and
         supporting data from various sources (see below by order of precedence)
 
@@ -51,6 +52,9 @@ class Ktable5d(Data_table):
 
         if filename is not None:
             self.filename=filename
+        elif filename_filters:  # a none empty sequence returns a True in a conditional statement
+            self.filename=self._settings.list_files(*filename_filters,
+                only_one=True, search_path=search_path)[0]
         if self.filename is not None:
             if self.filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename=self.filename, mol=mol)
@@ -389,11 +393,11 @@ class Ktable5d(Data_table):
         if self._local_log_interp:
             self._finterp_kdata=RegularGridInterpolator( \
                 (self.logpgrid,self.tgrid,np.log(self.xgrid)), np.log(self.kdata), \
-                bounds_error=False )
+                bounds_error=True)
         else:
             self._finterp_kdata=RegularGridInterpolator( \
                 (self.logpgrid,self.tgrid,np.log(self.xgrid)), self.kdata, \
-                bounds_error=False  )
+                bounds_error=True)
 
     def set_kdata(self, new_kdata):
         """Changes kdata. this is preferred to directly accessing kdata because one
@@ -439,9 +443,9 @@ class Ktable5d(Data_table):
             wngrid_filter = np.where((self.wnedges > wngrid_limit.min()) & (
                 self.wnedges <= wngrid_limit.max()))[0][:-1]
         if self._local_log_interp:
-            return np.exp(tmp_res[wngrid_filter])
+            return np.exp(tmp_res[:,wngrid_filter])
         else:
-            return tmp_res[wngrid_filter]
+            return tmp_res[:,wngrid_filter]
 
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array= None):

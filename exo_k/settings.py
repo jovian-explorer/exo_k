@@ -10,7 +10,14 @@ from fnmatch import fnmatch,fnmatchcase
 from .util.singleton import Singleton
 
 class Settings(Singleton):
-    """A class based on a singleton to store global options only once for every instance. 
+    """A class based on a singleton to store global options only once for every instance.
+
+    So all the following methods can be called using the following syntax:
+
+    >>> exo_k.Settings().method_name(agrs)
+
+    In gerneal, they will change internal global attributes
+    that change the global behavior of some routines in the library. 
     """
 
     def init(self, *args, **kwds):
@@ -33,6 +40,16 @@ class Settings(Singleton):
         ----------
             search_path : string or list of strings
                 Search path(s) to look for opacities.
+
+        Examples
+        --------
+
+            >>> exo_k.Settings().add_search_path('data/xsec','data/corrk','data/cia')
+            >>> exo_k.Settings().search_path()
+            ['/Users/jleconte/atmosphere/RadiativeTransfer/exo_k',
+             '/Users/jleconte/atmosphere/RadiativeTransfer/exo_k/data/xsec',
+             '/Users/jleconte/atmosphere/RadiativeTransfer/exo_k/data/corrk',
+             '/Users/jleconte/atmosphere/RadiativeTransfer/exo_k/data/cia']
         """
         for path in search_paths:
             if not os.path.isdir(path):
@@ -43,7 +60,7 @@ class Settings(Singleton):
                     self._search_path.append(os.path.abspath(path))
 
     def set_search_path(self, *search_paths):
-        """Set the path(s) that will be searched for correlated-k and x-sec files .
+        """Sets the path(s) that will be searched for correlated-k and x-sec files .
 
         Parameters
         ----------
@@ -58,27 +75,50 @@ class Settings(Singleton):
         if len(search_paths)>1: self.add_search_path(*search_paths[1:])
 
     def search_path(self):
-        """Returns the current value of _search_path
+        """Returns the current value of the global search path (_search_path)
         """
         return self._search_path
 
     def set_delimiter(self, newdelimiter):
-        """Sets the delimiter string used to separate molecule names in filenames
+        """Sets the delimiter string used to separate molecule names in filenames.
+
+        Parameters
+        ----------
+            newdelimiter: string
+                New delimiter to use. Default is '_'.
+
+        Exmaple
+        -------
+            If I have a file named 'H2O.R10000_xsec.hdf5'
+            that I want to load in a `Kdatabase`, the default
+            settings will result in an error:
+
+            >>> database=xk.Kdatabase(['H2O'],'R10000')
+             No file was found with these filters: 
+             ('H2O_', 'R1000') in the following directories:
+             ['/home/falco/xsec/xsec_sampled_R10000_0.3-15'] 
+
+            Using
+
+            >>> xk.Settings().set_delimiter('.')
+            >>> database=xk.Kdatabase(['H2O'],'R10000')
+
+            finds the file.
         """
         self._delimiter = newdelimiter
 
     def set_log_interp(self, log_interp):
-        """Set the default interpolation mode for kdata.
+        """Sets the default interpolation mode for kdata. Default is Log. 
 
         Parameters
         ----------
             log_interp: boolean
-                If True, log interpolation. Linear if False
+                If True, log interpolation. Linear if False.
         """
         self._log_interp = log_interp
 
     def set_case_sensitive(self, case_sensitive):
-        """Set whether name matching is case sensitive
+        """Set whether name matching is case sensitive. Default is False.
 
         Parameters
         ----------
@@ -93,7 +133,7 @@ class Settings(Singleton):
         Parameters
         ----------
             set_mks: boolean
-                If True, all datasets are converted to mks upon loading
+                If True, all datasets are converted to mks upon loading.
         """
         self._convert_to_mks = set_mks
 
@@ -107,7 +147,7 @@ class Settings(Singleton):
                 A set of strings that need to be contained in the name of the file
             only_one: boolean, optional
                 If true, only one filename is returned (the first one).
-                If false, a list is returned. Default is false.
+                If false, a list is returned. Default is False.
             search_path: str, optional
                 If search_path is provided, it locally overrides
                 the global _search_path settings
