@@ -6,12 +6,14 @@ Contains classes for atmospheric profiles and their radiative properties.
 That's where forward models are computed. 
 """
 import numpy as np
+from scipy.special import expn
 import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
+from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
 
@@ -327,7 +329,7 @@ class Atm(Atm_profile):
         self.wns=self.gas_mix.wns
         self.wnedges=self.gas_mix.wnedges
 
-    def emission_spectrum(self, integral=True, mu0=0.5, **kwargs):
+    def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None, **kwargs):
         """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
@@ -337,13 +339,26 @@ class Atm(Atm_profile):
                 * If not, only the central value is used.
                   False is faster and should be ok for small bins,
                   but True is the correct version. 
+
+        Other Parameters
+        ----------------
+            mu0: float
+                Cosine of the quadrature angle use to compute output flux
+            mu_quad_order: int
+                If an integer is given, the emission intensity is computed
+                for a number of angles and integrated following a gauss legendre
+                quadrature rule of order `mu_quad_order`.
+
         Returns
         -------
             Spectrum object 
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
-        #if self.dtau is None:
-        #    self.rad_prop(**kwargs)
+        if mu_quad_order is not None:
+            # if we want quadrature, use the more general method.
+            return self.emission_spectrum_quad(integral=integral,
+                mu_quad_order=mu_quad_order, **kwargs)
+
         self.opacity(rayleigh=False, **kwargs)
         if integral:
             #JL2020 What is below is slightly faster for very large resolutions
@@ -379,6 +394,54 @@ class Atm(Atm_profile):
 
         return Spectrum(IpTop,self.wns,self.wnedges)
 
+    def emission_spectrum_quad(self, integral=True, mu_quad_order=3, **kwargs):
+        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
+        using gauss legendre qudrature of order `mu_quad_order`
+
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+                  
+        Returns
+        -------
+            Spectrum object 
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """
+        self.opacity(rayleigh=False, **kwargs)
+        if integral:
+            piBatm=2.*PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                /np.diff(self.wnedges)
+        else:
+            piBatm=2.*PI*Bnu(self.wns[None,:],self.tlev[:,None])
+        self.SurfFlux=piBatm[-1]
+
+        IpTop=np.zeros(self.kdata.shape[1])
+        mu_w, mu_a, _ = gauss_legendre(mu_quad_order)
+        mu_w = mu_w * mu_a # takes care of the mu factor in last integral => int(mu I d mu)
+        for ii, mu0 in enumerate(mu_a):
+            if self.Ng is None:
+                self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
+            else:
+                self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu0)
+                weights=self.kdatabase.weights
+            expdtau=np.exp(-dtau)
+            expdtauminone=np.where(dtau<1.e-14,-dtau,expdtau-1.)
+            exptau=np.exp(-self.tau)
+            if self.Ng is None:
+                timesBatmTop=(-expdtau-expdtauminone/dtau)*exptau[:-1]
+                timesBatmBottom=(1.+expdtauminone/dtau)*exptau[:-1]
+                timesBatmBottom[-1]=timesBatmBottom[-1]+exptau[-1]
+            else:
+                timesBatmTop=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
+                timesBatmBottom=np.sum((1.+expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
+                timesBatmBottom[-1]=timesBatmBottom[-1]+np.sum(exptau[-1]*weights,axis=1)
+            IpTop+=np.sum(piBatm[:-1]*timesBatmTop+piBatm[1:]*timesBatmBottom,axis=0)*mu_w[ii]
+
+        return Spectrum(IpTop,self.wns,self.wnedges)
 
     def exp_minus_tau(self):
         """Sums Exp(-tau) over gauss points
@@ -490,7 +553,50 @@ class Atm(Atm_profile):
         heat_rate=heat_rate*N_A*self.rcp/(self.dcol_density*RGP)
         return heat_rate
 
+############### unvalidated functions #########################
 
+    def emission_spectrum_exp_integral(self, integral=True, **kwargs):
+        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
+        .. warning::
+            This method uses a formulation with exponential integrals that
+            is not yet perceived as accurate enough by the author. It is left for testing only. 
 
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+
+        Returns
+        -------
+            Spectrum object 
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """
+        #if self.dtau is None:
+        #    self.rad_prop(**kwargs)
+        self.opacity(rayleigh=False, **kwargs)
+        if integral:
+            piBatm=2*PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                /np.diff(self.wnedges)
+        else:
+            piBatm=2*PI*Bnu(self.wns[None,:],self.tlev[:,None])
+        self.SurfFlux=piBatm[-1]
+        mu_zenith=1.
+        if self.Ng is None:
+            self.tau,dtau=rad_prop_xsec(self.dcol_density, self.kdata, mu_zenith)
+        else:
+            self.tau,dtau=rad_prop_corrk(self.dcol_density, self.kdata, mu_zenith)
+            weights=self.kdatabase.weights
+        factor=expn(2, self.tau[1:])*dtau
+        if self.Ng is None:
+            timesBatmTop=factor*piBatm[:-1]
+            surf_contrib=piBatm[-1]*expn(3, self.tau[-1])
+        else:
+            timesBatmTop=piBatm[:-1]*np.sum(factor*weights,axis=2)
+            surf_contrib=piBatm[-1]*np.sum(expn(3, self.tau[-1])*weights,axis=1)
+        IpTop=np.sum(timesBatmTop,axis=0)+surf_contrib
+        return Spectrum(IpTop, self.wns, self.wnedges)
 
