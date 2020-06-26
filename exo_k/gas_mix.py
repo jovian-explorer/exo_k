@@ -44,7 +44,12 @@ class Gas_mix(object):
                 Name of the background molecule. 
                 If None, it is inferred from the molecule for which vmr='background'.
         """
-        self.composition=composition.copy()
+        self.composition=dict()
+        for mol,vmr in composition.items():
+            if isinstance(vmr, list):
+                self.composition[mol]=np.array(vmr)
+            else:
+                self.composition[mol]=vmr
         self.bg_gas=bg_gas
         if (True in [isinstance(val,str) for val in self.composition.values()]) \
                 or (self.bg_gas is not None):
@@ -340,7 +345,10 @@ class Gas_mix(object):
             self.bg_gas=molecule
             self.composition['inactive_gas']=0.
         else:
-            self.composition[molecule]=vmr
+            if isinstance(vmr, list):
+                self.composition[molecule]=np.array(vmr)
+            else:
+                self.composition[molecule]=vmr
             if molecule==self.bg_gas:
                 self.bg_gas='inactive_gas'
         self.get_background_vmr()
