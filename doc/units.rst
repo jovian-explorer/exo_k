@@ -21,12 +21,19 @@ There are two possible cases:
   2. Some specific formats use fixed, known units. The ones we handle for the moment are:
 
      * Old pickle Exomol files (.pickle; cm^2/molecule, bar)
-     * Nemesis binary files (.kta; cm^2/molecule, bar)
+     * Nemesis binary files (.kta; 10^20 cm^2/molecule, bar)
      * LMDZ correlated-k tables (cm^2/molecule, mbar)
      * Exo_transmit (.dat; m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
        or Kempton et al. (2016) for details
-     * kspectrum (absorption coefficients in m^-1)
+     * Any high-resolution spectra provided in ascii format with at least a column for wavenumber and one for opacity, such as:
+
+       * kspectrum (absorption coefficients in m^-1)     
+       * Helios-k high-resolution spectra (For the moment, only their output in cm^2/molecule is supported).
+         See https://helios-k.readthedocs.io/en/latest/ for details. 
+
      * HITRAN cia tables (.cia; cia coefficient in cm^5/molecule)
+
+(If you would like to see your favorite format up there, please go see this :ref:`section<contribute_format>`)
 
 In any case, the code can be forced to assume that the input file is using different units
 by using the `file_kdata_unit` and `file_p_unit` keywords in the initialization methods for
@@ -49,21 +56,23 @@ very attached to inverse cemtimeters (cm^-1), so this is the unit used in `exo_k
 
 While all the computations in the library use wavenumbers, some functions and methods can be
 given wavelengths as arguments.
-Then, `wl` is usually in the name (as in `wl_range`).
-
-Spectral information can be plotted using both wavenumbers or wavelength. Whenever 
+Then, `wl` is usually in the name (as in `wl_range`). For the moment, whenever 
 wavelengths are involved, microns are used.
+
+Spectral information can be plotted using both wavenumbers or wavelength.
 
 Units in the forward model
 --------------------------
 
 For numerical efficiency, the forward model integrated to `exo_k`
 is written with a specific unit system (to avoid conversions).
-We chose International (SI/MKS) units for cross-sections and pressures (m^2/molecule and Pa),
-and cm^-1 for wavenumbers.
+We chose International (SI/MKS) units for cross-sections (m^2/molecule), pressures (Pa),
+and CIA coefficients (m^-5).
+We use cm^-1 for wavenumbers.
 If the model is given radiative data in another unit system, it will complain. 
 
-For this reason, if you want to use the forward model provided, we recommend the use of
+For this reason, if you want to use the forward model provided (or simply if you want to use a consistent set of units
+without too much thinking about it), we recommend the use of
 MKS units that can be enforced throughout the code with a single line:
 
 >>> exo_k.Settings().set_mks(True)
