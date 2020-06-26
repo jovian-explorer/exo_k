@@ -16,7 +16,7 @@ from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin,
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs, read_nemesis_binary
-from .util.cst import KBOLTZ
+from .util.cst import KBOLTZ, nemesis_hitran_id_numbers
 
 
 class Ktable(Data_table):
@@ -438,7 +438,7 @@ class Ktable(Data_table):
             o.write(int_format(self.Np).tostring())
             o.write(int_format(self.Nt).tostring())
             o.write(int_format(self.Ng).tostring())
-            o.write(int_format(0).tostring()) #IDGAS1 FROM HITRAN
+            o.write(int_format(nemesis_hitran_id_numbers[self.mol]).tostring()) #IDGAS1 FROM HITRAN
             o.write(int_format(0).tostring())
             o.write(float_format(self.ggrid).tostring())
             o.write(float_format(self.weights).tostring())
