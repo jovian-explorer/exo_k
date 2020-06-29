@@ -266,8 +266,8 @@ class Gas_mix(object):
           * self.wns, Wavenumber array
           * self.wnedges, Wavenumber of the edges of the bins
         """
-        if self.kdatabase is None: raise RuntimeError("""kdatabase not provided. 
-        Use the kdatabase keyword during initialization or use the set_database method.""")
+        if self.kdatabase is None: raise RuntimeError("""k_database not provided. 
+        Use the k_database keyword during initialization or use the set_k_database method.""")
         if not self.kdatabase.consolidated_wn_grid: raise RuntimeError("""
             All tables in the database should have the same wavenumber grid to proceed.
             You should probably use bin_down().""")
