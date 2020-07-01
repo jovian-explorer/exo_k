@@ -64,6 +64,10 @@ class Atm_profile(object):
           These will become the pressures (Pa) and temperatures at the level interfaces.
           This will be used to define the surface and top pressures.
           Nlev becomes the size of the arrays. 
+
+        .. warning::
+            Layers are counted from the top down (increasing pressure order).
+            All methods follow the same convention.
         """
         self.gas_mix=Gas_mix(composition)
         self.rcp=rcp
@@ -78,12 +82,12 @@ class Atm_profile(object):
             self.play=10**self.logplay
             self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat, rcp=rcp)
         else:
-            self.set_logPT_profile(logplev, tlev, compute_col_dens=False)
-        self.set_grav(grav,compute_col_dens=False)
-        self.set_Mgas(Mgas)
+            self.set_logPT_profile(logplev, tlev)
         self.set_Rp(Rp)        
+        self.set_grav(grav)
+        self.set_Mgas(Mgas)
 
-    def set_logPT_profile(self, log_plev, tlev, compute_col_dens=True):
+    def set_logPT_profile(self, log_plev, tlev):
         """Set the logP-T profile of the atmosphere with a new one
 
         Parameters
@@ -104,9 +108,6 @@ class Atm_profile(object):
         self.Nlev=log_plev.size
         self.Nlay=self.Nlev-1
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
-        if compute_col_dens:
-            self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
-            self.compute_layer_col_density()
 
     def set_adiab_profile(self, Tsurf=None, Tstrat=None, rcp=0.28):
         """Initializes the logP-T atmospheric profile with an adiabat with index R/cp=rcp
@@ -127,24 +128,18 @@ class Atm_profile(object):
         self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
 
-    def set_grav(self, grav=None, compute_col_dens=True):
+    def set_grav(self, grav=None):
         """Sets the surface gravity of the planet
 
         Parameters
         ----------
             grav: float
                 surface gravity (m/s^2)
-    
-            compute_col_dens: boolean (optional, default=True)
-                If True, the column density per layer of the atmosphere is recomputed.
-                This si mostly to save time when we know this will be done later on.
         """
         if grav is None: raise RuntimeError('A planet needs a gravity!')
         self.grav=grav
-        self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
-        if compute_col_dens: self.compute_layer_col_density()
     
-    def set_gas(self, composition_dict, compute_col_dens=True):
+    def set_gas(self, composition_dict):
         """Sets the composition of the atmosphere
 
         Parameters
@@ -160,24 +155,21 @@ class Atm_profile(object):
                 This si mostly to save time when we know this will be done later on.
         """
         self.gas_mix.set_composition(composition_dict)
-        self.set_Mgas(Mgas=None, compute_col_dens=compute_col_dens)
+        self.set_Mgas()
 
-    def set_Mgas(self, Mgas=None, compute_col_dens=True):
-        """Sets the mean molecular weight of the atmosphere
+    def set_Mgas(self, Mgas=None):
+        """Sets the mean molar mass of the atmosphere.
 
         Parameters
         ----------
             Mgas: float or array of size Nlay
-                mean molecular weight (kg/mol)
-            compute_col_dens: boolean, optional
-                If True, the column density per layer of the atmosphere is recomputed.
-                This si mostly to save time when we know this will be done later on.
+                Mean molar mass (kg/mol).
+                If None is give, the mmm is computed from the composition.
         """
         if Mgas is not None:
             self.Mgas=Mgas
         else:
             self.Mgas=self.gas_mix.molar_mass()
-        if compute_col_dens: self.compute_layer_col_density()
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -189,7 +181,7 @@ class Atm_profile(object):
         """
         self.rcp=rcp
 
-    def set_Rp(self,Rp):
+    def set_Rp(self, Rp):
         """Sets the radius of the planet
 
         Parameters
@@ -205,7 +197,7 @@ class Atm_profile(object):
         else:
             self.Rp=Rp*RJUP
 
-    def set_Rstar(self,Rstar):
+    def set_Rstar(self, Rstar):
         """Sets the radius of the star
 
         Parameters
@@ -229,18 +221,33 @@ class Atm_profile(object):
     def compute_layer_col_density(self):
         """Computes the column number density (molecules/m^-2) per layer of the atmosphere
         """
+        self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
+        # grav term above should include the altitude effect. 
         self.dcol_density=self.dmass*N_A/(self.Mgas)
 
     def compute_altitudes(self):
         """Compute altitudes of the level surfaces (zlev) and mid layers (zlay).
         """
-        H=RGP*self.tlay/(self.grav*self.Mgas)*np.log(10)
-        #print(RGP*self.tlay/(self.grav*self.Mgas))
-        self.dz=H*np.diff(self.logplev)
-        self.zlay=np.cumsum(self.dz[::-1])
-        self.zlev=np.concatenate(([0.],self.zlay))[::-1]
-        self.zlay-=0.5*self.dz[::-1]
-        self.zlay=self.zlay[::-1]
+        H=RGP*self.tlay/(self.grav*self.Mgas)
+        dlnP=np.diff(self.logplev)*np.log(10.)
+        if self.Rp is None:
+            self.dz=H*dlnP
+            self.zlay=np.cumsum(self.dz[::-1])
+            self.zlev=np.concatenate(([0.],self.zlay))[::-1]
+            self.zlay-=0.5*self.dz[::-1]
+            self.zlay=self.zlay[::-1]
+        else:
+            self.zlev=np.zeros_like(self.tlev)
+            for i in range(H.size)[::-1]:
+                z1=self.zlev[i+1]
+                H1=H[i]
+                dlnp=dlnP[i]
+                self.zlev[i]=z1+( (H1 * (self.Rp + z1)**2 * dlnp) \
+                    / (self.Rp**2 + H1 * self.Rp * dlnp + H1 * z1 * dlnp) )
+            self.zlay=(self.zlev[:-1]+self.zlev[1:])*0.5
+            # the last line is not completely consistent. The integration
+            # should be done between layer bottom and mid layer assuming
+            # an average T between Tlay and Tlev.
         
     def compute_area(self):
         """Computes the area of the annulus covered by each layer in a transit setup. 
@@ -255,6 +262,7 @@ class Atm_profile(object):
         spends in the jlay>=ilay layer (accounting for a factor of 2 due to symmetry)
         """
         if self.Rp is None: raise RuntimeError('Planetary radius should be set')
+        self.compute_altitudes()
         self.tangent_path=List()
         # List() is a new numba.typed list to comply with new numba evolution after v0.50
         for ilay in range(self.Nlay):
@@ -372,6 +380,7 @@ class Atm(Atm_profile):
         else:
             piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
         self.SurfFlux=piBatm[-1]
+        self.compute_layer_col_density()
         if self.Ng is None:
             self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
         else:
@@ -422,6 +431,7 @@ class Atm(Atm_profile):
         IpTop=np.zeros(self.kdata.shape[1])
         mu_w, mu_a, _ = gauss_legendre(mu_quad_order)
         mu_w = mu_w * mu_a # takes care of the mu factor in last integral => int(mu I d mu)
+        self.compute_layer_col_density()
         for ii, mu0 in enumerate(mu_a):
             if self.Ng is None:
                 self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
@@ -499,7 +509,6 @@ class Atm(Atm_profile):
         depending on the type of data.
         """
         self.opacity(**kwargs)
-        self.compute_altitudes()
         self.compute_tangent_path()
         self.compute_density()
         if self.Ng is not None:
@@ -533,7 +542,7 @@ class Atm(Atm_profile):
         mu0=np.cos(szangle*PI/180.)
         self.opacity(rayleigh=False, **kwargs)
         Fstar=Fin*PI*Bnu_integral_array(self.wnedges,[Tstar],self.Nw,1)/(SIG_SB*Tstar**4)
-        print(np.sum(Fstar))
+        self.compute_layer_col_density()
         if self.Ng is None:
             self.tau, _ =rad_prop_xsec(self.dcol_density,self.kdata,mu0)
             #the second returned variable is ignored
@@ -585,6 +594,7 @@ class Atm(Atm_profile):
             piBatm=2*PI*Bnu(self.wns[None,:],self.tlev[:,None])
         self.SurfFlux=piBatm[-1]
         mu_zenith=1.
+        self.compute_layer_col_density()
         if self.Ng is None:
             self.tau,dtau=rad_prop_xsec(self.dcol_density, self.kdata, mu_zenith)
         else:
