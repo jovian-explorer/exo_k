@@ -483,7 +483,10 @@ class Data_table(object):
         self.wnedges=self.wnedges[iw_min:iw_max+1]
         self.wns=self.wns[iw_min:iw_max]
         self.Nw=self.wns.size
-        self.kdata=self.kdata[:,:,iw_min:iw_max]
+        if self.Nx is None:
+            self.kdata=self.kdata[:,:,iw_min:iw_max]
+        else:
+            self.kdata=self.kdata[:,:,:,iw_min:iw_max]
 
     def bin_down_cp(self, wnedges=None, **kwargs):
         """Creates a copy of the instance and bins it down using the methods in 

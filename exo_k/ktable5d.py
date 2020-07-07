@@ -676,6 +676,17 @@ class Ktable5d(Data_table):
         self.Nw=self.wns.size
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
         self.setup_interpolation()
+    
+    def clip_spectral_range(self, wn_range=None, wl_range=None):
+        """Limits the data to the provided spectral range:
+
+           * Wavenumber in cm^-1 if using wn_range argument
+           * Wavelength in micron if using wl_range
+        """
+        super().clip_spectral_range(wn_range=wn_range, wl_range=wl_range)
+        if self.kdata is not None:
+            self.setup_interpolation()
+
 
 def read_Qdat(filename):
     """Reads Q.dat files LMDZ style and extract the vmr grid.
