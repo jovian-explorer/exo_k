@@ -48,29 +48,27 @@ class Kdatabase(object):
         self.consolidated_p_unit=True
         self.consolidated_kdata_unit=True
 
-        delim=self._settings._delimiter
-
         self.molecules=None
         if molecules is None:
             return
         if isinstance(molecules,list):
             for mol in molecules:
                 try:
-                    tmp_ktable=Ktable(*([mol+delim]+list(str_filters)), mol=mol,
+                    tmp_ktable=Ktable(*str_filters, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 except:
-                    tmp_ktable=Xtable(*([mol+delim]+list(str_filters)), mol=mol,
+                    tmp_ktable=Xtable(*str_filters, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 self.add_ktables(tmp_ktable)
-        else:
+        else: #then we assume a dict
             for mol,filename in molecules.items():
                 try:
                     # below, we still provide  *([mol+delim]+list(str_filters)) 
                     # as an input in case filename is None
-                    tmp_ktable=Ktable(*([mol+delim]+list(str_filters)), filename=filename, mol=mol,
+                    tmp_ktable=Ktable(*str_filters, filename=filename, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 except:
-                    tmp_ktable=Xtable(*([mol+delim]+list(str_filters)), filename=filename, mol=mol,
+                    tmp_ktable=Xtable(*str_filters, filename=filename, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 self.add_ktables(tmp_ktable)
         

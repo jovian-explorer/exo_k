@@ -7,13 +7,15 @@ Module containing a class to handle a database of CIA tables to compute opacitie
 import numpy as np
 
 from .cia_table import Cia_table
+from .settings import NoFileFoundError
 
 class CIAdatabase(object):
     """Class to group :class:`~exo_k.cia_table.Cia_table` objects
     and combine them in radiative transfer
     """
 
-    def __init__(self, filenames, *str_filters, remove_zeros=True, **kwargs):
+    def __init__(self, *str_filters, filenames=None, molecule_pairs=None,
+        molecules=None, remove_zeros=True, **kwargs):
         """Initializes cia tables and supporting data from a list of filenames.
 
         Parameters
@@ -35,6 +37,22 @@ class CIAdatabase(object):
                 tmp_cia_table=Cia_table(*([filename]+list(str_filters)),
                     remove_zeros=remove_zeros, **kwargs)
                 self.add_cia_tables(tmp_cia_table)
+        elif molecule_pairs is not None:
+            for mol_pair in molecule_pairs:
+                tmp_cia_table=Cia_table(*str_filters, molecule_pair=mol_pair,
+                    remove_zeros=remove_zeros, **kwargs)
+                self.add_cia_tables(tmp_cia_table)
+        elif molecules is not None:
+            for mol1 in molecules:
+                for mol2 in molecules:
+                    try:
+                        tmp_cia_table=Cia_table(*str_filters, molecule_pair=[mol1,mol2],
+                            remove_zeros=remove_zeros, **kwargs)
+                        self.add_cia_tables(tmp_cia_table)
+                    except NoFileFoundError:
+                        pass
+
+
     
     def add_cia_tables(self, *cia_tables):
         """Adds new :class:`~exo_k.cia_table.Cia_table` objects to a CIA database.

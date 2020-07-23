@@ -18,7 +18,7 @@ class Cia_table(object):
     """A class to handle CIA opacity data tables.
     """
 
-    def __init__(self, *filename_filters, filename=None, search_path=None,
+    def __init__(self, *filename_filters, filename=None, molecule_pair=None, search_path=None,
             mks=False, remove_zeros=False, old_cia_unit='cm^5'):
         """Initialization for Cia_tables.
 
@@ -55,9 +55,10 @@ class Cia_table(object):
         self._settings=Settings()
         if filename is not None:
             self.filename=filename
-        elif filename_filters:  # a none empty sequence returns a True in a conditional statement
-            self.filename=self._settings.list_files(*filename_filters,
-                only_one=True, search_path=search_path)[0]
+        elif filename_filters or molecule_pair is not None:
+            # a none empty sequence returns a True in a conditional statement
+            self.filename=self._settings.list_cia_files(*filename_filters,
+                molecule_pair=molecule_pair, only_one=True, search_path=search_path)[0]
 
         if self.filename is not None:
             if self.filename.lower().endswith(('h5','hdf5')):

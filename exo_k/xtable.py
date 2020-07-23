@@ -47,8 +47,8 @@ class Xtable(Data_table):
         super().__init__()
         if filename is not None:
             self.filename=filename
-        elif len(filename_filters)>=1:
-            self.filename=self._settings.list_files(*filename_filters,
+        elif filename_filters or mol is not None:
+            self.filename=self._settings.list_files(*filename_filters, molecule = mol,
                                  only_one=True, search_path=search_path)[0]
         if self.filename is not None:
             if self.filename.lower().endswith('pickle'):
