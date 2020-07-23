@@ -41,6 +41,7 @@ Doc Contents
    installation
    units
    getting_started
+   where_to_find_data
    API reference <autoapi/index>
    genindex
    how_to_contribute
