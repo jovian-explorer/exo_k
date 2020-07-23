@@ -1,22 +1,37 @@
 Getting `exo_k`
 ===============
 
-Downloading the package
------------------------
+There are several ways to install `exo_k`.
+
+
+Installation using `pip`
+------------------------
+
+If the `pip` Python Packages manager is installed on your machine,
+getting `exo_k` is as simple as running::
+
+    pip install exo_k
+
+
+Installing from the source files
+--------------------------------
 
 The `exo_k` library is hosted at https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public.
 You can download it as follows::
 
     git clone https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public.git
 
-Installation
-------------
-
 Once you have downloaded it, you can move into the downloaded folder, and install `exo_k` with::
 
     pip install -e .
 
-You should now be able to import it into your own python module::
+
+Using the module
+----------------
+
+However you installed it,
+you should now be able to import `exo_k` into your own python module using::
 
     import exo_k
 
+See the Getting Started section for a tutorial.
