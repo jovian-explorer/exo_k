@@ -203,6 +203,11 @@ class Settings(Singleton):
         Whether the search is case sensitive is specified through the
         Settings.set_case_sensitive() method. 
 
+        .. warning::
+            The pattern matching with the `str_filters` is done using regular expressions.
+            If you want to match special characters (like a dot in a filename), do not
+            forget to put a backslash in front of it.
+
         Parameters
         ----------
             *str_filters: str
@@ -281,6 +286,11 @@ class Settings(Singleton):
 
         Whether the search is case sensitive is specified through the
         Settings.set_case_sensitive() method. 
+
+        .. warning::
+            The pattern matching with the `str_filters` is done using regular expressions.
+            If you want to match special characters (like a dot in a filename), do not
+            forget to put a backslash in front of it.
 
         Parameters
         ----------

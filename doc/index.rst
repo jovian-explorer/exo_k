@@ -39,6 +39,7 @@ Doc Contents
    :maxdepth: 2
 
    installation
+   basic_principles
    units
    getting_started
    where_to_find_data

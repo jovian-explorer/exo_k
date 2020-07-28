@@ -32,6 +32,6 @@ Using the module
 However you installed it,
 you should now be able to import `exo_k` into your own python module using::
 
-    import exo_k
+    import exo_k as xk
 
 See the Getting Started section for a tutorial.

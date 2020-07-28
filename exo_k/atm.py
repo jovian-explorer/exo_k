@@ -521,9 +521,29 @@ class Atm(Atm_profile):
         return transmittance
 
     def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):
-        """Computes the transmission spectrum of the atmosphere normalized
-        to the radius of the planet:
-        delta_sigma=(R_planet+h_sigma)^2/R_planet^2
+        """Computes the transmission spectrum of the atmosphere.
+        In general (see options below), the code returns the transit depth:
+
+        delta_nu=(pi*Rp^2+alpha_nu)/(pi*Rstar^2).
+
+        where
+
+        alpha_nu=2*pi*Int_0^zmax (Rp+z)*(1-exp(-tau_nu(z))) dz
+        
+        Parameters
+        ----------
+            Rstar: float, optional
+                Radius of the host star. Does not need to be given here if
+                as already been specified as an attribute of the self.Atm object.
+                If specified, the result is the transit depth:
+                delta_nu=(pi*Rp^2+alpha_nu)/(pi*Rstar^2).
+            normalized: boolean, optional
+                Used only if self.Rstar and Rstar are None.
+                * If true, the result is normalized to the planetary radius:
+                  delta_nu=1+alpha_nu/(pi*Rp^2).
+                * If False, delta_sigma=1+(h_sigma/R_planet)^2.
+                  delta_nu=pi*Rp^2+alpha_nu.
+
         """
         self.set_Rstar(Rstar)
         transmittance=self.transmittance_profile(**kwargs)

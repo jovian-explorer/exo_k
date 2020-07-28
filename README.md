@@ -7,7 +7,7 @@ It enables you to:
 
 * Interpolate efficiently and easily in correlated-k and cross section tables.
 * Convert easily correlated-k and cross section tables from one format to another
-  (pickle, hdf5, LMDZ GCM, Nemesis, PetitCode, TauREx, etc.).
+  (pickle, hdf5, LMDZ GCM, Exomol, Nemesis, PetitCode, TauREx, etc.).
 * Adapt precomputed correlated-k tables to your needs by changing:
 
   * the resolution and quadrature (g) grid,
@@ -26,11 +26,12 @@ J. Leconte
 
 # Installation
 
-Exo_k can be installed using pip:
+Exo_k can be installed using pip (without cloning the repository;
+dependencies should be downloaded automatically):
 ```
-pip install -e .
+pip install exo_k
 ```
-Or by running the [setup.py](./setup.py) script:
+Or by running the [setup.py](./setup.py) script in the cloned repository:
 ```
 python setup.py install
 ```
