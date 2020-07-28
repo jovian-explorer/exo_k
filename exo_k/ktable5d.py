@@ -52,7 +52,7 @@ class Ktable5d(Data_table):
 
         if filename is not None:
             self.filename=filename
-        elif filename_filters or mol is not None:
+        elif filename_filters or (mol is not None and path is None): 
         # a none empty sequence returns a True in a conditional statement
             self.filename=self._settings.list_files(*filename_filters, molecule = mol,
                 only_one=True, search_path=search_path)[0]
