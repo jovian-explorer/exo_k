@@ -223,6 +223,11 @@ class Atm_profile(object):
         """
         self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
         # grav term above should include the altitude effect. 
+        #self.dmass[0]=self.plev[1]/self.grav
+        # above is just a test extending the atm up to p=0
+        if self.Rp is not None:
+            self.compute_altitudes()
+            self.dmass=self.dmass*(1.+self.zlay/self.Rp)**2
         self.dcol_density=self.dmass*N_A/(self.Mgas)
 
     def compute_altitudes(self):
@@ -459,6 +464,10 @@ class Atm(Atm_profile):
         weights=self.kdatabase.weights
         return np.sum(np.exp(-self.tau[1:])*weights,axis=2)
 
+    def exp_minus_tau_g(self, g_index):
+        """Sums Exp(-tau) over gauss points
+        """
+        return np.exp(-self.tau[1:,:,g_index])
 
     def surf_bb(self, integral=True):
         """Computes the surface black body flux (in W/m^2/cm^-1)
@@ -561,7 +570,7 @@ class Atm(Atm_profile):
         """
         mu0=np.cos(szangle*PI/180.)
         self.opacity(rayleigh=False, **kwargs)
-        Fstar=Fin*PI*Bnu_integral_array(self.wnedges,[Tstar],self.Nw,1)/(SIG_SB*Tstar**4)
+        Fstar=Fin*PI*Bnu_integral_array(self.wnedges,List([Tstar]),self.Nw,1)/(SIG_SB*Tstar**4)
         self.compute_layer_col_density()
         if self.Ng is None:
             self.tau, _ =rad_prop_xsec(self.dcol_density,self.kdata,mu0)
