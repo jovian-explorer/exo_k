@@ -162,7 +162,10 @@ class Cia_table(object):
         self.abs_coeff=f['abs_coeff'][...]
         self.abs_coeff_unit=f['abs_coeff'].attrs['units']
         self.tgrid=f['t'][...]
-        self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
+        if 'cia_pair' in f:
+            self.mol1,self.mol2=f['cia_pair'][...].split('-')
+        elif 'cia_pair' in f.attrs:
+            self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
         f.close()  
         self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
         self.Nt=self.tgrid.size
@@ -183,8 +186,7 @@ class Cia_table(object):
         f.create_dataset("t", data=self.tgrid,compression="gzip")
         f.create_dataset("abs_coeff", data=self.abs_coeff,compression="gzip")
         f["abs_coeff"].attrs["units"] = self.abs_coeff_unit
-        f.attrs["cia_pair"] = self.mol1+'-'+self.mol2
-        #f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
+        f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
         f.close()    
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False, **kwargs):

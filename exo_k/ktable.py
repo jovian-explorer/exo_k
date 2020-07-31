@@ -215,7 +215,9 @@ class Ktable(Data_table):
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
             raise RuntimeError("You should provide an input hdf5 file")
         f = h5py.File(filename, 'r')
-        if 'mol_name' in f.attrs:
+        if 'mol_name' in f:
+            self.mol=f['mol_name'][...]
+        elif 'mol_name' in f.attrs:
             self.mol=f.attrs['mol_name']
         else:
             self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
@@ -254,7 +256,7 @@ class Ktable(Data_table):
             fullfilename=filename+'.hdf5'
         compression="gzip"
         f = h5py.File(fullfilename, 'w')
-        f.attrs["mol_name"] = self.mol
+        f.create_dataset("mol_name", data=self.mol)
         f.create_dataset("p", data=self.pgrid,compression=compression)
         f["p"].attrs["units"] = self.p_unit
         f.create_dataset("t", data=self.tgrid,compression=compression)
