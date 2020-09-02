@@ -268,16 +268,14 @@ class Cia_table(object):
             for ii in range(tind.size):
                 kc_t1=np.log(self.abs_coeff[tind[ii]][wngrid_filter].ravel())
                 kc_t0=np.log(self.abs_coeff[tind[ii]-1][wngrid_filter].ravel())
-                tmp=linear_interpolation(kc_t0, kc_t1, tweight[ii])
-                res[ii]=np.reshape(tmp,(Nw,-1)).squeeze()
+                res[ii]=linear_interpolation(kc_t0, kc_t1, tweight[ii])
             return np.exp(res)
         else:
             for ii in range(tind.size):
                 #kc_t1=self.abs_coeff[tind[ii]]
                 kc_t1=self.abs_coeff[tind[ii]][wngrid_filter].ravel()
                 kc_t0=self.abs_coeff[tind[ii]-1][wngrid_filter].ravel()
-                tmp=linear_interpolation(kc_t0, kc_t1, tweight[ii])
-                res[ii]=np.reshape(tmp,(Nw,-1)).squeeze()
+                res[ii]=linear_interpolation(kc_t0, kc_t1, tweight[ii])
             return res
 
     def equivalent_xsec(self, logP, T, x_mol2, wngrid_limit=None):

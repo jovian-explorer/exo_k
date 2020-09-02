@@ -70,7 +70,7 @@ class CIAdatabase(object):
                 print('{mol1}-{mol2} units for cia coeff: {k}'.format(\
                     mol1=cia_table.mol1, mol2=cia_table.mol2, k=cia_table.abs_coeff_unit))
                 raise RuntimeError("""You naughty:
-                all CIAdatabase in a database must have the same coeff units""")
+                all Cia_tables in a database must have the same coeff units""")
 
             if cia_table.mol1 in self.cia_tables:
                 if cia_table.mol2 in self.cia_tables[cia_table.mol1]:
@@ -112,7 +112,7 @@ class CIAdatabase(object):
 
         return output
 
-    def sample(self, wngrid, remove_zeros=False):
+    def sample(self, wngrid, remove_zeros=False, use_grid_filter=False):
         """Samples all the cia_table in the database on the same wavenumber grid
         to be able to use them in radiative transfer modules.
 
@@ -120,10 +120,15 @@ class CIAdatabase(object):
         ----------
             wngrid : array
                 new wavenumber grid (cm-1)
+
+        .. seealso::
+            See :func:`exo_k.cia_table.Cia_table.sample for further details on options.
+
         """
         for mol1 in self.cia_tables.values():
             for cia_table in mol1.values():
-                cia_table.sample(wngrid,remove_zeros)
+                cia_table.sample(wngrid, remove_zeros=remove_zeros,
+                    use_grid_filter=use_grid_filter)
         self.wns=np.array(wngrid)
         self.Nw=self.wns.size
 
