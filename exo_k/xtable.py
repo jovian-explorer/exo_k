@@ -161,11 +161,16 @@ class Xtable(Data_table):
             self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if mol is not None:
             self.mol=mol
-        self.wns=f['bin_edges'][...]
+        if 'bin_edges' in f:
+            self.wns=f['bin_edges'][...]
+            if 'units' in f['bin_edges'].attrs:
+                self.wn_unit=f['bin_edges'].attrs['units']
+        else:
+            self.wns=f['bin_centers'][...]
+            if 'units' in f['bin_centers'].attrs:
+                self.wn_unit=f['bin_centers'].attrs['units']
         self.wnedges=np.concatenate(  \
             ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-        if 'units' in f['bin_edges'].attrs:
-            self.wn_unit=f['bin_edges'].attrs['units']
         self.kdata=f['xsecarr'][...]
         self.kdata_unit=f['xsecarr'].attrs['units']
         self.tgrid=f['t'][...]

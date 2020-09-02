@@ -104,9 +104,12 @@ class Ktable5d(Data_table):
             self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if mol is not None: self.mol=mol
         self.wns=f['bin_centers'][...]
+        self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
             self.wn_unit=f['bin_edges'].attrs['units']
-        self.wnedges=f['bin_edges'][...]
+        else:
+            if 'units' in f['bin_centers'].attrs:
+                self.wn_unit=f['bin_centers'].attrs['units']
         self.kdata=f['kcoeff'][...]
         self.kdata_unit=f['kcoeff'].attrs['units']
         self.tgrid=f['t'][...]

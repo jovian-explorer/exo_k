@@ -227,6 +227,9 @@ class Ktable(Data_table):
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
             self.wn_unit=f['bin_edges'].attrs['units']
+        else:
+            if 'units' in f['bin_centers'].attrs:
+                self.wn_unit=f['bin_centers'].attrs['units']
         self.kdata=f['kcoeff'][...]
         self.kdata_unit=f['kcoeff'].attrs['units']
         self.tgrid=f['t'][...]
