@@ -28,11 +28,15 @@ class Cia_table(object):
                 Relative or absolute name of the file to be loaded. 
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define
-                a file in the global search path defined in
-                :class:`~exo_k.settings.Settings`.
+                a file in the global search path defined with
+                :func:`exo_k.settings.Settings.set_cia_search_path`.
                 This path will be searched for a file
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
+            molecule_pair: list of size 2, optional
+                The molecule pair we want to consider, 
+                specified as an array with two strings (like ['H2','H2'] or ['N2','H2O']).
+                The order of the molecules in the pair is irrelevant. 
 
         Other Parameters
         ----------------
@@ -47,9 +51,9 @@ class Cia_table(object):
                     a value 10 orders of magnitude smaller than the smallest positive value
             search_path: str, optional
                 If search_path is provided,
-                it locally overrides the global _search_path
-                in :class:`~exo_k.settings.Settings`
-                and only files in search_path are returned.
+                it locally overrides the global search path
+                defined with :func:`exo_k.settings.Settings.set_cia_search_path`
+                and only files in `search_path` are returned.
         """
         self._init_empty()
         self._settings=Settings()

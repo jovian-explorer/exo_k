@@ -16,15 +16,29 @@ class CIAdatabase(object):
 
     def __init__(self, *str_filters, filenames=None, molecule_pairs=None,
         molecules=None, remove_zeros=True, **kwargs):
-        """Initializes cia tables and supporting data from a list of filenames.
+        """Initializes cia tables and supporting data.
+        The files to load can be specified either using (in order of precedence)
+        a list of filenames, molecule pairs, or molecules. See below for details.
+
+        Any number of filters (strings) can be provided to refine the search to
+        files whose names contain the filters. 
 
         Parameters
         ----------
-            filenames: list
+            filenames: list, optional
                 List of names (not full path) of the input cia files. 
                 The files must be in the global search path.
-                
-        A local search path can be specified with 'search_path='
+            molecule_pairs: list of size 2 lists, optional
+                List of the molecule pairs we want to consider, 
+                specified as an array with two strings (like ['H2','H2'] or ['N2','H2O']).
+                The order of the molecules in the pair is irrelevant. 
+            molecules: list of strings, optional
+                A list of all the molecules we want to consider. `Exo_k` will look
+                for all the possible pairs for which a cia file is found. 
+
+        The default path searched is set with :func:`exo_k.settings.Settings.set_cia_search_path`
+        or :func:`~exo_k.settings.Settings.add_cia_search_path`.
+        A local search path can be specified with the `search_path` keyword.
 
         See the options of :class:`~exo_k.cia_table.Cia_table` __init__ method.
         """
