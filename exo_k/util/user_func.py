@@ -13,6 +13,7 @@ from exo_k.ktable import Ktable
 from exo_k.ktable5d import Ktable5d
 from exo_k.xtable import Xtable
 from exo_k.hires_spectrum import Hires_spectrum
+from exo_k.util.cst import PI
 
 def hires_to_ktable(filename_grid=None, xgrid=None, **kwargs):
     """Emulates :func:`exo_k.ktable.Ktable.hires_to_ktable`
@@ -167,3 +168,21 @@ def finalize_LMDZ_dir(corrkname, IRsize, VIsize):
     print('Everything went ok. Your ktable is in:',newdir)
     print("You'll probably need to add Q.dat before using it though!")
 
+def mmr_to_number_density(mmr, gas_density, r_eff, condensate_density):
+    """Converts a mass mixing ratio (mmr or q) in a number density of particles
+    (in number per unit volume)
+
+    Parameters
+    ----------
+        mmr: float or array
+            Mass mixing ratio (in kg per kg of air)
+        gas_density: float or array
+            Density of the gas (in kg/m^3)
+        r_eff: float or array
+            Effective radius of the particles
+        condensate_density: float or array
+            Density of the constituent of the condensed particles (in kg/m^3)
+    """
+    particle_mass=4.*PI*r_eff**3*condensate_density/3.
+    return mmr*gas_density/particle_mass
+    

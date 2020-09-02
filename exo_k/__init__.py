@@ -13,6 +13,8 @@ from .ktable import Ktable
 from .ktable5d import Ktable5d
 from .kdatabase import Kdatabase
 from .xtable import Xtable
+from .atable import Atable, combine_tables
+from .adatabase import Adatabase
 from .cia_table import Cia_table
 from .ciadatabase import CIAdatabase
 from .hires_spectrum import Hires_spectrum
