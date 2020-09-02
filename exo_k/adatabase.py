@@ -58,6 +58,12 @@ class Adatabase(Spectral_object):
 
             self.atables[atable.aerosol_name]=atable
 
+    @property
+    def names(self):
+        """Gives the names of the aerosols in the database
+        """
+        return list(self.atables.keys())
+
     def __getitem__(self, name):
         """Overrides getitem so that Adatabase['name'] directly accesses 
         the database for that aerosol name.
@@ -124,18 +130,17 @@ class Adatabase(Spectral_object):
                 self.r_eff_unit=atable.r_eff_unit
         
 
-    def absorption_coefficient(self, r_array,
-            aer_densities, wngrid_limit=None, log_interp=None):
+    def absorption_coefficient(self, aer_reffs_densities,
+            wngrid_limit=None, log_interp=None):
         """Computes the absorption coefficient in m^-1 for the whole mix specified 
         (assumes data in MKS).
 
         Parameters
         ----------
-            r_array: array
-                array of effective radii.
-
-            aer_densities: dict
-                A dictionary with aerosol names as keys and particle number densities as values.
+            aer_reffs_densities: dict
+                A dictionary with aerosol names as keys and lists containing 2
+                floats (or arrays) as values. The values are the particle effective radii
+                and number densities.
 
             wngrid_limit: array, optional
                 Smaller and bigger wavenumbers inside which to perform the calculation.
@@ -144,22 +149,21 @@ class Adatabase(Spectral_object):
             array:
                 The effective cross section coefficient profile for the aerosols (in m^2).
         """
-        r_array=np.array(r_array)
         first=True
         if self.wns is None: raise RuntimeError("""Atables must be sampled
             on the same grid before calling cross_section.
             Please use the sample() method.""")
-        for aer, n in aer_densities.items():
+        for aer, values in aer_reffs_densities.items():
             if aer in self.atables.keys():
                 if first:
-                    res=self.atables[aer].absorption_coefficient(r_array, n,
+                    res=self.atables[aer].absorption_coefficient(values[0], values[1],
                         wngrid_limit=wngrid_limit, log_interp=log_interp)
                     first=False
                 else:
-                    res+=self.atables[aer].absorption_coefficient(r_array, n,
+                    res+=self.atables[aer].absorption_coefficient(values[0], values[1],
                         wngrid_limit=wngrid_limit, log_interp=log_interp)
         if first: # means that no molecule was in the database, we need to initialize res
-            res=np.zeros((r_array.size,self.wns.size))
+            res=np.zeros((self.wns.size))
         return res
 
         

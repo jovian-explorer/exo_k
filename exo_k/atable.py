@@ -352,7 +352,10 @@ class Atable(Spectral_object):
             log_interp: bool, optional
                 Whether the interpolation is linear in kdata or in log(kdata).
         """
-        r_array=np.array(r_array)
+        if hasattr(r_array, "__len__"):
+            r_array=np.array(r_array)
+        else:
+            r_array=np.array([r_array])
         area=PI*r_array**2
         return (area*self.interpolate_optical_properties(r_array=r_array,
             wngrid_limit=wngrid_limit, log_interp=log_interp).transpose()).transpose()
@@ -375,7 +378,10 @@ class Atable(Spectral_object):
             log_interp: bool, optional
                 Whether the interpolation is linear in kdata or in log(kdata).
         """
-        r_array=np.array(r_array)
+        if hasattr(r_array, "__len__"):
+            r_array=np.array(r_array)
+        else:
+            r_array=np.array([r_array])
         factor=np.array(n_density)*PI*r_array**2
         return (factor*self.interpolate_optical_properties(r_array=r_array,
             wngrid_limit=wngrid_limit, log_interp=log_interp).transpose()).transpose()
