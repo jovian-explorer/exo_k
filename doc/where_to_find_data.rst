@@ -93,6 +93,6 @@ HITRAN has published a quite extensive list of CIA tables that can be found
 `here <https://hitran.org/cia/>`_.
 
 Other more specific sets of CIA absorptions that have been used with LMDG
-can be found `here <https://www.lmd.jussieu.fr/~lmdz/planets/LMDZ.GENERIC/datagcm/continuum_data/>`_.
+can be found `there <https://www.lmd.jussieu.fr/~lmdz/planets/LMDZ.GENERIC/datagcm/continuum_data/>`_.
 The `README <https://www.lmd.jussieu.fr/~lmdz/planets/LMDZ.GENERIC/datagcm/continuum_data/README_continuum_files>`_
-file contains all the relevant information.
+file contains a lot of information (but be sure to specify the right units!).
