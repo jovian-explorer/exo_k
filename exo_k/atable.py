@@ -189,7 +189,7 @@ class Atable(Spectral_object):
         if aerosol_name:
             self.aerosol_name=aerosol_name
         else:
-            self.aerosol_name=f['aerosol_name'][...]
+            self.aerosol_name=f['aerosol_name'][()]
         self.wns=f['bin_centers'][...]
         if 'units' in f['bin_centers'].attrs:
             self.wn_unit=f['bin_centers'].attrs['units']

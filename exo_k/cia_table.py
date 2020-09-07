@@ -167,7 +167,7 @@ class Cia_table(object):
         self.abs_coeff_unit=f['abs_coeff'].attrs['units']
         self.tgrid=f['t'][...]
         if 'cia_pair' in f:
-            self.mol1,self.mol2=f['cia_pair'][...].split('-')
+            self.mol1,self.mol2=f['cia_pair'][()].split('-')
         elif 'cia_pair' in f.attrs:
             self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
         f.close()  

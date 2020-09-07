@@ -216,11 +216,12 @@ class Ktable(Data_table):
             raise RuntimeError("You should provide an input hdf5 file")
         f = h5py.File(filename, 'r')
         if 'mol_name' in f:
-            self.mol=f['mol_name'][...]
+            self.mol=f['mol_name'][()]
         elif 'mol_name' in f.attrs:
             self.mol=f.attrs['mol_name']
         else:
             self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+        if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
         if mol is not None:
             self.mol=mol
         self.wns=f['bin_centers'][...]
