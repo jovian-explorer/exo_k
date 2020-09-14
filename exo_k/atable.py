@@ -20,7 +20,7 @@ class Atable(Spectral_object):
 
     def __init__(self, *filename_filters, filename=None, aerosol_name=None, search_path=None,
             mks=False, remove_zeros=False):
-        """Initialization for Cia_tables.
+        """Initialization for Atables.
 
         Parameters
         ----------
@@ -49,7 +49,7 @@ class Atable(Spectral_object):
         elif filename_filters :
             # a none empty sequence returns a True in a conditional statement
             self.filename=self._settings.list_files(*filename_filters,
-                only_one=True, search_path=search_path)[0]
+                only_one=True, search_path=search_path, path_type='aerosol')[0]
 
         if self.filename is not None:
             if self.filename.lower().endswith(('h5','hdf5')):

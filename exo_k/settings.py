@@ -30,38 +30,63 @@ class Settings(Singleton):
 
         self._case_sensitive = False
 
-    def reset_search_path(self):
+    def reset_search_path(self, path_type = 'all', no_path = False):
         """Set default search path.
-        """
-        self._search_path = [os.path.abspath('.')]
-        self._cia_search_path = [os.path.abspath('.')]
 
-    def add_search_path(self, *search_paths):
+        Parameters
+        ----------
+            path_type: str
+                What type of path to reset. Possibilities are
+                'all' (default), 'kdata', 'cia', and 'aerosol'
+        """
+        if no_path:
+            local_path=[]
+        else:
+            local_path=[os.path.abspath('.')]
+        if path_type == 'kdata' or path_type == 'all':
+            self._search_path = local_path.copy()
+        if path_type == 'cia' or path_type == 'all':
+            self._cia_search_path = local_path.copy()
+        if path_type == 'aerosol' or path_type == 'all':
+            self._aerosol_search_path = local_path.copy()
+
+    def add_search_path(self, *search_paths, path_type = 'kdata'):
         """Add path(s) to the list of paths that will be searched for
-        correlated-k and x-sec files.
+        various files.
 
         Parameters
         ----------
             search_path : string or list of strings
                 Search path(s) to look for opacities.
+            path_type: str
+                What type of path to change. Possibilities are:
+                  * 'kdata' (default): xsec and corr-k search path
+                  * 'cia': search path for CIA files
+                  * 'aerosol': search path for Aerosol optical property files
 
         Examples
         --------
 
-            >>> exo_k.Settings().add_search_path('data/xsec','data/corrk','data/cia')
+            >>> exo_k.Settings().add_search_path('data/xsec','data/corrk')
             >>> exo_k.Settings().search_path()
             ['/your/path/to/exo_k',
              '/your/path/to/exo_k/data/xsec',
-             '/your/path/to/exo_k/data/corrk',
-             '/your/path/to/exo_k/data/cia']
+             '/your/path/to/exo_k/data/corrk']
         """
+        if path_type == 'kdata':
+            path_to_change=self._search_path
+        elif path_type == 'cia':
+            path_to_change=self._cia_search_path
+        elif path_type == 'aerosol':
+            path_to_change=self._aerosol_search_path
+
         for path in search_paths:
             if not os.path.isdir(path):
                 raise NotADirectoryError("""The search_path you provided
                     does not exist or is not a directory""")
             else:
-                if os.path.abspath(path) not in self._search_path:
-                    self._search_path.append(os.path.abspath(path))
+                if os.path.abspath(path) not in path_to_change:
+                    path_to_change.append(os.path.abspath(path))
 
     def add_cia_search_path(self, *search_paths):
         """Add path(s) to the list of paths that will be searched for
@@ -72,43 +97,37 @@ class Settings(Singleton):
             search_path : string or list of strings
                 Search path(s) to look for opacities.
         """
-        for path in search_paths:
-            if not os.path.isdir(path):
-                raise NotADirectoryError("""The search_path you provided
-                    does not exist or is not a directory""")
-            else:
-                if os.path.abspath(path) not in self._cia_search_path:
-                    self._cia_search_path.append(os.path.abspath(path))
+        self.add_search_path(*search_paths, path_type = 'cia')
 
-    def set_search_path(self, *search_paths):
-        """Sets the path(s) that will be searched for correlated-k and x-sec files .
+    def add_aerosol_search_path(self, *search_paths):
+        """Add path(s) to the list of paths that will be searched for
+        aerosol files.
 
         Parameters
         ----------
             search_path : string or list of strings
                 Search path(s) to look for opacities.
         """
-        if not os.path.isdir(search_paths[0]):
-            raise NotADirectoryError("""The search_path you provided
-                does not exist or is not a directory""")
-        else:
-            self._search_path=[os.path.abspath(search_paths[0])]
-        if len(search_paths)>1: self.add_search_path(*search_paths[1:])
+        self.add_search_path(*search_paths, path_type = 'aerosol')
+
+    def set_search_path(self, *search_paths, path_type = 'kdata'):
+        """Like :func:~`exo_k.settings.Settings.add_search_path` except for
+        the fact that the path is reset first.
+        """
+        self.reset_search_path(path_type = path_type, no_path = True)
+        self.add_search_path(*search_paths, path_type = path_type)
 
     def set_cia_search_path(self, *search_paths):
-        """Sets the path(s) that will be searched for cia files .
-
-        Parameters
-        ----------
-            search_path : string or list of strings
-                Search path(s) to look for opacities.
+        """Like :func:~`exo_k.settings.Settings.add_cia_search_path` except for
+        the fact that the path is reset first.
         """
-        if not os.path.isdir(search_paths[0]):
-            raise NotADirectoryError("""The search_path you provided
-                does not exist or is not a directory""")
-        else:
-            self._cia_search_path=[os.path.abspath(search_paths[0])]
-        if len(search_paths)>1: self.add_cia_search_path(*search_paths[1:])
+        self.set_search_path(*search_paths, path_type = 'cia')
+
+    def set_aerosol_search_path(self, *search_paths):
+        """Like :func:~`exo_k.settings.Settings.add_aerosol_search_path` except for
+        the fact that the path is reset first.
+        """
+        self.set_search_path(*search_paths, path_type = 'aerosol')
 
     def search_path(self):
         """Returns the current value of the global search path (_search_path)
@@ -119,6 +138,11 @@ class Settings(Singleton):
         """Returns the current value of the global search path (_search_path)
         """
         return self._cia_search_path
+
+    def aerosol_search_path(self):
+        """Returns the current value of the global search path (_search_path)
+        """
+        return self._aerosol_search_path
 
     def set_delimiter(self, newdelimiter):
         """Sets the delimiter string used to separate molecule names in filenames.
@@ -196,7 +220,7 @@ class Settings(Singleton):
         self._convert_to_mks = set_mks
 
     def list_files(self, *str_filters, molecule = None, 
-            only_one = False, search_path = None):
+            only_one = False, search_path = None, path_type = 'kdata'):
         """A routine that provides a list of all filenames containing
         a set of string filters in the global _search_path or a local one.
 
@@ -232,7 +256,10 @@ class Settings(Singleton):
         if search_path is not None:
             local_search_path=[search_path]
         else:
-            local_search_path=self._search_path
+            if path_type == 'kdata':
+                local_search_path=self._search_path
+            elif path_type == 'aerosol':
+                local_search_path=self._aerosol_search_path
 
         filenames = [f for path in local_search_path for f in glob(os.path.join(path,'*'))]
         finalnames=filenames[:]
