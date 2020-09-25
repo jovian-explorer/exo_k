@@ -8,12 +8,14 @@ from math import log10
 import time
 import pickle
 import h5py
+from astropy.io import fits
 import numpy as np
 import astropy.units as u
 from .data_table import Data_table
 from .ktable5d import Ktable5d
 from .util.interp import rm_molec, interp_ind_weights, rebin_ind_weights, rebin, is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
+from .util.filenames import _read_array
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs, read_nemesis_binary
 from .util.cst import KBOLTZ, nemesis_hitran_id_numbers
@@ -247,7 +249,7 @@ class Ktable(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
-    def write_hdf5(self, filename):
+    def write_hdf5(self, filename, compression="gzip", compression_level=9):
         """Saves data in a hdf5 format
 
         Parameters
@@ -258,18 +260,24 @@ class Ktable(Data_table):
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.hdf5'
-        compression="gzip"
         f = h5py.File(fullfilename, 'w')
         f.create_dataset("mol_name", data=self.mol)
-        f.create_dataset("p", data=self.pgrid,compression=compression)
+        f.create_dataset("p", data=self.pgrid,
+             compression=compression, compression_opts=compression_level)
         f["p"].attrs["units"] = self.p_unit
-        f.create_dataset("t", data=self.tgrid,compression=compression)
-        f.create_dataset("kcoeff", data=self.kdata,compression=compression)
+        f.create_dataset("t", data=self.tgrid,
+             compression=compression, compression_opts=compression_level)
+        f.create_dataset("kcoeff", data=self.kdata,
+             compression=compression, compression_opts=compression_level)
         f["kcoeff"].attrs["units"] = self.kdata_unit
-        f.create_dataset("samples", data=self.ggrid,compression=compression)
-        f.create_dataset("weights", data=self.weights,compression=compression)
-        f.create_dataset("bin_edges", data=self.wnedges,compression=compression)
-        f.create_dataset("bin_centers", data=self.wns,compression=compression)
+        f.create_dataset("samples", data=self.ggrid,
+             compression=compression, compression_opts=compression_level)
+        f.create_dataset("weights", data=self.weights,
+             compression=compression, compression_opts=compression_level)
+        f.create_dataset("bin_edges", data=self.wnedges,
+             compression=compression, compression_opts=compression_level)
+        f.create_dataset("bin_centers", data=self.wns,
+             compression=compression, compression_opts=compression_level)
         f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()    
 
@@ -426,7 +434,7 @@ class Ktable(Data_table):
     def write_nemesis(self, filename):
         """Saves data in a nemesis format.
 
-        base on a routine provided by K. Chubb.
+        Based on a routine provided by K. Chubb.
 
         Parameters
         ----------
@@ -451,10 +459,120 @@ class Ktable(Data_table):
             o.write(float_format(self.weights).tostring())
             o.write(float_format(0.).tostring()) #float for 0
             o.write(float_format(0.).tostring()) #float for 0
+            conv_factor=u.Unit(self.p_unit).to(u.Unit('bar'))
             o.write(float_format(self.pgrid).tostring())
             o.write(float_format(self.tgrid).tostring())
             o.write(float_format(self.wls[::-1]).tostring())
-            o.write(float_format(self.kdata[:,:,::-1,:].transpose(2,0,1,3)*1.e20).tostring())
+            data_to_write=self.kdata[:,:,::-1,:].transpose(2,0,1,3)
+            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))*1.e20
+            data_to_write=data_to_write*conv_factor
+            o.write(float_format(data_to_write).tostring())
+    
+    def read_exorem(self, filename, mol=None):
+        """Reads data in an ExoREM .dat format
+
+        Parameters
+        ----------
+            filename: str
+                Name of the input file.
+            mol: str, optional
+                Name of the molecule.
+        """
+        self.mol=mol
+        with open(filename, 'r') as file:
+            tmp = file.readline().split()
+            self.Np=int(tmp[0])
+            self.Nt=int(tmp[1])
+            self.Nw=int(tmp[2])
+            self.Ng=int(tmp[-1])
+            #print(self.Np,self.Nt,self.Nw,self.Ng)
+            self.pgrid=_read_array(file, self.Np,  N_per_line=5, revert=True)
+            self.logpgrid=np.log10(self.pgrid)
+            self.p_unit='Pa'
+            for _ in range(self.Np):
+                self.tgrid=_read_array(file, self.Nt,  N_per_line=5)
+            self.ggrid=_read_array(file, self.Ng,  N_per_line=5, revert=False)
+            self.weights=_read_array(file, self.Ng,  N_per_line=5, revert=False)
+            self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
+
+            self.kdata=np.zeros((self.Np, self.Nt, self.Nw, self.Ng))
+            self.wns=np.zeros((self.Nw))
+            #read_new_line=True
+            tmp = file.readline().split()
+            for iW in range(self.Nw):
+                self.wns[iW]=float(tmp[0])
+                #if iW=self.Nw-1: read_new_line=False
+                for iP in range(self.Np):
+                    for iT in range(self.Nt):
+                        self.kdata[-iP-1,iT,iW]=_read_array(file,
+                            self.Ng,  N_per_line=1, Nline=self.Ng)
+                        #if read_new_line: tmp = file.readline().split()
+                        tmp = file.readline().split()
+            self.kdata_unit='cm^2/molec'
+            self.wnedges=np.concatenate( \
+                ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+                
+    def read_arcis(self, filename=None, mol=None):
+        """Initializes k coeff table and supporting data from an ARCI fits file (.fits)
+
+        Parameters
+        ----------
+            file: str
+                Name of the input fits file.
+            mol: str, optional
+                Name of the molecule.
+        """
+        with fits.open(filename) as f:
+            self.kdata=f[0].data[:,:,:,::-1] #reverse spectral axis
+            self.kdata=np.transpose(self.kdata, axes=(0,1,3,2))
+            self.kdata_unit='cm^2/molecule'
+            self.Np, self.Nt, self.Nw, self.Ng = self.kdata.shape
+            self.tgrid=f[1].data
+            self.pgrid=f[2].data
+            self.logpgrid=np.log10(self.pgrid)
+            self.p_unit='bar'
+            self.wns=1./f[3].data[::-1] #data given in wavelength in cm
+            self.wn_unit='cm^-1'
+            wns_max=1./f[0].header['L_MIN']
+            wns_min=1./f[0].header['L_MAX']
+            self.wnedges=np.concatenate( \
+                ([wns_min],(self.wns[:-1]+self.wns[1:])*0.5,[wns_max]))
+            self.weights,self.ggrid,self.gedges=gauss_legendre(self.Ng)
+
+        if mol is not None:
+            self.mol=mol
+        else:
+            self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+
+    def write_arcis(self, filename):
+        """Saves data in an ARCIS fits format.
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be created and saved
+        """
+        hdr = fits.Header()
+        p_conv_fac=u.Unit(self.p_unit).to(u.Unit('bar'))
+        hdr['TMIN'] = self.tgrid[0]
+        hdr['TMAX'] = self.tgrid[-1]
+        hdr['PMIN'] = self.pgrid[0]*p_conv_fac
+        hdr['PMAX'] = self.pgrid[-1]*p_conv_fac
+        hdr['L_MIN'] = 1./self.wns[-1]
+        hdr['L_MAX'] = 1./self.wns[0]
+        hdr['NT'] = self.Nt
+        hdr['NP'] = self.Np
+        hdr['NLAM'] = self.Nw
+        hdr['NG'] = self.Ng
+        data_to_write=self.kdata[:,:,::-1,:].transpose(0,1,3,2)
+        conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))
+        hdu0=fits.PrimaryHDU(data_to_write*conv_factor, header=hdr)
+        hdu1=fits.ImageHDU(self.tgrid)
+        hdu2=fits.ImageHDU(self.pgrid*p_conv_fac)
+        hdu3=fits.ImageHDU(1./self.wns[::-1])
+        hdul = fits.HDUList([hdu0, hdu1, hdu2, hdu3])
+        hdul.writeto(filename, overwrite=True)
+
 
     def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre', order=20, mid_dw=True, write=0):
