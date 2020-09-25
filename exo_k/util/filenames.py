@@ -196,6 +196,48 @@ def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     f.create_dataset("bin_edges", data=wns,compression=compression)
     f.close()    
 
+def _read_array(file, Nvalue, N_per_line=5, Nline=None, revert=False):
+    """Reads an array in a .dat filestream. 
+    Assumes that the arrays are arranged N_per_line values per line.
+
+    Parameters
+    ----------
+        file: file stream
+            File to be read.
+        Nvalue: int
+            Number of values to be read. 
+        N_per_line: int
+            Number of values assumed per line.
+        revert: boolean (optional)
+            Whether or not to revert the array (because some arrays are
+            in decreasing order).
+        Nline: int (optional)
+            Slightly speeds up the process if the user specifies
+            the number of lines that will need to be read. 
+
+    Returns
+    -------
+        Array
+            A numpy array with the values.
+    """
+    
+    if Nline is None:
+        Nline=Nvalue//N_per_line
+        if Nvalue%N_per_line != 0:
+            Nline+=1
+    new_array=[]
+    for _ in range(Nline):
+        line=[float(i) for i in file.readline().split()]
+        new_array+=line
+    if revert :
+        new_array=np.array(new_array)[::-1]
+    else:
+        new_array=np.array(new_array)
+    #print(new_array)
+    return new_array
+
+
+
 ####### OLD FUNCTIONS ###################
 def convert_old_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
     """Deprecated.

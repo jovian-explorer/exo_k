@@ -10,6 +10,7 @@ import h5py
 import numpy as np
 from .settings import Settings
 from .util.interp import linear_interpolation, interp_ind_weights
+from .util.filenames import _read_array
 from .util.spectral_object import Spectral_object
 from .util.cst import PI
 
@@ -93,10 +94,10 @@ class Atable(Spectral_object):
             _=file.readline()
             self.Nr=int(file.readline())
             _=file.readline()
-            self.wns=self._read_array(file, self.Nw)
+            self.wns=_read_array(file, self.Nw, revert=True)
             self.wns=.01/self.wns # conversion from m to cm^-1
             _=file.readline()
-            self.r_eff_grid=self._read_array(file, self.Nr, revert=False)
+            self.r_eff_grid=_read_array(file, self.Nr, N_per_line=5, revert=False)
             # read ext coeff
             _=file.readline()
             self.ext_coeff=self._read_arrays(file, self.Nw, self.Nr)
@@ -111,43 +112,6 @@ class Atable(Spectral_object):
             self.aerosol_name=aerosol_name
         else:
             self.aerosol_name=os.path.basename(filename).split('.')[0]
-
-
-
-
-    def _read_array(self, file, Nvalue, Nline=None, revert=True):
-        """Reads an array in a optical property LMDZ file. 
-        Assumes that the arrays are arranged 5 values per line. 
-
-        Parameters
-        ----------
-            file: file stream
-                File to be read.
-            Nvalue: int
-                Number of values to be read. 
-            revert: boolean (optional)
-                Whether or not to revert the array (because most arrays are
-                ordered by decreasing wavenumber).
-
-        Returns
-        -------
-            Array
-                A numpy array with the values.
-        """
-        
-        if Nline is None:
-            Nline=Nvalue//5
-            if Nvalue%5 != 0:
-                Nline+=1
-        new_array=[]
-        for _ in range(Nline):
-            line=[float(i) for i in file.readline().split()]
-            new_array+=line
-        if revert :
-            new_array=np.array(new_array)[::-1]
-        else:
-            new_array=np.array(new_array)
-        return new_array
 
     def _read_arrays(self, file, Nvalue, Narray):
         """Reads an array in a optical property LMDZ file. 
@@ -174,7 +138,7 @@ class Atable(Spectral_object):
         new_array=np.zeros((Narray,Nvalue))
         for ii in range(Narray):
             file.readline()
-            new_array[ii]=self._read_array(file, Nvalue, Nline=Nline)
+            new_array[ii]=_read_array(file, Nvalue, N_per_line=5, Nline=Nline, revert=True)
         return new_array
 
     def read_hdf5(self, filename, aerosol_name=None):
