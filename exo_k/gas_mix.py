@@ -204,9 +204,9 @@ class Gas_mix(object):
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the CIAdatabase used with Gas_mix.")
 
-    def set_spectral_range(self, wn_range=None, wl_range=None):
-        """Sets the spectral range in which computations will be done by specifying
-        either the wavenumber or the wavelength range.
+    def _compute_spectral_range(self, wn_range=None, wl_range=None):
+        """Converts  an unordered spectral range in either wavenumber or wavelength
+        in an ordered wavenumber range.
 
         Parameters
         ----------
@@ -220,20 +220,40 @@ class Gas_mix(object):
                 print('Cannot specify both wl and wn range!')
                 raise RuntimeError()
             else:
-                self._wn_range=np.sort(10000./np.array(wl_range))
+                _wn_range=np.sort(10000./np.array(wl_range))
         else:
             if wn_range is not None:
-                self._wn_range=np.sort(np.array(wn_range))
+                _wn_range=np.sort(np.array(wn_range))
+            else:
+                _wn_range=self._wn_range
+        return _wn_range
 
-    def compute_wn_range_indices(self):
+    def set_spectral_range(self, wn_range=None, wl_range=None):
+        """Sets the default spectral range in which computations will be done by specifying
+        either the wavenumber or the wavelength range.
+
+        Parameters
+        ----------
+            wn_range: list or array of size 2
+                Minimum and maximum wavenumber (in cm^-1).
+            wl_range: list or array of size 2
+                Minimum and maximum wavelength (in micron)
+        """
+        self._wn_range=self._compute_spectral_range(wn_range=wn_range, wl_range=wl_range)
+
+    def _compute_wn_range_indices(self, wn_range=None):
         """Compute the starting and ending indices to be used for current wn_range
         """
-        if self._wn_range is None:
+        if wn_range is None:
+            local_wn_range=self._wn_range
+        else:
+            local_wn_range=wn_range
+        if local_wn_range is None:
             self.iw_min=0
             self.iw_max=self.kdatabase.Nw
         else:
-            self.iw_min, self.iw_max = np.where((self.kdatabase.wnedges > self._wn_range[0]) \
-                & (self.kdatabase.wnedges <= self._wn_range[1]))[0][[0,-1]]
+            self.iw_min, self.iw_max = np.where((self.kdatabase.wnedges > local_wn_range[0]) \
+                & (self.kdatabase.wnedges <= local_wn_range[1]))[0][[0,-1]]
             # to be consistent with interpolate_kdata
 
     def cross_section(self, composition=None, logp_array=None, t_array=None,
@@ -292,8 +312,8 @@ class Gas_mix(object):
              I ll compute opacites with the available ones:""")
         if write>3 : print(mol_to_be_done)
 
-        self.set_spectral_range(wl_range=wl_range, wn_range=wn_range)
-        self.compute_wn_range_indices()
+        local_wn_range=self._compute_spectral_range(wl_range=wl_range, wn_range=wn_range)
+        self._compute_wn_range_indices(wn_range=local_wn_range)
         self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
         self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
         self.Nw=self.wns.size
@@ -302,7 +322,7 @@ class Gas_mix(object):
         first_mol=True
         for mol in mol_to_be_done:
             tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
-                t_array=self.t_array, x_array=vmr_prof[mol], wngrid_limit=self._wn_range,
+                t_array=self.t_array, x_array=vmr_prof[mol], wngrid_limit=local_wn_range,
                 **kwargs)
             if first_mol:
                 kdata_array=tmp_kdata
@@ -320,7 +340,7 @@ class Gas_mix(object):
             cont_sig=np.zeros((self.Narray,self.Nw))
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
-                    self.t_array, vmr_prof, wngrid_limit=self._wn_range)
+                    self.t_array, vmr_prof, wngrid_limit=local_wn_range)
             if rayleigh:
                 if cst_prof:
                     cont_sig+=Rayleigh().sigma(self.wns, self.composition)
