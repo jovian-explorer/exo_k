@@ -52,7 +52,7 @@ class Xtable(Data_table):
                                  only_one=True, search_path=search_path)[0]
         if self.filename is not None:
             if self.filename.lower().endswith('pickle'):
-                self.read_pickle(filename=self.filename, mol=mol)
+                self.read_pickle(filename=self.filename)
             elif self.filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename=self.filename, mol=mol)
             elif self.filename.lower().endswith(('.dat')):
@@ -71,7 +71,7 @@ class Xtable(Data_table):
         """
         return np.array([self.Np,self.Nt,self.Nw])
 
-    def read_pickle(self, filename=None, mol=None):
+    def read_pickle(self, filename=None):
         """Initializes xsec table and supporting data from an Exomol pickle file
 
         Parameters
@@ -86,11 +86,8 @@ class Xtable(Data_table):
         raw=pickle.load(pickle_file, encoding='latin1')
         pickle_file.close()
         
-        if mol is not None: 
-            self.mol=mol
-        else:
-            self.mol=raw['name']
-            if self.mol=='H2OP': self.mol='H2O'
+        self.mol=raw['name']
+        if self.mol=='H2OP': self.mol='H2O'
 
         self.tgrid=raw['t']
         self.wns=raw['wno']
@@ -158,10 +155,11 @@ class Xtable(Data_table):
         elif 'mol_name' in f.attrs:
             self.mol=f.attrs['mol_name']
         else:
-            self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+            if mol is not None:
+                self.mol=mol
+            else:
+                self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
-        if mol is not None:
-            self.mol=mol
         if 'bin_edges' in f:
             self.wns=f['bin_edges'][...]
             if 'units' in f['bin_edges'].attrs:

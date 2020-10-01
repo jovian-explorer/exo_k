@@ -504,6 +504,16 @@ class Data_table(object):
         res.bin_down(wnedges=wnedges, **kwargs)
         return res
 
+    def change_molecule_name(self, mol_name):
+        """Changes name of the molecule
+
+        Parameters
+        ----------
+            mol_name: str
+                New molecule name
+        """
+        self.mol=mol_name
+
     def toLogK(self):
         """Changes kdata to log 10.
         """

@@ -103,7 +103,7 @@ class Ktable(Data_table):
 
         if self.filename is not None:
             if self.filename.lower().endswith('pickle'):
-                self.read_pickle(filename=self.filename, mol=mol)
+                self.read_pickle(filename=self.filename)
             elif self.filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename=self.filename, mol=mol)
             elif self.filename.lower().endswith('.kta'):
@@ -132,7 +132,7 @@ class Ktable(Data_table):
         """
         return np.array([self.Np,self.Nt,self.Nw,self.Ng])
 
-    def read_pickle(self, filename=None, mol=None):
+    def read_pickle(self, filename=None):
         """Initializes k coeff table and supporting data from an Exomol pickle file
 
         Parameters
@@ -147,11 +147,8 @@ class Ktable(Data_table):
         raw=pickle.load(pickle_file, encoding='latin1')
         pickle_file.close()
         
-        if mol is not None: 
-            self.mol=mol
-        else:
-            self.mol=raw['name']
-            if self.mol=='H2OP': self.mol='H2O'
+        self.mol=raw['name']
+        if self.mol=='H2OP': self.mol='H2O'
 
         self.pgrid=raw['p']
         self.logpgrid=np.log10(self.pgrid)
@@ -222,10 +219,11 @@ class Ktable(Data_table):
         elif 'mol_name' in f.attrs:
             self.mol=f.attrs['mol_name']
         else:
-            self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+            if mol is not None:
+                self.mol=mol
+            else:
+                self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
-        if mol is not None:
-            self.mol=mol
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:

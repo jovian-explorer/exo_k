@@ -61,7 +61,7 @@ class Ktable5d(Data_table):
                 self.read_hdf5(filename=self.filename, mol=mol)
             else:
                 raise NotImplementedError( \
-                    'Requested format not recognized. Should end with .pickle, .hdf5, or .h5')
+                    'Requested format not recognized. Should end with .hdf5 or .h5')
         elif path is not None:
             self.read_LMDZ(path=path, mol=mol, **kwargs)
         else:                  #if there is no input file, just create an empty object 
@@ -101,9 +101,11 @@ class Ktable5d(Data_table):
         elif 'mol_name' in f.attrs:
             self.mol=f.attrs['mol_name']
         else:
-            self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+            if mol is not None:
+                self.mol=mol
+            else:
+                self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
-        if mol is not None: self.mol=mol
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
