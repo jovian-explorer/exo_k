@@ -13,12 +13,14 @@ class Data_table(object):
 
     __array_priority__=1000
     # this allows __rmul__ to take precedence over numpy array broadcasting in multiplications
-    # See https://stackoverflow.com/questions/40694380/forcing-multiplication-to-use-rmul-instead-of-numpy-array-mul-or-byp/44634634#44634634
+    # See https://stackoverflow.com/questions/40694380/
+    # forcing-multiplication-to-use-rmul-instead-of-numpy-array-mul-or-byp/44634634#44634634
 
     def __init__(self):
         """Initializes all attributes to `None`"""
         self.filename=None
         self.mol=None
+        self.isotopolog_id=0
         self.pgrid=None
         self.logpgrid=None
         self.tgrid=None

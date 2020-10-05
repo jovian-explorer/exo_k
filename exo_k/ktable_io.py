@@ -244,14 +244,16 @@ class Ktable_io(Data_table):
         if (filename is None or not filename.lower().endswith('.kta')):
             raise RuntimeError("You should provide an input nemesis (.kta) file")
         
-        if mol is not None:
-            self.mol=mol
-        else:
-            self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
-
         self.Np, self.Nt, self.Nw, self.Ng, \
             self.pgrid, self.tgrid, self.wns, \
-            self.ggrid, self.weights, self.kdata = read_nemesis_binary(filename)
+            self.ggrid, self.weights, self.kdata, \
+            self.mol, self.isotopolog_id = read_nemesis_binary(filename)
+
+        if self.mol is None:
+            if mol is not None:
+                self.mol=mol
+            else:
+                self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
 
         self.logpgrid=np.log10(self.pgrid)
         self.wnedges=np.concatenate(  \
@@ -285,8 +287,12 @@ class Ktable_io(Data_table):
             o.write(int_format(self.Np).tostring())
             o.write(int_format(self.Nt).tostring())
             o.write(int_format(self.Ng).tostring())
-            o.write(int_format(nemesis_hitran_id_numbers[self.mol]).tostring()) #IDGAS1 FROM HITRAN
-            o.write(int_format(0).tostring())
+            try:
+                mol_id=nemesis_hitran_id_numbers[self.mol]
+            except:
+                mol_id=0
+            o.write(int_format(mol_id).tostring()) #IDGAS1 FROM HITRAN
+            o.write(int_format(self.isotopolog_id).tostring())
             o.write(float_format(self.ggrid).tostring())
             o.write(float_format(self.weights).tostring())
             o.write(float_format(0.).tostring()) #float for 0
@@ -496,7 +502,12 @@ def read_nemesis_binary(filename):
     float_array.fromfile(f, 3)
     wl_min, dwl, FWHM = float_array[-3:]
     int_array.fromfile(f, 5)
-    Np, Nt, Ng = int_array[-5:-2]
+    Np, Nt, Ng, mol_id, isotopolog_id = int_array[-5:]
+    try:
+        mol_name=list(nemesis_hitran_id_numbers.keys())[ \
+            list(nemesis_hitran_id_numbers.values()).index(mol_id)]
+    except:
+        mol_name=None
     float_array.fromfile(f, Ng)
     ggrid = np.array(float_array[-Ng:])
     float_array.fromfile(f, Ng)
@@ -520,4 +531,5 @@ def read_nemesis_binary(filename):
     kdata=np.reshape(kdata[-ntot:],(Nw,Np,Nt,Ng))[::-1]*1.e-20
     kdata=kdata.transpose(1,2,0,3)
     f.close()
-    return Np,Nt,Nw,Ng,pgrid,tgrid,wns,ggrid,weights,kdata
+    return Np, Nt, Nw, Ng, pgrid, tgrid, wns, ggrid, weights, \
+        kdata, mol_name, isotopolog_id
