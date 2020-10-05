@@ -15,14 +15,14 @@ know the units used in the input files read.
 There are two possible cases:
 
   1. Self defining formats can directly specify the units in the file. 
-     This is the case for all the hdf5 and pickle files created with `exo_k`, and for new generation
-     Exomol hdf5 files. 
+     This is the case for all the hdf5 and pickle files created with `exo_k` (formats based
+     on new generation Exomol files). 
 
   2. Some specific formats use fixed, known units. The ones we handle for the moment are:
 
-     * Old pickle Exomol files (.pickle; cm^2/molecule, bar)
-     * Nemesis binary files (.kta; 10^20 cm^2/molecule, bar)
      * LMDZ correlated-k tables (cm^2/molecule, mbar)
+     * Nemesis binary files (.kta; 10^-20 cm^2/molecule, bar)
+     * ARCIS fits files (.fits; cm^2/molecule, bar)
      * Exo_transmit (.dat; m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
        or Kempton et al. (2016) for details
      * Any high-resolution spectra provided in ascii format with at least a column for wavenumber and one for opacity, such as:
@@ -77,6 +77,6 @@ MKS units that can be enforced throughout the code with a single line:
 
 >>> exo_k.Settings().set_mks(True)
 
-After this line, all input data will automatically be converted to the MKS system. 
+After this line, all input data will automatically be converted to the MKS system when loaded. 
 
 

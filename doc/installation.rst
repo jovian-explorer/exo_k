@@ -25,6 +25,10 @@ Once you have downloaded it, you can move into the downloaded folder, and instal
 
     pip install -e .
 
+or::
+
+    python setup.py install
+
 
 Using the module
 ----------------

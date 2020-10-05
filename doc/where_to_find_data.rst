@@ -21,11 +21,9 @@ Cross sections and Correlated-k tables from the Exomol project
 While known for its linelists, the `Exomol <http://exomol.com/>`_ project
 has recently put a lot of efforts in providing the community with
 cross-section and correlated-k tables computed for a wide range of temperatures
-and pressures (K. Chubb, priv. comm.).
+and pressures (`Chubb et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
 
-At the time of writing, these tables have only been made public for
-`H2O <http://exomol.com/data/molecules/H2O/1H2-16O/POKAZATEL/>`_ (`Polyansky et al. (2020) <https://ui.adsabs.harvard.edu/abs/2018MNRAS.480.2597P/abstract>`_). I will
-try to provide a more extended list whenever possible. 
+These tables can be downloaded on their `website <http://exomol.com/data/data-types/opacity/>`_
 
 Correlated-k tables from the LMDZ Generic GCM database
 ------------------------------------------------------

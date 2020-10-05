@@ -9,7 +9,7 @@ It enables you to:
 
 * Interpolate efficiently and easily in correlated-k and cross section tables.
 * Convert easily correlated-k and cross section tables from one format to another
-  (pickle, hdf5, LMDZ GCM, Nemesis, PetitCode, TauREx, etc.).
+  (hdf5, LMDZ GCM, Exomol, Nemesis, PetitCode, TauREx, ExoREM, ARCIS, etc.).
 * Adapt precomputed correlated-k tables to your needs by changing:
 
   * the resolution and quadrature (g) grid,
