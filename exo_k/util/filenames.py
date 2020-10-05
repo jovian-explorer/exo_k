@@ -4,7 +4,6 @@
 
 Library of useful functions for handling filenames
 """
-import array
 import numpy as np
 import h5py
 
@@ -107,43 +106,6 @@ def create_fname_grid_Kspectrum_LMDZ(Np, Nt, Nx=None, suffix='', nb_digit=3):
                     ii+=1
         res=np.array(res).reshape((Nx,Np,Nt))
         return np.transpose(res,(2,1,0))
-
-def read_nemesis_binary(filename):
-    """reads a nemesis binary file.
-    """
-    f = open(filename, mode='rb')
-    int_array = array.array('i')
-    float_array = array.array('f')
-    int_array.fromfile(f, 2)
-    irec0, Nw=int_array[-2:]
-    float_array.fromfile(f, 3)
-    wl_min, dwl, FWHM = float_array[-3:]
-    int_array.fromfile(f, 5)
-    Np, Nt, Ng = int_array[-5:-2]
-    float_array.fromfile(f, Ng)
-    ggrid = np.array(float_array[-Ng:])
-    float_array.fromfile(f, Ng)
-    weights = np.array(float_array[-Ng:])
-    float_array.fromfile(f, 2)
-    float_array.fromfile(f, Np)
-    pgrid = np.array(float_array[-Np:])
-    float_array.fromfile(f, Nt)
-    tgrid = np.array(float_array[-Nt:])
-    ntot=Nw*Np*Nt*Ng
-    if dwl>=0.: #regular grid
-        wls=wl_min+np.arange(Nw)*dwl
-    else:
-        float_array.fromfile(f, Nw)
-        wls = np.array(float_array[-Nw:])
-    wns=10000./wls[::-1]
-    f.close()
-    f = open(filename, mode='rb') # restart to start reading kdata at record number irec0
-    kdata=array.array('f')
-    kdata.fromfile(f, irec0-1+ntot)
-    kdata=np.reshape(kdata[-ntot:],(Nw,Np,Nt,Ng))[::-1]*1.e-20
-    kdata=kdata.transpose(1,2,0,3)
-    f.close()
-    return Np,Nt,Nw,Ng,pgrid,tgrid,wns,ggrid,weights,kdata
 
 def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     """Converts exo_transmit like spectra to hdf5 format for speed and space.
