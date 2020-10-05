@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import astropy.units as u
 from .data_table import Data_table
-from .util.interp import rebin_ind_weights
+from .util.interp import rebin_ind_weights, rm_molec
 from .util.cst import KBOLTZ
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
@@ -65,78 +65,6 @@ class Xtable(Data_table):
             kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
             remove_zeros=remove_zeros)
 
-    @property
-    def shape(self):
-        """Returns the shape of self.kdata
-        """
-        return np.array([self.Np,self.Nt,self.Nw])
-
-    def read_pickle(self, filename=None):
-        """Initializes xsec table and supporting data from an Exomol pickle file
-
-        Parameters
-        ----------
-            filename : str
-                Relative or absolute name of the input pickle file
-            mol : str, optional
-                Overrides the name of the molecule to be put in the :class:`Xtable` object.
-        """
-        if filename is None: raise TypeError("You should provide an input pickle filename")
-        pickle_file=open(filename,'rb')
-        raw=pickle.load(pickle_file, encoding='latin1')
-        pickle_file.close()
-        
-        self.mol=raw['name']
-        if self.mol=='H2OP': self.mol='H2O'
-
-        self.tgrid=raw['t']
-        self.wns=raw['wno']
-        self.wnedges=np.concatenate( \
-            ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-        self.logk=False
-
-        #deals with the p grid and units
-        if 'p_unit' in raw.keys():
-            self.p_unit=raw['p_unit']
-        else:
-            self.p_unit='bar'
-        self.pgrid=raw['p']
-        self.logpgrid=np.log10(self.pgrid)
-
-        #deals with the k grid and units
-        if 'kdata_unit' in raw.keys():
-            self.kdata_unit=raw['kdata_unit']
-        else:
-            self.kdata_unit='cm^2/molec'
-        self.kdata=raw['xsecarr']
-
-        if 'wn_unit' in raw.keys(): self.wn_unit=raw['wn_unit']
-
-        self.Np,self.Nt,self.Nw=self.kdata.shape
-
-    def write_pickle(self, filename):
-        """Saves data in a pickle format
-
-        Parameters
-        ----------
-            filename: str
-                Relative or absolute name of the file to be created and saved
-        """
-        fullfilename=filename
-        if not filename.lower().endswith('.pickle'): fullfilename=filename+'.pickle'
-        pickle_file=open(fullfilename,'wb')
-        dictout={'name':self.mol,
-                 'p':self.pgrid,
-                 'p_unit':self.p_unit,
-                 't':self.tgrid,
-                 'wno':self.wns,
-                 'wn_unit':self.wn_unit,
-                 'xsecarr':self.kdata,
-                 'kdata_unit':self.kdata_unit}
-        #print(dictout)
-        pickle.dump(dictout,pickle_file,protocol=-1)
-        pickle_file.close()
-
     def read_hdf5(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
@@ -180,13 +108,16 @@ class Xtable(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nw=self.kdata.shape
 
-    def write_hdf5(self, filename):
+    def write_hdf5(self, filename, exomol_units=False):
         """Saves data in a hdf5 format
 
         Parameters
         ----------
             filename: str
                 Name of the file to be created and saved
+            exomol_units: bool (optional)
+                If True, data are converted back to
+                cm^2 and bar units before being written.
         """
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
@@ -194,12 +125,22 @@ class Xtable(Data_table):
         compression="gzip"
         f = h5py.File(fullfilename, 'w')
         f.create_dataset("mol_name", data=self.mol)
-        f.create_dataset("p", data=self.pgrid,compression=compression)
-        f["p"].attrs["units"] = self.p_unit
-        f.create_dataset("t", data=self.tgrid,compression=compression)
-        f.create_dataset("xsecarr", data=self.kdata,compression=compression)
-        f["xsecarr"].attrs["units"] = self.kdata_unit
-        f.create_dataset("bin_edges", data=self.wns,compression=compression)
+        if exomol_units:
+            conv_factor=u.Unit(rm_molec(self.p_unit)).to(u.Unit('bar'))
+            data_to_write=self.pgrid*conv_factor
+            f.create_dataset("p", data=data_to_write, compression=compression)
+            f["p"].attrs["units"] = 'bar'
+            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))
+            data_to_write=self.kdata*conv_factor
+            f.create_dataset("xsecarr", data=data_to_write, compression=compression)
+            f["xsecarr"].attrs["units"] = 'cm^2/molecule'
+        else:
+            f.create_dataset("p", data=self.pgrid, compression=compression)
+            f["p"].attrs["units"] = self.p_unit
+            f.create_dataset("xsecarr", data=self.kdata, compression=compression)
+            f["xsecarr"].attrs["units"] = self.kdata_unit
+        f.create_dataset("t", data=self.tgrid, compression=compression)
+        f.create_dataset("bin_edges", data=self.wns, compression=compression)
         f["bin_edges"].attrs["units"] = self.wn_unit
         f.close()
 
@@ -448,6 +389,12 @@ class Xtable(Data_table):
         res.copy_attr(self, cp_kdata=cp_kdata)
         return res
 
+    @property
+    def shape(self):
+        """Returns the shape of self.kdata
+        """
+        return np.array([self.Np,self.Nt,self.Nw])
+
     def __repr__(self):
         """Method to output header
         """
@@ -457,3 +404,69 @@ class Xtable(Data_table):
         shape        : {shape}
         """.format(shape=self.shape)
         return output
+
+    def read_pickle(self, filename=None):
+        """Initializes xsec table and supporting data from an Exomol pickle file
+
+        Parameters
+        ----------
+            filename : str
+                Relative or absolute name of the input pickle file
+            mol : str, optional
+                Overrides the name of the molecule to be put in the :class:`Xtable` object.
+        """
+        if filename is None: raise TypeError("You should provide an input pickle filename")
+        pickle_file=open(filename,'rb')
+        raw=pickle.load(pickle_file, encoding='latin1')
+        pickle_file.close()
+        
+        self.mol=raw['name']
+        if self.mol=='H2OP': self.mol='H2O'
+
+        self.tgrid=raw['t']
+        self.wns=raw['wno']
+        self.wnedges=np.concatenate( \
+            ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+        self.logk=False
+
+        #deals with the p grid and units
+        if 'p_unit' in raw.keys():
+            self.p_unit=raw['p_unit']
+        else:
+            self.p_unit='bar'
+        self.pgrid=raw['p']
+        self.logpgrid=np.log10(self.pgrid)
+
+        #deals with the k grid and units
+        if 'kdata_unit' in raw.keys():
+            self.kdata_unit=raw['kdata_unit']
+        else:
+            self.kdata_unit='cm^2/molec'
+        self.kdata=raw['xsecarr']
+
+        if 'wn_unit' in raw.keys(): self.wn_unit=raw['wn_unit']
+
+        self.Np,self.Nt,self.Nw=self.kdata.shape
+
+    def write_pickle(self, filename):
+        """Saves data in a pickle format
+
+        Parameters
+        ----------
+            filename: str
+                Relative or absolute name of the file to be created and saved
+        """
+        fullfilename=filename
+        if not filename.lower().endswith('.pickle'): fullfilename=filename+'.pickle'
+        pickle_file=open(fullfilename,'wb')
+        dictout={'name':self.mol,
+                 'p':self.pgrid,
+                 'p_unit':self.p_unit,
+                 't':self.tgrid,
+                 'wno':self.wns,
+                 'wn_unit':self.wn_unit,
+                 'xsecarr':self.kdata,
+                 'kdata_unit':self.kdata_unit}
+        #print(dictout)
+        pickle.dump(dictout,pickle_file,protocol=-1)
+        pickle_file.close()

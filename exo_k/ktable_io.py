@@ -10,8 +10,7 @@ from astropy.io import fits
 import numpy as np
 import astropy.units as u
 from .data_table import Data_table
-from .util.interp import rm_molec, \
-        gauss_legendre
+from .util.interp import rm_molec, gauss_legendre
 from .util.filenames import _read_array
 from .util.cst import nemesis_hitran_id_numbers
 
@@ -20,7 +19,8 @@ class Ktable_io(Data_table):
     """
 
     def read_hdf5(self, filename=None, mol=None):
-        """Initializes k coeff table and supporting data from an Exomol hdf5 file
+        """Initializes k coeff table and supporting data from an hdf5 file
+        (compatible with Exomol format)
 
         Parameters
         ----------
@@ -70,6 +70,9 @@ class Ktable_io(Data_table):
         ----------
             filename: str
                 Name of the file to be created and saved
+            exomol_units: bool (optional)
+                If True, data are converted back to
+                cm^2 and bar units before being written.
         """
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
