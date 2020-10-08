@@ -10,7 +10,8 @@ import astropy.units as u
 from .ktable_io import Ktable_io
 from .ktable5d import Ktable5d
 from .util.interp import rebin_ind_weights, rebin, is_sorted, \
-        gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
+        gauss_legendre, split_gauss_legendre, spectrum_to_kdist, \
+        kdata_conv_loop, bin_down_corrk_numba
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 from .util.cst import KBOLTZ
@@ -132,7 +133,7 @@ class Ktable(Ktable_io):
         return np.array([self.Np,self.Nt,self.Nw,self.Ng])
 
     def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
-        quad='legendre', order=20, mid_dw=True, write=0, remove_zeros=False):
+        quad='legendre', order=20, g_split=0.9, mid_dw=True, write=0, remove_zeros=False):
         """Fills the :class:`~exo_k.ktable.Ktable` object with a k-coeff table computed
         from a :class:`~exo_k.xtable.Xtable` object (inplace).
 
@@ -150,9 +151,13 @@ class Ktable(Ktable_io):
             weights: array, optional
                 If weights are provided, they are used instead of the legendre quadrature. 
             quad: string, optional
-                Type of quadrature used. Default is 'legendre'
+                Type of quadrature used. Default is 'legendre'.
+                Also available: 'split-legendre' which uses half quadrature
+                points between 0. and `g_split` and half between `g_split` and 1.
             order: Integer, optional
                 Order of the Gauss legendre quadrature used. Default is 20.
+            g_split: float, optional
+                Used only if quad='split-legendre'. See above.
             mid_dw: boolean, optional
 
                 * If True, the Xsec values in the high resolution xtable data are assumed to
@@ -180,6 +185,8 @@ class Ktable(Ktable_io):
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
+            elif quad=='split-legendre':
+                self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
         self.Ng=self.weights.size
@@ -242,10 +249,14 @@ class Ktable(Ktable_io):
         ----------------
             weights: array, optional
                 If weights are provided, they are used instead of the legendre quadrature. 
-            quad : string, optional
-                Type of quadrature used. Default is 'legendre'
-            order : Integer, optional
+            quad: string, optional
+                Type of quadrature used. Default is 'legendre'.
+                Also available: 'split-legendre' which uses half quadrature
+                points between 0. and `g_split` and half between `g_split` and 1.
+            order: Integer, optional
                 Order of the Gauss legendre quadrature used. Default is 20.
+            g_split: float, optional
+                Used only if quad='split-legendre'. See above.
             mid_dw: boolean, optional
                 * If True, the Xsec values in the high resolution xsec data are assumed to
                   cover a spectral interval that is centered around
@@ -289,6 +300,8 @@ class Ktable(Ktable_io):
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
+            elif quad=='split-legendre':
+                self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
         self.Ng=self.weights.size

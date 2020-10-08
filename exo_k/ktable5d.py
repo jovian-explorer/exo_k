@@ -10,7 +10,8 @@ import astropy.units as u
 from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
 from .util.interp import rm_molec, rebin_ind_weights, \
-        gauss_legendre, spectrum_to_kdist, is_sorted, bin_down_corrk_numba
+        gauss_legendre, split_gauss_legendre, spectrum_to_kdist, \
+        is_sorted, bin_down_corrk_numba
 from .util.cst import KBOLTZ
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
@@ -323,6 +324,8 @@ class Ktable5d(Data_table):
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
+            elif quad=='split-legendre':
+                self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
         self.Ng=self.weights.size

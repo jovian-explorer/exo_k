@@ -291,7 +291,6 @@ def is_sorted(a):
                return False
     return True
 
-
 def gauss_legendre(order):
     """Computes the weights and abscissa for a Gauss Legendre quadrature of order `order`
 
@@ -312,6 +311,41 @@ def gauss_legendre(order):
     ggrid,weights=leggauss(order)
     weights=weights/2.
     ggrid=(ggrid+1.)/2.
+    gedges=np.insert(np.cumsum(weights),0,0.)
+    return weights,ggrid,gedges
+
+def split_gauss_legendre(order, g_split):
+    """Computes the weights and abscissa for a split Gauss Legendre quadrature of order `order`:
+    Half the points will be put between 0 and `g_split`, and half between `g_split`and 1.
+
+    (This si what is used in petitRADTRANS with g_split=0.9)
+
+    Parameters
+    ----------
+        order: int
+            Order of the quadrature wanted. Needs to be even.
+        g_split: float between 0 and 1
+            Splitting point.
+
+    Returns
+    -------
+        weights: array(order)
+            Weights to be used in the quadrature.
+        ggrid: array(order)
+            Abscissa to be used for the quadrature.
+        gedges: array(order+1)
+            Cumulative sum of the weights. Goes from 0 to 1.
+       """ 
+    if order%2==1:
+        print('order should be an even number')
+        raise RuntimeError()
+    ggrid,weights=leggauss(order//2)
+    weights1=weights*g_split/2.
+    ggrid1=(ggrid+1.)/2.*g_split
+    weights2=weights*(1-g_split)/2.
+    ggrid2=(ggrid+1.)/2.*(1-g_split)+g_split
+    weights=np.concatenate([weights1,weights2])
+    ggrid=np.concatenate([ggrid1,ggrid2])
     gedges=np.insert(np.cumsum(weights),0,0.)
     return weights,ggrid,gedges
 
