@@ -286,6 +286,7 @@ class Ktable5d(Data_table):
         mid_dw=True, write=0, mol=None,
         grid_p_unit='Pa', p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
+        remove_zeros=False,
         **kwargs):
         """Computes a k coeff table from :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
         objects.
@@ -393,6 +394,8 @@ class Ktable5d(Data_table):
         #        file_kdata_unit into account)
         #  to the desired unit.
         self.convert_p_unit(p_unit=p_unit)
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+        self.setup_interpolation()
 
     def setup_interpolation(self, log_interp=None):
         """Creates interpolating functions to be called later on. and loads
