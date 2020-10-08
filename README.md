@@ -24,6 +24,10 @@ Enjoy!
 
 J. Leconte
 
+# Latest release
+
+v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables.
+
 # Installation
 
 Exo_k can be installed using pip (without cloning the repository;

@@ -31,6 +31,11 @@ Enjoy!
 
 J. Leconte
 
+Latest release
+==============
+
+v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables (`Chubb et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
+
 
 Doc Contents
 ============
