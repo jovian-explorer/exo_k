@@ -367,13 +367,6 @@ class Kdatabase(object):
             You should probably use convert_kdata_unit().""")
         mol_to_be_done=set(composition.keys())
         mol_to_be_done=mol_to_be_done-set(inactive_species)
-        if not mol_to_be_done:
-            print("""You are creating a mix without any active gas:
-                This will be awfully transparent""")
-            res=self[self.molecules[0]].copy(cp_kdata=False)
-            res.kdata=np.zeros(res.shape)
-            return res
-        gas_mixture=Gas_mix(composition)
         if all(elem in self.molecules for elem in mol_to_be_done):
             print('I have all the requested molecules in my database')
             print(mol_to_be_done)
@@ -381,6 +374,13 @@ class Kdatabase(object):
             print('Do not have all the molecules in my database')
             mol_to_be_done=mol_to_be_done.intersection(set(self.molecules))
             print('Molecules to be treated: ', mol_to_be_done)
+        if not mol_to_be_done:
+            print("""You are creating a mix without any active gas:
+                This will be awfully transparent""")
+            res=self[self.molecules[0]].copy(cp_kdata=False)
+            res.kdata=np.zeros(res.shape)
+            return res
+        gas_mixture=Gas_mix(composition)
         first_mol=True
         for mol in mol_to_be_done:
             if first_mol:
