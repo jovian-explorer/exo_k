@@ -343,7 +343,7 @@ class Atm(Atm_profile):
         self.wnedges=self.gas_mix.wnedges
 
     def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None, **kwargs):
-        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
         ----------
@@ -409,7 +409,7 @@ class Atm(Atm_profile):
         return Spectrum(IpTop,self.wns,self.wnedges)
 
     def emission_spectrum_quad(self, integral=True, mu_quad_order=3, **kwargs):
-        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
         using gauss legendre qudrature of order `mu_quad_order`
 
         Parameters
@@ -553,6 +553,10 @@ class Atm(Atm_profile):
                 * If False, delta_sigma=1+(h_sigma/R_planet)^2.
                   delta_nu=pi*Rp^2+alpha_nu.
 
+        Returns
+        -------
+            array
+                The transit spectrum (see above for normalization options).
         """
         self.set_Rstar(Rstar)
         transmittance=self.transmittance_profile(**kwargs)
@@ -567,6 +571,20 @@ class Atm(Atm_profile):
 
     def heating_rate(self, Fin=1., Tstar=5570., szangle=60., **kwargs):
         """Computes the heating rate in the atmosphere
+
+        Parameters
+        ----------
+            Fin: float
+                Bolometric stellar flux at the top of atmopshere (W/m^2).
+            Tstar: float
+                Stellar temperature
+            szangle: float
+                Solar zenith angle
+
+        Returns
+        -------
+            array
+                Heating rate in each atmospheric layer (K/s).  
         """
         mu0=np.cos(szangle*PI/180.)
         self.opacity(rayleigh=False, **kwargs)

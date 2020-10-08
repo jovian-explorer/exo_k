@@ -74,7 +74,7 @@ class Kdatabase(object):
         
     def add_ktables(self, *ktables):
         """Adds as many :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable`
-        to the database as you want.
+        to the database as you want (inplace).
 
         Parameters
         ----------
@@ -192,8 +192,8 @@ class Kdatabase(object):
         return 10000./self.wnedges
 
     def remap_logPT(self, logp_array=None, t_array=None):
-        """Applies the bin_down method to all the tables in the database. This can be used 
-        to put all the tables onthe same PT grid.
+        """Applies the remap_logPT method to all the tables in the database (inplace).
+        This can be used to put all the tables onthe same PT grid.
 
         See :func:`exo_k.data_table.Data_table.remap_logPT` for details.
         """
@@ -210,8 +210,8 @@ class Kdatabase(object):
         self.consolidated_PT_grid=True
 
     def bin_down(self, wnedges=None, **kwargs):
-        """Applies the bin_down method to all the tables in the database. This can be used 
-        to put all the tables onthe same wavenumber grid.
+        """Applies the bin_down method to all the tables in the database (inplace).
+        This can be used to put all the tables onthe same wavenumber grid.
 
         See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`
         for details.
@@ -246,8 +246,8 @@ class Kdatabase(object):
         return res
 
     def sample(self, wngrid, **kwargs):
-        """Applies the bin_down method to all the tables in the database. This can be used 
-        to put all the tables onthe same wavenumber grid.
+        """Applies the sample method to all the tables in the database (inplace).
+        This can be used to put all the tables onthe same wavenumber grid.
 
         See Ktable.bin_down() or Xtable.bin_down() for details.
         """
@@ -279,7 +279,7 @@ class Kdatabase(object):
         return res
 
     def clip_spectral_range(self, wn_range=None, wl_range=None):
-        """Limits the data to the provided spectral range:
+        """Limits the data to the provided spectral range (inplace):
 
            * Wavenumber in cm^-1 if using wn_range argument
            * Wavelength in micron if using wl_range
@@ -293,7 +293,7 @@ class Kdatabase(object):
                 self.Nw=self.ktables[mol].Nw
 
     def convert_p_unit(self, p_unit='unspecified'):
-        """Converts pressure unit of all Data_tables.
+        """Converts pressure unit of all Data_tables (inplace).
         See Data_table.convert_p_unit() for details.
         """
         first=True
@@ -304,7 +304,7 @@ class Kdatabase(object):
         self.consolidated_p_unit=True
 
     def convert_kdata_unit(self, kdata_unit='unspecified'):
-        """Converts kdata unit of all Data_tables.
+        """Converts kdata unit of all Data_tables (inplace).
         See Data_table.convert_kdata_unit() for details.
         """
         first=True
@@ -315,7 +315,7 @@ class Kdatabase(object):
         self.consolidated_kdata_unit=True
 
     def convert_to_mks(self):
-        """Converts units of all `Data_table`s to MKS
+        """Converts units of all `Data_table`s to MKS (inplace)
         """
         first=True
         for mol in self.molecules:
@@ -347,8 +347,8 @@ class Kdatabase(object):
 
         Returns
         -------
-            Ktable object
-                A new ktable for the mix
+            :class:`~exo_k.ktable.Ktable` object
+                A new ktable for the mix.
         """
         if self.Ng is None: raise RuntimeError( \
             """Create_mix_ktable cannot work with a database of cross sections.
@@ -416,8 +416,8 @@ class Kdatabase(object):
 
         Returns
         -------
-            Ktable5d object
-                A new ktable for the mix
+            :class:`~exo_k.ktable5d.Ktable5d` object
+                A new ktable for the mix.
         """
         if x_array is None:
             raise RuntimeError('x_array is None: pas bien!!!')

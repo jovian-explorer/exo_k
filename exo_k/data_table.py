@@ -89,7 +89,7 @@ class Data_table(object):
 
     def remove_zeros(self,deltalog_min_value=10.):
         """Finds zeros in the kdata and set them to (10.**-deltalog_min_value)
-        times the minimum positive value in the table.
+        times the minimum positive value in the table (inplace).
 
         This is to be able to work in logspace. 
 
@@ -103,7 +103,7 @@ class Data_table(object):
         self.kdata[~mask]=minvalue/(10.**deltalog_min_value)
 
     def convert_p_unit(self, p_unit='unspecified', file_p_unit='unspecified'):
-        """Converts pressure to a new unit (in place)
+        """Converts pressure to a new unit (inplace).
 
         Parameters
         ----------
@@ -124,7 +124,7 @@ class Data_table(object):
         self.logpgrid=np.log10(self.pgrid)
 
     def convert_kdata_unit(self, kdata_unit='unspecified', file_kdata_unit='unspecified'):
-        """Converts kdata to a new unit (in place)
+        """Converts kdata to a new unit (inplace).
 
         Parameters
         ----------
@@ -153,7 +153,7 @@ class Data_table(object):
         self.kdata=self.kdata*conversion_factor
     
     def convert_to_mks(self):
-        """Converts units to MKS
+        """Converts units to MKS (inplace).
         """
         self.convert_kdata_unit(kdata_unit='m^2')
         self.convert_p_unit(p_unit='Pa')
@@ -182,6 +182,12 @@ class Data_table(object):
                 if an array of to values is given, interpolates only within this array
             log_interp: bool, optional
                 Whether the interpolation is linear in kdata or in log(kdata)
+
+        Returns
+        -------
+            array of shape (logp_array.size, self.Nw (, self.Ng))
+                The interpolated kdata.
+
         """
         if hasattr(logp_array, "__len__"):
             logp_array=np.array(logp_array, dtype=float)
@@ -232,7 +238,8 @@ class Data_table(object):
             # trick for the broadcasting to work whatever the shape of x_array
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array=None):
-        """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid. 
+        """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid
+        (inplace). 
 
         Parameters
         ----------
@@ -283,18 +290,18 @@ class Data_table(object):
         self.Nt      =t_array.size
 
     def pindex(self, p):
-        """Finds the index corresponding to the given pressure p
+        """Finds and returns the index corresponding to the given pressure p
         (units must be the same as the ktable)
         """
         return min(np.searchsorted(self.pgrid,p),self.Np-1)
 
     def tindex(self, t):
-        """Finds the index corresponding to the given temperature t (in K)
+        """Finds and returns the index corresponding to the given temperature t (in K)
         """
         return min(np.searchsorted(self.tgrid,t),self.Nt-1)
 
     def wlindex(self, wl):
-        """Finds the index corresponding to the given wavelength (in microns)
+        """Finds and returns the index corresponding to the given wavelength (in microns)
         """
         return min(np.searchsorted(self.wns,10000./wl),self.Nw-1)-1
         #return min(np.searchsorted(self.wnedges,10000./wl),self.Nw-1)-1
@@ -368,7 +375,7 @@ class Data_table(object):
         Returns
         -------
             array
-                The vmr normalized kdata (x_self*self.kdata)
+                The vmr normalized kdata (x_self*self.kdata).
         """
         if x_self is None : return self.kdata
         if isinstance(x_self, (float,int)): return x_self*self.kdata
@@ -468,7 +475,7 @@ class Data_table(object):
         return self.kdata[key]
 
     def clip_spectral_range(self, wn_range=None, wl_range=None):
-        """Limits the data to the provided spectral range:
+        """Limits the data to the provided spectral range (inplace):
 
            * Wavenumber in cm^-1 if using wn_range argument
            * Wavelength in micron if using wl_range
@@ -500,14 +507,14 @@ class Data_table(object):
         Returns
         -------
             :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable` object
-                the binned down table
+                The binned down table.
         """
         res=self.copy()
         res.bin_down(wnedges=wnedges, **kwargs)
         return res
 
     def change_molecule_name(self, mol_name):
-        """Changes name of the molecule
+        """Changes name of the molecule (self.mol attribute).
 
         Parameters
         ----------
@@ -531,72 +538,3 @@ class Data_table(object):
             self.logk=False
             self.kdata=np.power(10.,self.kdata)
         return
-
-############# OLD METHODS ################
-
-    def interpolate_kdata2(self, logp_array=None, t_array=None, x_array=None,
-            log_interp=None,wngrid_limit=None):
-        """Deprecated, should NOT be used.
-
-        interpolate_kdata interpolates the kdata at on a given temperature and
-        log pressure profile. 
-
-        Parameters
-        ----------
-            logp_array: array
-                log 10 pressure array to interpolate to
-            t_array: array, same size a logp_array
-                Temperature array to interpolate to
-        If floats are given, they are interpreted as arrays of size 1.
-
-        Parameters
-        ----------
-            x_array: None
-                Dummy argument to be consistent with interpolate_kdata in Ktable5d
-            wngrid_limit: list or array
-                if an array of to values is given, interpolates only within this array
-            log_interp: bool, optional
-                Whether the interpolation is linear in kdata or in log(kdata)
-        """
-        if x_array is not None: print('be careful, providing an x_array is usually for Ktable5d')
-        if hasattr(logp_array, "__len__"):
-            logp_array=np.array(logp_array, dtype=float)
-        else:
-            logp_array=np.array([logp_array], dtype=float)
-        if hasattr(t_array, "__len__"):
-            t_array=np.array(t_array)
-        else:
-            t_array=np.array([t_array])
-        tind,tweight=interp_ind_weights(t_array,self.tgrid)
-        lpind,lpweight=interp_ind_weights(logp_array,self.logpgrid)
-        if wngrid_limit is None:
-            wngrid_filter = slice(None)
-            Nw=self.Nw
-        else:
-            wngrid_limit=np.array(wngrid_limit)
-            wngrid_filter = np.where((self.wnedges > wngrid_limit.min()) & (
-                self.wnedges <= wngrid_limit.max()))[0][:-1]
-            Nw=wngrid_filter.size
-        if self.Ng is None:
-            res=np.zeros((tind.size,Nw))
-        else:
-            res=np.zeros((tind.size,Nw,self.Ng))
-        if log_interp is None: log_interp=self._settings._log_interp
-        if log_interp:
-            for ii in range(tind.size):
-                kc_p1t1=np.log(self.kdata[lpind[ii],tind[ii]][wngrid_filter].ravel())
-                kc_p0t1=np.log(self.kdata[lpind[ii]-1,tind[ii]][wngrid_filter].ravel())
-                kc_p1t0=np.log(self.kdata[lpind[ii],tind[ii]-1][wngrid_filter].ravel())
-                kc_p0t0=np.log(self.kdata[lpind[ii]-1,tind[ii]-1][wngrid_filter].ravel())
-                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0, 
-                    kc_p0t1, kc_p1t1, lpweight[ii], tweight[ii]),(Nw,-1)).squeeze()
-            return np.exp(res)
-        else:
-            for ii in range(tind.size):
-                kc_p1t1=self.kdata[lpind[ii],tind[ii]][wngrid_filter].ravel()
-                kc_p0t1=self.kdata[lpind[ii]-1,tind[ii]][wngrid_filter].ravel()
-                kc_p1t0=self.kdata[lpind[ii],tind[ii]-1][wngrid_filter].ravel()
-                kc_p0t0=self.kdata[lpind[ii]-1,tind[ii]-1][wngrid_filter].ravel()
-                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0, 
-                    kc_p0t1, kc_p1t1, lpweight[ii], tweight[ii]),(Nw,-1)).squeeze()
-            return res

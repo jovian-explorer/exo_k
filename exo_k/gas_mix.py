@@ -112,7 +112,7 @@ class Gas_mix(object):
         self.composition[self.bg_gas]=1.-other_vmr
 
     def molar_mass(self):
-        """Computes the molar mass of a mix of gases
+        """Computes and returns the molar mass of a mix of gases
 
         Returns
         -------
@@ -186,7 +186,7 @@ class Gas_mix(object):
                     You should probably use convert_to_mks().""")
 
     def set_cia_database(self, cia_database=None):
-        """Change the CIA database attached to the current instance of Gas_mix
+        """Changes the CIA database attached to the current instance of Gas_mix
 
         Parameters
         ----------
@@ -205,7 +205,7 @@ class Gas_mix(object):
                 raise RuntimeError("Bad units in the CIAdatabase used with Gas_mix.")
 
     def _compute_spectral_range(self, wn_range=None, wl_range=None):
-        """Converts  an unordered spectral range in either wavenumber or wavelength
+        """Converts an unordered spectral range in either wavenumber or wavelength
         in an ordered wavenumber range.
 
         Parameters

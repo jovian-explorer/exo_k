@@ -194,7 +194,7 @@ class Cia_table(object):
         f.close()    
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False, **kwargs):
-        """Method to re sample a cia table to a new grid of wavenumbers (in place)
+        """Method to re sample a cia table to a new grid of wavenumbers (inplace).
 
         Parameters
         ----------
@@ -252,6 +252,11 @@ class Cia_table(object):
                 If an array is given, interpolates only within this array.
             log_interp: bool, optional
                 Whether the interpolation is linear in kdata or in log(kdata).
+
+        Returns
+        -------
+            array of shape (logp_array.size, self.Nw)
+                The interpolated kdata.
         """
         if hasattr(t_array, "__len__"):
             t_array=np.array(t_array)
@@ -342,7 +347,7 @@ class Cia_table(object):
         if yscale is not None: ax.set_yscale(yscale)
 
     def convert_abs_coeff_unit(self,abs_coeff_unit='unspecified',old_abs_coeff_unit='unspecified'):
-        """Converts abs_coeff to a new unit (in place)
+        """Converts abs_coeff to a new unit (inplace).
 
         Parameters
         ----------
@@ -392,7 +397,7 @@ class Cia_table(object):
 
     def remove_zeros(self, deltalog_min_value=0.):
         """Finds zeros in the abs_coeff and set them to (10.^-deltalog_min_value)
-        times the minimum positive value in the table.
+        times the minimum positive value in the table (inplace).
         This is to be able to work in logspace. 
         """
         mask = np.zeros(self.abs_coeff.shape,dtype=bool)

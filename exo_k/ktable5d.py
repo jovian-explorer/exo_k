@@ -395,7 +395,8 @@ class Ktable5d(Data_table):
         self.convert_p_unit(p_unit=p_unit)
 
     def setup_interpolation(self, log_interp=None):
-        """Creates interpolating functions to be called later on.
+        """Creates interpolating functions to be called later on. and loads
+        it as attribute (inplace).
         """
         if log_interp is None: log_interp=self._settings._log_interp
         self._local_log_interp=log_interp
@@ -409,7 +410,7 @@ class Ktable5d(Data_table):
                 bounds_error=True)
 
     def set_kdata(self, new_kdata):
-        """Changes kdata. this is preferred to directly accessing kdata because one
+        """Changes kdata (inplace). this is preferred to directly accessing kdata because one
         could forget to run setup_interpolation().
 
         Parameters
@@ -442,6 +443,10 @@ class Ktable5d(Data_table):
                 controlled by self._settings._log_interp but only when the ktable is loaded.
                 If you change that after the loading, you should rerun setup_interpolation().
 
+        Returns
+        -------
+            array of shape (logp_array.size, self.Nw , self.Ng)
+                The interpolated kdata.
         """
         coord_to_interp=np.array([logp_array,t_array,np.log(x_array)]).transpose()
         tmp_res=self._finterp_kdata(coord_to_interp)
@@ -458,7 +463,8 @@ class Ktable5d(Data_table):
 
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array= None):
-        """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid. 
+        """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid
+        (inplace). 
 
         Parameters
         ----------
@@ -639,7 +645,7 @@ class Ktable5d(Data_table):
 
     def bin_down(self, wnedges=None, weights=None, ggrid=None,
         remove_zeros=False, num=300, use_rebin=False, write=0):
-        """Method to bin down a kcoeff table to a new grid of wavenumbers
+        """Method to bin down a kcoeff table to a new grid of wavenumbers (inplace).
 
         Parameters
         ----------
@@ -687,7 +693,7 @@ class Ktable5d(Data_table):
         self.setup_interpolation()
     
     def clip_spectral_range(self, wn_range=None, wl_range=None):
-        """Limits the data to the provided spectral range:
+        """Limits the data to the provided spectral range (inplace):
 
            * Wavenumber in cm^-1 if using wn_range argument
            * Wavelength in micron if using wl_range

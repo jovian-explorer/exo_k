@@ -69,7 +69,7 @@ class CIAdatabase(object):
 
     
     def add_cia_tables(self, *cia_tables):
-        """Adds new :class:`~exo_k.cia_table.Cia_table` objects to a CIA database.
+        """Adds new :class:`~exo_k.cia_table.Cia_table` objects to a CIA database (inplace).
 
         Parameters
         ----------
@@ -128,7 +128,7 @@ class CIAdatabase(object):
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False):
         """Samples all the cia_table in the database on the same wavenumber grid
-        to be able to use them in radiative transfer modules.
+        to be able to use them in radiative transfer modules (inplace).
 
         Parameters
         ----------
@@ -147,7 +147,7 @@ class CIAdatabase(object):
         self.Nw=self.wns.size
 
     def convert_to_mks(self):
-        """Converts units of all Cia_tables to MKS.
+        """Converts units of all Cia_tables to MKS (inplace).
         """
         first=True
         for mol1 in self.cia_tables.values():

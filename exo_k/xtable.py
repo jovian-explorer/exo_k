@@ -196,7 +196,7 @@ class Xtable(Data_table):
         grid_p_unit='Pa', p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
         **kwargs):
-        """Loads an `Xtable` from high-resolution spectra.
+        """Loads an `Xtable` from high-resolution spectra (inplace).
 
         .. warning::
             By default, log pressures are specified in Pa in logpgrid!!! If you want
@@ -271,7 +271,7 @@ class Xtable(Data_table):
         self.convert_p_unit(p_unit=p_unit)
 
     def bin_down(self, wnedges=None, remove_zeros=False, write=0):
-        """Method to bin down a xsec table to a new grid of wavenumbers (in place)
+        """Method to bin down a xsec table to a new grid of wavenumbers (inplace).
 
         Parameters
         ----------
@@ -308,7 +308,7 @@ class Xtable(Data_table):
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     def sample(self, wngrid, remove_zeros=False, log_interp=None):
-        """Method to re sample a xsec table to a new grid of wavenumbers (in place)
+        """Method to re sample a xsec table to a new grid of wavenumbers (inplace).
 
         Parameters
         ----------

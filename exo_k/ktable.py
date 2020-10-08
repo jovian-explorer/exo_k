@@ -9,7 +9,7 @@ import numpy as np
 import astropy.units as u
 from .ktable_io import Ktable_io
 from .ktable5d import Ktable5d
-from .util.interp import interp_ind_weights, rebin_ind_weights, rebin, is_sorted, \
+from .util.interp import rebin_ind_weights, rebin, is_sorted, \
         gauss_legendre, spectrum_to_kdist, kdata_conv_loop, bin_down_corrk_numba
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
@@ -132,9 +132,9 @@ class Ktable(Ktable_io):
         return np.array([self.Np,self.Nt,self.Nw,self.Ng])
 
     def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
-        quad='legendre', order=20, mid_dw=True, write=0):
+        quad='legendre', order=20, mid_dw=True, write=0, remove_zeros=False):
         """Fills the :class:`~exo_k.ktable.Ktable` object with a k-coeff table computed
-        from a :class:`~exo_k.xtable.Xtable` object.
+        from a :class:`~exo_k.xtable.Xtable` object (inplace).
 
         The p and kcorr units are inherited from the :class:`~exo_k.xtable.Xtable` object.
 
@@ -203,6 +203,7 @@ class Ktable(Ktable_io):
             #print(wn_hr[[0,-1]])
             #print(self.wnedges[[0,-1]])
             self.kdata[iP,iT]=spectrum_to_kdist(k_hr,wn_hr,dwn_hr,self.wnedges,self.ggrid)
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     def hires_to_ktable(self, path=None, filename_grid=None,
         logpgrid=None, tgrid=None, wnedges=None,
@@ -210,9 +211,10 @@ class Ktable(Ktable_io):
         mid_dw=True, write=0, mol=None,
         grid_p_unit='Pa', p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
+        remove_zeros=False,
         **kwargs):
         """Computes a k coeff table from :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
-        objects.
+        objects (inplace).
 
         .. warning::
             By default, log pressures are specified in Pa in logpgrid!!! If you want
@@ -353,10 +355,12 @@ class Ktable(Ktable_io):
         #        file_kdata_unit into account)
         #  to the desired unit.
         self.convert_p_unit(p_unit=p_unit)
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+
 
 
     def copy(self, cp_kdata=True, ktab5d=False):
-        """Creates a new instance of :class:`Ktable` object and (deep) copies data into it
+        """Creates a new instance of :class:`Ktable` object and (deep) copies data into it.
 
         Parameters
         ----------
@@ -510,7 +514,7 @@ class Ktable(Ktable_io):
         
     def bin_down(self, wnedges=None, weights=None, ggrid=None,
         remove_zeros=False, num=300, use_rebin=False, write=0):
-        """Method to bin down a kcoeff table to a new grid of wavenumbers
+        """Method to bin down a kcoeff table to a new grid of wavenumbers (inplace).
 
         Parameters
         ----------
@@ -554,51 +558,3 @@ class Ktable(Ktable_io):
         self.Nw=self.wns.size
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
-
-########### OBSOLETE METHODS #################
-
-    def remap_logPT_grid(self, logp_array=None, t_array=None):
-        """Obsolete method. Replaced by remap_logPT in the parent class: Data_table.
-        """
-        res=Ktable()
-        res.mol     =self.mol
-        res.logpgrid=logp_array
-        res.pgrid   =10**res.logpgrid
-        res.tgrid   =t_array
-        res.wns     =self.wns
-        res.wnedges =self.wnedges
-        res.weights =self.weights
-        res.ggrid   =self.ggrid
-        res.gedges  =self.gedges
-        res.Np      =logp_array.shape
-        res.Nt      =t_array.shape
-        res.Nw      =self.Nw
-        res.Ng      =self.Ng
-        res.logk    =self.logk
-        res.p_unit  =self.p_unit
-        res.kdata_unit=self.kdata_unit
-        #res.kdata=np.zeros((res.Np,res.Nt,res.Nw ,res.Ng))
-        tind,tweight=interp_ind_weights(t_array,self.tgrid)
-        lpind,lpweight=interp_ind_weights(logp_array,self.logpgrid)
-        #print(tind,tweight)
-        #print(lpind,lpweight)
-        lpindextended=lpind.reshape((lpind.size,1))
-        tw=tweight.reshape((1,tweight.size,1,1))    
-        pw=lpweight.reshape((lpweight.size,1,1,1))
-        # trick to broadcast over Nw and Ng a few lines below
-        kc_p1t1=self.kdata[lpindextended,tind]
-        kc_p0t1=self.kdata[lpindextended-1,tind]
-        kc_p1t0=self.kdata[lpindextended,tind-1]
-        kc_p0t0=self.kdata[lpindextended-1,tind-1]
-        # kdata_tmp=kc_p1t1*pw*tw+kc_p0t1*(1.-pw)*tw+kc_p1t0*pw*(1.-tw)+kc_p0t0*(1.-pw)*(1.-tw)
-        kdata_tmp=  np.log10(kc_p1t1)*pw*tw          \
-                        +np.log10(kc_p0t1)*(1.-pw)*tw \
-                        +np.log10(kc_p1t0)*pw*(1.-tw) \
-                        +np.log10(kc_p0t0)*(1.-pw)*(1.-tw)
-        res.kdata=10**kdata_tmp
-        #kdata_tmp=  (kc_p1t1)*pw*tw          \
-        #                +(kc_p0t1)*(1.-pw)*tw \
-        #                +(kc_p1t0)*pw*(1.-tw) \
-        #                +(kc_p0t0)*(1.-pw)*(1.-tw)
-        #res.kdata=kdata_tmp
-        return res
