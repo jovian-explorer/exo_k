@@ -12,9 +12,9 @@ from exo_k.util.filenames import EndOfFile
 from .util.interp import linear_interpolation, interp_ind_weights, unit_convert
 from .util.cst import KBOLTZ
 from .settings import Settings
+from .util.spectral_object import Spectral_object
 
-
-class Cia_table(object):
+class Cia_table(Spectral_object):
     """A class to handle CIA opacity data tables.
     """
 
@@ -388,12 +388,6 @@ class Cia_table(object):
             pass
         self.abs_coeff_unit='m^5'
         return
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        return 10000./self.wns
 
     def remove_zeros(self, deltalog_min_value=0.):
         """Finds zeros in the abs_coeff and set them to (10.^-deltalog_min_value)

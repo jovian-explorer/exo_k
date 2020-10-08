@@ -38,6 +38,9 @@ class Settings(Singleton):
             path_type: str
                 What type of path to reset. Possibilities are
                 'all' (default), 'kdata', 'cia', and 'aerosol'
+            no_path: bool (optional)
+                If False (default), the search path is reset to '.'.
+                If True, empties the search path.
         """
         if no_path:
             local_path=[]

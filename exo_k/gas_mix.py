@@ -6,8 +6,9 @@ import numpy as np
 from .util.molar_mass import Molar_mass
 from .util.interp import RandOverlap_2_kdata_prof, rm_molec
 from .rayleigh import Rayleigh
+from .util.spectral_object import Spectral_object
 
-class Gas_mix(object):
+class Gas_mix(Spectral_object):
     """Dict-like class to handle gas composition (with background gas) and molar mass.
 
     If `logp_array`, `t_array`, and radiative databases are provided, :any:`cross_section`
@@ -408,18 +409,6 @@ class Gas_mix(object):
         res._wn_range=np.copy(self._wn_range)
         res.iw_min=self.iw_min
         res.iw_max=self.iw_max
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        if self.wns is not None: return 10000./self.wns
-
-    @property
-    def wledges(self):
-        """Returns the wavelength array for the bin edges
-        """
-        if self.wnedges is not None: return 10000./self.wnedges
 
     def mix_with(self, other_gas, vmr_other_gas):
         """Mix with other Gas_mix.

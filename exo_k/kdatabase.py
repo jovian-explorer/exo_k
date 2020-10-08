@@ -8,8 +8,9 @@ from .xtable import Xtable
 from .gas_mix import Gas_mix
 from .settings import Settings
 from .util.interp import rm_molec
+from .util.spectral_object import Spectral_object
 
-class Kdatabase(object):
+class Kdatabase(Spectral_object):
     """This object contains mainly a dictionary of individual :class:`~exo_k.ktable.Ktable`
     or :class:`~exo_k.xtable.Xtable` objects for each molecule. 
 
@@ -178,18 +179,6 @@ class Kdatabase(object):
         if molecule not in self.ktables.keys():
             raise KeyError('The requested molecule is not available.')
         return self.ktables[molecule]
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        return 10000./self.wns
-
-    @property
-    def wledges(self):
-        """Returns the wavelength array for the bin edges
-        """
-        return 10000./self.wnedges
 
     def remap_logPT(self, logp_array=None, t_array=None):
         """Applies the remap_logPT method to all the tables in the database (inplace).

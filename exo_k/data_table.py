@@ -5,8 +5,9 @@
 import numpy as np
 from .util.interp import rm_molec,unit_convert,interp_ind_weights,bilinear_interpolation
 from .settings import Settings
+from .util.spectral_object import Spectral_object
 
-class Data_table(object):
+class Data_table(Spectral_object):
     """An abstract class that will serve as a basis for Ktable and Xtable.
     This class includes all the interpolation and remapping methods.
     """
@@ -452,18 +453,6 @@ class Data_table(object):
             method of the left object.
         """
         return self.combine_with(other)
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        if self.wns is not None: return 10000./self.wns
-
-    @property
-    def wledges(self):
-        """Returns the wavelength array for the bin edges
-        """
-        if self.wnedges is not None: return 10000./self.wnedges
 
     def __getitem__(self, key):
         """To access the data without typing self.kdata[]

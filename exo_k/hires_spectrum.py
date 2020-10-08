@@ -104,7 +104,6 @@ class Hires_spectrum(Spectral_object):
         self.kdata=raw['kdata']
         self.wns=raw['wns']
 
-
     def write_hdf5(self, filename):
         """Writes kspectrum file to hdf5
         """

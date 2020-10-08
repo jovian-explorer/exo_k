@@ -8,8 +8,9 @@ import numpy as np
 
 from .cia_table import Cia_table
 from .settings import NoFileFoundError
+from .util.spectral_object import Spectral_object
 
-class CIAdatabase(object):
+class CIAdatabase(Spectral_object):
     """Class to group :class:`~exo_k.cia_table.Cia_table` objects
     and combine them in radiative transfer
     """

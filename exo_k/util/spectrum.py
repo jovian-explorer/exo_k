@@ -7,8 +7,9 @@ A module to handle ouputs rebinning and plotting
 import numpy as np
 import h5py
 from exo_k.util.interp import rebin
+from exo_k.util.spectral_object import Spectral_object
 
-class Spectrum(object):
+class Spectrum(Spectral_object):
     """A class defining a Spectrum object to plot and manipulate.
     """
 
@@ -23,18 +24,6 @@ class Spectrum(object):
             self.wnedges=wnedges
         else:
             self.load_taurex(filename,dataset)
-
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
-        """
-        return 10000./self.wns
-
-    @property
-    def wledges(self):
-        """Returns the wavelength array for the bin edges
-        """
-        return 10000./self.wnedges
     
     def copy(self):
         """Deep copy of the spectrum.
