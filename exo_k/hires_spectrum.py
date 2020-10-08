@@ -7,8 +7,10 @@ import h5py
 from exo_k.util.interp import rm_molec,unit_convert
 from exo_k.settings import Settings
 from exo_k.util.filenames import select_kwargs
+from .util.spectral_object import Spectral_object
+from .util.cst import KBOLTZ
 
-class Hires_spectrum(object):
+class Hires_spectrum(Spectral_object):
     """A class defining a Hires_spectrum object.
     """
 
@@ -130,7 +132,7 @@ class Hires_spectrum(object):
         f.close()
 
     def convert_kdata_unit(self, kdata_unit='unspecified', file_kdata_unit='unspecified'):
-        """Converts kdata to a new unit (in place)
+        """Converts kdata to a new unit (inplace)
 
         Parameters
         ----------
@@ -176,7 +178,7 @@ class Hires_spectrum(object):
         return output
 
     def plot_spectrum(self, ax, x_axis='wls',
-            xscale=None, yscale=None, **kwarg):
+            xscale=None, yscale=None, x=1., **kwarg):
         """Plot the spectrum
         
         Parameters
@@ -188,7 +190,7 @@ class Hires_spectrum(object):
             x/yscale: str, optional
                 If 'log' log axes are used.
         """
-        toplot=self.kdata
+        toplot=self.kdata*x
         if x_axis == 'wls':
             ax.plot(self.wls,toplot,**kwarg)
             ax.set_xlabel('Wavelength (micron)')
@@ -203,8 +205,63 @@ class Hires_spectrum(object):
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 
-    @property
-    def wls(self):
-        """Returns the wavelength array for the bin centers
+    def convert_data_type(self, pressure, temperature, kdata_unit=None,
+            convert_to=None):
+        """Converts from one data_type (cross sections or absorption coefficents)
+        to the other (inplace).
+
+        Conversion to mks is done by default if a conversion takes place
+        and no kdata_unit is specified. 
+
+        Parameters
+        ----------
+            pressure: float
+                Pressure used for the conversion (in Pa)
+            temperature: float
+                Temperature used for the conversion (in K)
+            kdata_unit: str (optional)
+                Unit to use for the output
+            convert_to: str ('xsec' or 'abs_coeff', optional)
+                Data type to convert to. Nothing is done if
+                convert_to is equal to self.data_type.
+                If None, converts to the other type.
         """
-        return 10000./self.wns
+        if convert_to==self.data_type:
+            return
+        if self.data_type=='xsec':
+            self.convert_kdata_unit(kdata_unit='m^2') #back to mks
+            self.kdata=self.kdata*pressure/(KBOLTZ*temperature)
+            self.data_type='abs_coeff'
+            self.kdata_unit='m^-1'
+        else:
+            self.convert_kdata_unit(kdata_unit='m^-1') #back to mks
+            self.kdata=self.kdata*KBOLTZ*temperature/pressure
+            self.data_type='xsec'
+            self.kdata_unit='m^2/molecule'
+        if kdata_unit is not None:
+            try:
+                self.convert_kdata_unit(kdata_unit=kdata_unit)
+            except:
+                print("""If you have an error here,
+                it's probably because the units specified are
+                inconsistent with the final data_type.""")
+                raise RuntimeError()
+
+    def clip_spectral_range(self, wn_range=None, wl_range=None):
+        """Limits the data to the provided spectral range (inplace):
+
+           * Wavenumber in cm^-1 if using wn_range argument
+           * Wavelength in micron if using wl_range
+        """
+        if (wn_range is None) and (wl_range is None): return
+        if wl_range is not None:
+            if wn_range is not None:
+                raise RuntimeError('Should provide either wn_range or wl_range, not both!')
+            _wn_range=np.sort(10000./np.array(wl_range))
+        else:
+            _wn_range=np.sort(np.array(wn_range))
+        iw_min, iw_max=np.searchsorted(self.wns, _wn_range, side='left')
+        self.wns=self.wns[iw_min:iw_max]
+        self.Nw=self.wns.size
+        self.kdata=self.kdata[iw_min:iw_max]
+
