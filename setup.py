@@ -12,7 +12,7 @@ requires = []
 
 install_requires = ['numpy',
                     'scipy',
-                    'numba',
+                    'numba>0.49',
                     'astropy',
                     'h5py',
                     ]
