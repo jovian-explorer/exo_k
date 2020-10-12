@@ -41,7 +41,7 @@ classifiers = [
 ]
 
 # Handle versioning
-version = '0.0.4'
+version = '0.0.5'
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -58,8 +58,9 @@ setup(name='exo_k',
       long_description=long_description,
       url='https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public',
       long_description_content_type="text/markdown",
-      keywords = ['opacities','cross sections','corr-k','spectra','atmosphere','atmospheric',
-        'radiative transfer'],
+      keywords = ['opacities','cross sections','correlated-k',
+        'spectra','atmosphere','atmospheric',
+        'exopanet', 'radiative transfer'],
       include_package_data=True,
       entry_points=entry_points,
       provides=provides,

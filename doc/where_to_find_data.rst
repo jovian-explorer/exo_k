@@ -16,12 +16,12 @@ refer to the corresponding websites to know the proper way to acknowledge
 their contribution (in addition to citing `exo_k`). 
 
 Cross sections and Correlated-k tables from the Exomol project
-------------------------------------------------------
+--------------------------------------------------------------
 
 While known for its linelists, the `Exomol <http://exomol.com/>`_ project
 has recently put a lot of efforts in providing the community with
 cross-section and correlated-k tables computed for a wide range of temperatures
-and pressures (`Chubb et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
+and pressures (`Chubb et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
 
 These tables can be downloaded on their `website <http://exomol.com/data/data-types/opacity/>`_
 

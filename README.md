@@ -16,7 +16,7 @@ It enables you to:
 * Create your own tables from high-resolution spectra (for example from K-spectrum, Helios-K, etc.).
 * Use your data in an integrated radiative transfer framework to simulate planetary atmospheres.
   
-In this repository, you'll find a [tutorial jupyter notebook](tutorial-exo_k.ipynb) that will show you how to do all that
+In this repository, you'll find a [tutorial jupyter notebook](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb) that will show you how to do all that
 with concrete examples that you can run on your own machine. Many important concepts and options are
 presented along the way.
 
@@ -35,13 +35,13 @@ dependencies should be downloaded automatically):
 ```
 pip install exo_k
 ```
-Or by running the [setup.py](./setup.py) script in the cloned repository:
+Or by running the [setup.py](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/setup.py) script in the cloned repository:
 ```
 python setup.py install
 ```
 # Usage
 
-To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](tutorial-exo_k.ipynb).
+To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb).
 
 Have fun!
 
@@ -71,5 +71,5 @@ You can then generate the documentation by running:
 ```
 python setup.py doc
 ```
-(or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the [index.html](doc/html/index.html) file to check it out).
+(or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the doc/html/index.html file to check it out).
 

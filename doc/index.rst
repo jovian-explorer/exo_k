@@ -19,8 +19,9 @@ It enables you to:
 * Use your data in an integrated radiative transfer framework to simulate planetary atmospheres.
   
 On this website, you'll find a 'Getting Started' section that will show you how to do all that
-with concrete examples that you can run on your own machine through the tutorial-exo_k.ipynb
-jupyter notebook provided in the repository. Many important concepts and options are
+with concrete examples that you can run on your own machine through the 
+`tutorial jupyter notebook <https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb>`_
+provided in the repository. Many important concepts and options are
 presented along the way.
 
 The API reference section also lists systematically all the classes and methods available in the library and details the necessary inputs
@@ -34,7 +35,7 @@ J. Leconte
 Latest release
 ==============
 
-v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables (`Chubb et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
+v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables (`Chubb et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
 
 
 Doc Contents

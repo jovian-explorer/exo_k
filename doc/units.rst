@@ -15,8 +15,8 @@ know the units used in the input files read.
 There are two possible cases:
 
   1. Self defining formats can directly specify the units in the file. 
-     This is the case for all the hdf5 and pickle files created with `exo_k` (formats based
-     on new generation Exomol files). 
+     This is the case for all the hdf5 (.h5 or .hdf5) and pickle (.pickle)
+     files created with `exo_k` or from the Exomol project. 
 
   2. Some specific formats use fixed, known units. The ones we handle for the moment are:
 
