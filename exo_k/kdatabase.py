@@ -40,7 +40,12 @@ class Kdatabase(Spectral_object):
 
         >>> Kdatabase(None)
 
-        Loads an empty database to be filled later.
+        Loads an empty database to be filled later with
+        :func:`~exo_k.kdatabase.Kdatabase.add_ktables`.
+
+        .. important::
+            By default, Ktables have zeros removed when loaded to avoid log interpolation
+            issues. You can avoid that with the `remove_zeros=False` keyword.
         """
         self.ktables={}
         self._settings=Settings()
@@ -316,7 +321,10 @@ class Kdatabase(Spectral_object):
         self.consolidated_kdata_unit=True
 
     def create_mix_ktable(self, composition, inactive_species=[]):
-        """creates the kdata table for a mix of molecules.
+        """Creates a :class:`~exo_k.ktable.Ktable`
+        for a mix of molecules.
+
+        The table is computed over the P,T grid of the `Kdatabase` instance. 
 
         Parameters
         ----------
@@ -326,7 +334,8 @@ class Kdatabase(Spectral_object):
                 with shape (pgrid.size,tgrid.size).
                 This composition will instantiate a :class:`Gas_mix` object.
                 In particular, if a value is 'background', this gas will
-                be used to fill up to sum(vmr)=1 (See chemistry.gas_type for details).
+                be used to fill up to sum(vmr)=1 (See :class:`~exo_k.gas_mix.Gas_mix`
+                for details).
                 For each (P,T) point, the sum of all the mixing ratios
                 should be lower or equal to 1.
                 If it is lower, it is assumed that the rest of the gas is transparent.
@@ -395,10 +404,13 @@ class Kdatabase(Spectral_object):
         """Creates a Ktable5d for a mix of molecules with a variable gas.
         In essence, the regular create_mix_ktable is called to create
         two mixes:
-        * The background mix specified by composition=bg_comp, inactive_species=bg_inac_species
-        * The variable gas specified by composition=vgas_comp, inactive_species=vgas_inac_species
 
-        See create_mix_ktable for details.
+          * The background mix specified by composition=bg_comp,
+            inactive_species=bg_inac_species
+          * The variable gas specified by composition=vgas_comp,
+            inactive_species=vgas_inac_species
+
+        See :func:`create_mix_ktable` for details.
 
         These two gases are then mixed together for an array of vmr x_array where
         var_gas has a vmr of x_array and the background gas has a vmr of 1.-x_array
@@ -406,7 +418,7 @@ class Kdatabase(Spectral_object):
         Returns
         -------
             :class:`~exo_k.ktable5d.Ktable5d` object
-                A new ktable for the mix.
+                A new ktable for the mix with a dimension for the vmr of the variable gas.
         """
         if x_array is None:
             raise RuntimeError('x_array is None: pas bien!!!')

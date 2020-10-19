@@ -200,7 +200,6 @@ class Hires_spectrum(Spectral_object):
             ax.set_ylabel('Cross section ('+self.kdata_unit+')')
         else:
             ax.set_ylabel('Abs. Coefficient ('+self.kdata_unit+')')
-        ax.grid(True)
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 

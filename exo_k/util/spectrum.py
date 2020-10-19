@@ -57,7 +57,6 @@ class Spectrum(Spectral_object):
             ax.plot(self.wns,toplot,**kwarg)
             ax.set_xlabel('Wavenumber (cm$^{-1}$)')
         ax.set_ylabel('Flux')
-        ax.grid(True)
         if xscale is not None: ax.set_xscale(xscale)
         if yscale is not None: ax.set_yscale(yscale)
 

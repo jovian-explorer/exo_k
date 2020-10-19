@@ -214,7 +214,7 @@ class Ktable(Ktable_io):
 
     def hires_to_ktable(self, path=None, filename_grid=None,
         logpgrid=None, tgrid=None, wnedges=None,
-        quad='legendre', order=20, weights=None, ggrid=None,
+        quad='legendre', order=20, g_split=0.9, weights=None, ggrid=None,
         mid_dw=True, write=0, mol=None,
         grid_p_unit='Pa', p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
@@ -446,7 +446,6 @@ class Ktable(Ktable_io):
             ax.plot(self.ggrid,toplot,**kwarg)
             ax.set_xlabel('g')
         ax.set_ylabel('Cross section ('+self.kdata_unit+')')
-        ax.grid(True)
         if yscale is not None: ax.set_yscale(yscale)
 
     def __repr__(self):
