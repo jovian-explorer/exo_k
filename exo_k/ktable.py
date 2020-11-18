@@ -182,6 +182,7 @@ class Ktable(Ktable_io):
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
+            self.sampling_method='custom'
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
@@ -189,6 +190,7 @@ class Ktable(Ktable_io):
                 self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
+            self.sampling_method=quad
         self.Ng=self.weights.size
         if write >6 : print(self.weights,self.ggrid,self.gedges)
         self.logk=False
@@ -297,6 +299,7 @@ class Ktable(Ktable_io):
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
+            self.sampling_method='custom'
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
@@ -304,6 +307,7 @@ class Ktable(Ktable_io):
                 self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
+            self.sampling_method=quad
         self.Ng=self.weights.size
 
         conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))

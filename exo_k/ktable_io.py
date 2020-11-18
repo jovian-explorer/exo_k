@@ -40,6 +40,10 @@ class Ktable_io(Data_table):
             else:
                 self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+        if 'method' in f:
+            self.sampling_method=f['method'][()][0]
+        if 'DOI' in f:
+            self.DOI=f['DOI'][()][0]
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
@@ -74,11 +78,16 @@ class Ktable_io(Data_table):
                 If True, data are converted back to
                 cm^2 and bar units before being written.
         """
+        dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.hdf5'
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("mol_name", data=self.mol)
+        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
+        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
+        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
+        f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
+        f["mol_mass"].attrs["units"] = 'AMU'
         f.create_dataset("t", data=self.tgrid,
             compression=compression, compression_opts=compression_level)
         if exomol_units:
@@ -99,15 +108,21 @@ class Ktable_io(Data_table):
             f.create_dataset("p", data=self.pgrid,
                 compression=compression, compression_opts=compression_level)
             f["p"].attrs["units"] = self.p_unit
+        f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
         f.create_dataset("samples", data=self.ggrid,
             compression=compression, compression_opts=compression_level)
         f.create_dataset("weights", data=self.weights,
             compression=compression, compression_opts=compression_level)
+        f.create_dataset("ngauss", data=self.Ng)
         f.create_dataset("bin_edges", data=self.wnedges,
             compression=compression, compression_opts=compression_level)
         f.create_dataset("bin_centers", data=self.wns,
             compression=compression, compression_opts=compression_level)
         f["bin_edges"].attrs["units"] = self.wn_unit
+        f.create_dataset("wnrange", data=self.wnrange,
+            compression=compression, compression_opts=compression_level)
+        f.create_dataset("wlrange", data=self.wlrange,
+            compression=compression, compression_opts=compression_level)
         f.close()    
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):

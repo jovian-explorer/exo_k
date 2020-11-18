@@ -99,7 +99,7 @@ class Spectrum(Spectral_object):
             val=self.value+other.value
             return Spectrum(val,self.wns,self.wnedges)
         else:
-            raise RuntimeError('The two spectra do not have the same sampling.')
+            raise RuntimeError('The two spectra do not have the same spectral sampling.')
 
     def __sub__(self,other):
         """Defines substraction
@@ -110,7 +110,7 @@ class Spectrum(Spectral_object):
             val=self.value-other.value
             return Spectrum(val,self.wns,self.wnedges)
         else:
-            raise RuntimeError('The two spectra do not have the same sampling.')
+            raise RuntimeError('The two spectra do not have the same spectral sampling.')
 
     def __mul__(self,other):
         """Defines multiplication
@@ -121,7 +121,7 @@ class Spectrum(Spectral_object):
             val=self.value*other.value
             return Spectrum(val,self.wns,self.wnedges)
         else:
-            raise RuntimeError('The two spectra do not have the same sampling.')
+            raise RuntimeError('The two spectra do not have the same spectral sampling.')
 
     def __truediv__(self,other):
         """Defines division
@@ -132,7 +132,7 @@ class Spectrum(Spectral_object):
             val=self.value/other.value
             return Spectrum(val,self.wns,self.wnedges)
         else:
-            raise RuntimeError('The two spectra do not have the same sampling.')
+            raise RuntimeError('The two spectra do not have the same spectral sampling.')
 
     def std(self):
         """Defines standard deviation

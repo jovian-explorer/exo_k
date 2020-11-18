@@ -88,6 +88,8 @@ class Xtable(Data_table):
             else:
                 self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+        if 'DOI' in f:
+            self.DOI=f['DOI'][()][0]
         if 'bin_edges' in f:
             self.wns=f['bin_edges'][...]
             if 'units' in f['bin_edges'].attrs:
@@ -119,12 +121,18 @@ class Xtable(Data_table):
                 If True, data are converted back to
                 cm^2 and bar units before being written.
         """
+        dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.hdf5'
         compression="gzip"
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("mol_name", data=self.mol)
+        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
+        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
+        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
+        f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
+        f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
+        f["mol_mass"].attrs["units"] = 'AMU'
         if exomol_units:
             conv_factor=u.Unit(rm_molec(self.p_unit)).to(u.Unit('bar'))
             data_to_write=self.pgrid*conv_factor
@@ -142,6 +150,8 @@ class Xtable(Data_table):
         f.create_dataset("t", data=self.tgrid, compression=compression)
         f.create_dataset("bin_edges", data=self.wns, compression=compression)
         f["bin_edges"].attrs["units"] = self.wn_unit
+        f.create_dataset("wnrange", data=self.wnrange, compression=compression)
+        f.create_dataset("wlrange", data=self.wlrange, compression=compression)
         f.close()
 
     def read_exo_transmit(self, filename, mol=None):

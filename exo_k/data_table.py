@@ -2,10 +2,13 @@
 """
 @author: jeremy leconte
 """
+from datetime import date
 import numpy as np
+import pkg_resources  # part of setuptools
 from .util.interp import rm_molec,unit_convert,interp_ind_weights,bilinear_interpolation
 from .settings import Settings
 from .util.spectral_object import Spectral_object
+from .util.molar_mass import Molar_mass
 
 class Data_table(Spectral_object):
     """An abstract class that will serve as a basis for Ktable and Xtable.
@@ -36,6 +39,10 @@ class Data_table(Spectral_object):
                        # This will allow us to differentiate xsec from corrk
                        # when needed in the interpolation routines.
                        # Especially to reshape the output.
+        self.DOI='unknown'
+        self.sampling_method='unknown'
+        version = pkg_resources.require("exo_k")[0].version
+        self.Date_ID='exo_k-v'+version+'-'+date.today().strftime("%d/%m/%Y")
         self.Nx=None   # If we are dealing with a Qtable with a variable gas, Nx is the size of the
                        # grid along the dimension of the Volume mixing ratio of the variable gas.
                        # A None value means that we have either a regular Ktable or a Xtable.
@@ -510,6 +517,13 @@ class Data_table(Spectral_object):
                 New molecule name
         """
         self.mol=mol_name
+
+    @property
+    def molar_mass(self):
+        """Computes molar mass from molecule name
+        """
+        return Molar_mass().fetch(self.mol)
+
 
     def toLogK(self):
         """Changes kdata to log 10.

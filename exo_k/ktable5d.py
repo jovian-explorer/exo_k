@@ -107,6 +107,10 @@ class Ktable5d(Data_table):
             else:
                 self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
         if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+        if 'method' in f:
+            self.sampling_method=f['method'][()][0]
+        if 'DOI' in f:
+            self.DOI=f['DOI'][()][0]
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
@@ -139,23 +143,30 @@ class Ktable5d(Data_table):
             filename: str
                 Name of the file to be created and saved
         """
+        dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.hdf5'
         compression="gzip"
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("mol_name", data=self.mol)
+        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
+        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
+        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
         f.create_dataset("p", data=self.pgrid,compression=compression)
         f["p"].attrs["units"] = self.p_unit
         f.create_dataset("t", data=self.tgrid,compression=compression)
         f.create_dataset("x", data=self.xgrid,compression=compression)
         f.create_dataset("kcoeff", data=self.kdata,compression=compression)
         f["kcoeff"].attrs["units"] = self.kdata_unit
+        f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
         f.create_dataset("samples", data=self.ggrid,compression=compression)
         f.create_dataset("weights", data=self.weights,compression=compression)
+        f.create_dataset("ngauss", data=self.Ng)
         f.create_dataset("bin_edges", data=self.wnedges,compression=compression)
         f.create_dataset("bin_centers", data=self.wns,compression=compression)
         f["bin_edges"].attrs["units"] = self.wn_unit
+        f.create_dataset("wnrange", data=self.wnrange, compression=compression)
+        f.create_dataset("wlrange", data=self.wlrange, compression=compression)
         f.close()    
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
@@ -321,6 +332,7 @@ class Ktable5d(Data_table):
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
+            self.sampling_method='custom'
         else:
             if quad=='legendre':
                 self.weights,self.ggrid,self.gedges=gauss_legendre(order)
@@ -328,6 +340,7 @@ class Ktable5d(Data_table):
                 self.weights,self.ggrid,self.gedges=split_gauss_legendre(order, g_split)
             else:
                 raise NotImplementedError("Type of quadrature (quad keyword) not known.")
+            self.sampling_method=quad
         self.Ng=self.weights.size
 
         conversion_factor=u.Unit(grid_p_unit).to(u.Unit('Pa'))
