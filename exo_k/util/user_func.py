@@ -91,7 +91,7 @@ def create_fname_grid(base_string, logpgrid=None, tgrid=None, xgrid=None,
         
     .. warning::
         The result of this function is much more predictable 
-        if the values in the above arrays are given as integers. 
+        if the values in the above arrays are given as integers or directly strings. 
         If you want to use floats anyway, good luck. 
 
     Parameters

@@ -176,7 +176,7 @@ class Gas_mix(Spectral_object):
                 print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
                 You can convert to mks using convert_to_mks.
                 More generally, you can specify exo_k.Settings().set_mks(True) 
-                to force automatic conversion to mks of all newly loaded data.
+                to force automatic conversion to mks for all newly loaded data.
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the Kdatabase used with Gas_mix.")

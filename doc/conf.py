@@ -59,6 +59,7 @@ templates_path = ['_templates']
 source_suffix = '.rst'
 master_doc = 'index'
 html_logo = 'images/logo_exo_k.png'
+html_favicon = 'images/logo_exo_k.png' # logo in onglet
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
