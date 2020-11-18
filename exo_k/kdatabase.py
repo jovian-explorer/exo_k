@@ -120,10 +120,12 @@ class Kdatabase(Spectral_object):
                         You'll need to use convert_kdata_unit""")
                     self.consolidated_kdata_unit=False
                 self.ktables[tmp_ktable.mol]=tmp_ktable
-                if not np.array_equal(tmp_ktable.wns,self.wns):
+                if (((self.Ng is None) and not np.array_equal(tmp_ktable.wns,self.wns)) or \
+                  ((self.Ng is not None) and not np.array_equal(tmp_ktable.wnedges,self.wnedges))):
+                  # If Xtables, compare wns. If Ktables, compare wnedges
                     self.consolidated_wn_grid=False
                     print("""Carefull, not all tables have the same wevelength grid.
-                        You'll need to use bin_down""")
+                        You'll need to use bin_down (Ktable) or sample (Xtable)""")
                     self.wns    = None
                     self.wnedges= None
                     self.Nw     = None
@@ -205,7 +207,7 @@ class Kdatabase(Spectral_object):
 
     def bin_down(self, wnedges=None, **kwargs):
         """Applies the bin_down method to all the tables in the database (inplace).
-        This can be used to put all the tables onthe same wavenumber grid.
+        This can be used to put all the tables on the same wavenumber grid.
 
         See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`
         for details.

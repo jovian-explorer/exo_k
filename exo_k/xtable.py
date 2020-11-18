@@ -249,7 +249,7 @@ class Xtable(Data_table):
 
             spec_hr=Hires_spectrum(fname, file_kdata_unit=file_kdata_unit,
                 **select_kwargs(kwargs,['skiprows','wn_column','mult_factor',
-                    'kdata_column','data_type']))
+                    'kdata_column','data_type','binary','mass_amu']))
             # for later conversion, the real kdata_unit is in spec_hr.kdata_unit
             self.kdata_unit=spec_hr.kdata_unit
             was_xsec=(spec_hr.data_type=='xsec')
@@ -259,6 +259,7 @@ class Xtable(Data_table):
                 k_hr=k_hr*KBOLTZ*self.tgrid[iT]/self.pgrid[iP]
             if first:
                 self.wns=wn_hr[1:-1]  #to be consistent with kcorr
+                self.wnedges=0.5*(wn_hr[:-1]+wn_hr[1:])
                 self.Nw=self.wns.size
                 self.kdata=np.zeros((self.Np,self.Nt,self.Nw))
                 self.kdata[iP,iT]=k_hr[1:-1]

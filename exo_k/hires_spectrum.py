@@ -2,20 +2,21 @@
 """
 @author: jeremy leconte
 """
+import os.path
 import numpy as np
 import h5py
 from exo_k.util.interp import rm_molec,unit_convert
 from exo_k.settings import Settings
 from exo_k.util.filenames import select_kwargs
 from .util.spectral_object import Spectral_object
-from .util.cst import KBOLTZ
+from .util.cst import KBOLTZ, N_A
 
 class Hires_spectrum(Spectral_object):
     """A class defining a Hires_spectrum object.
     """
 
     def __init__(self, filename, file_kdata_unit='unspecified', kdata_unit='unspecified',
-        mult_factor=None, **kwargs):
+        mult_factor=None, binary=False, **kwargs):
         """Reads a high-resolution spectrum from a file (either hdf5 or ascii).
 
         Parameters
@@ -45,6 +46,8 @@ class Hires_spectrum(Spectral_object):
 
         if filename.lower().endswith(('.hdf5', '.h5')):
             self.read_hdf5(filename)
+        elif binary:
+            self.read_binary(filename,  **select_kwargs(kwargs,['mass_amu']))
         else:
             self.read_ascii(filename, **select_kwargs(kwargs,['skiprows','wn_column',
                 'kdata_column','data_type']))
@@ -129,6 +132,25 @@ class Hires_spectrum(Spectral_object):
         self.kdata=f['kdata'][...]
         self.kdata_unit=f['kdata'].attrs['units']
         f.close()
+
+    def read_binary(self, filename, mass_amu=None):
+        """Reads spectra file in binary format (petitRADTRANS style)
+        
+        Assumed to be in cm^2/g with wavelength in cm.
+
+        Will be automatically converted to cm^2/molecule and wns in cm^-1
+        (unless conversion to mks is requested).
+        """
+        if mass_amu is None:
+            raise RuntimeError('Need atomic mass in amu to read petitRADTRANS binary files')
+        self.filename=filename
+        dirname=os.path.dirname(self.filename)
+        self.data_type='xsec'
+        wls_cm=np.fromfile(os.path.join(dirname,'wlen.dat'))
+        self.wns=1./wls_cm[::-1]
+        self.kdata=np.fromfile(self.filename)[::-1]*mass_amu/N_A
+        self.kdata_unit='cm^2/molecule'
+
 
     def convert_kdata_unit(self, kdata_unit='unspecified', file_kdata_unit='unspecified'):
         """Converts kdata to a new unit (inplace)
