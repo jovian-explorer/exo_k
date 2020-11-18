@@ -14,16 +14,20 @@ class Spectrum(Spectral_object):
     """
 
     def __init__(self, value=None, wns=None, wnedges=None, filename=None,
-            dataset='native_spectrum'):
+            from_taurex=False, dataset='native_spectrum'):
         """Instanciate with a value, bin centers, and bin edges.
         Can also load a Taurex spectrum if filename is provided.
         """
+        self.wn_unit='cm^-1'
         if filename is None:
             self.value=value
             self.wns=wns
             self.wnedges=wnedges
         else:
-            self.load_taurex(filename,dataset)
+            if from_taurex:
+                self.load_taurex(filename, dataset)
+            else:
+                self.read_hdf5(filename)
     
     def copy(self):
         """Deep copy of the spectrum.
@@ -156,7 +160,48 @@ class Spectrum(Spectral_object):
         dw=np.diff(self.wnedges)
         return np.dot(self.value,dw)
 
-    def load_taurex(self,filename,dataset='native_spectrum'):
+    def read_hdf5(self, filename=None):
+        """Reads data in a hdf5 file
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be created and saved
+        """
+        if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
+            raise RuntimeError("You should provide an input hdf5 file")
+        f = h5py.File(filename, 'r')
+        self.wns=f['bin_centers'][...]
+        self.wnedges=f['bin_edges'][...]
+        if 'units' in f['bin_edges'].attrs:
+            self.wn_unit=f['bin_edges'].attrs['units']
+        else:
+            if 'units' in f['bin_centers'].attrs:
+                self.wn_unit=f['bin_centers'].attrs['units']
+        self.value=f['spectrum'][...]
+        f.close()  
+
+    def write_hdf5(self, filename):
+        """Saves data in a hdf5 format
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be created and saved
+        """
+        fullfilename=filename
+        if not filename.lower().endswith(('.hdf5', '.h5')):
+            fullfilename=filename+'.hdf5'
+        compression="gzip"
+        f = h5py.File(fullfilename, 'w')
+        f.create_dataset("spectrum", data=self.value, compression=compression)
+        f.create_dataset("bin_edges", data=self.wnedges, compression=compression)
+        f["bin_edges"].attrs["units"] = 'cm^-1'
+        f.create_dataset("bin_centers", data=self.wns, compression=compression)
+        f["bin_centers"].attrs["units"] = 'cm^-1'
+        f.close()
+
+    def load_taurex(self, filename,dataset='native_spectrum'):
         """Loads a taurex file
 
         Parameters
