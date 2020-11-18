@@ -246,7 +246,7 @@ class Data_table(Spectral_object):
             # trick for the broadcasting to work whatever the shape of x_array
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array=None):
-        """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid
+        """remap_logPT re-interpolates the kdata on a new temperature and log pressure grid
         (inplace). 
 
         Parameters

@@ -183,6 +183,29 @@ def rebin(f_fine,fine_grid,coarse_grid):
         f_coarse[ii]=f_fine[ifine]
     return f_coarse
 
+@numba.njit(fastmath=True)
+def g_sample_4d(new_ggrid, new_kdata, old_ggrid, old_kdata):
+    """Reinterpolte the g grid inplace.
+    """
+    shape=old_kdata.shape
+    for iP in range(shape[0]):
+      for iT in range(shape[1]):
+        for iW in range(shape[2]):
+            new_kdata[iP,iT,iW,:]=np.interp(new_ggrid, old_ggrid, old_kdata[iP,iT,iW,:])
+    return
+
+@numba.njit(fastmath=True)
+def g_sample_5d(new_ggrid, new_kdata, old_ggrid, old_kdata):
+    """Reinterpolte the g grid inplace.
+    """
+    shape=old_kdata.shape
+    for iP in range(shape[0]):
+      for iT in range(shape[1]):
+        for iX in range(shape[2]):
+          for iW in range(shape[3]):
+            new_kdata[iP,iT,iX,iW,:]=np.interp(new_ggrid, old_ggrid, old_kdata[iP,iT,iX,iW,:])
+    return
+
 #@numba.njit(nogil=True,fastmath=True)
 def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
     """Function to randomely mix the opacities of 2 species in an atmospheric profile.

@@ -11,7 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 from .data_table import Data_table
 from .util.interp import rm_molec, rebin_ind_weights, \
         gauss_legendre, split_gauss_legendre, spectrum_to_kdist, \
-        is_sorted, bin_down_corrk_numba
+        is_sorted, bin_down_corrk_numba, g_sample_5d
 from .util.cst import KBOLTZ
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
@@ -719,6 +719,27 @@ class Ktable5d(Data_table):
         super().clip_spectral_range(wn_range=wn_range, wl_range=wl_range)
         if self.kdata is not None:
             self.setup_interpolation()
+
+    def remap_g(self, ggrid=None, weights=None):
+        """Method to resample a kcoeff table to a new g grid (inplace).
+
+        Parameters
+        ----------
+            ggrid: array
+                New grid of abcissas for quadrature
+            weights: array
+                New grid of weights
+        """
+        weights=np.array(weights)
+        ggrid=np.array(ggrid)
+        self.Ng=weights.size
+        newkdata=np.zeros((self.Np, self.Nt, self.Nx, self.Nw, self.Ng))
+        g_sample_5d(ggrid, newkdata, self.ggrid, self.kdata)
+        self.ggrid=ggrid
+        self.weights=weights
+        self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
+        self.set_kdata(newkdata)
+
 
 
 def read_Qdat(filename):

@@ -11,7 +11,7 @@ from .ktable_io import Ktable_io
 from .ktable5d import Ktable5d
 from .util.interp import rebin_ind_weights, rebin, is_sorted, \
         gauss_legendre, split_gauss_legendre, spectrum_to_kdist, \
-        kdata_conv_loop, bin_down_corrk_numba
+        kdata_conv_loop, bin_down_corrk_numba, g_sample_4d
 from .hires_spectrum import Hires_spectrum
 from .util.filenames import create_fname_grid_Kspectrum_LMDZ, select_kwargs
 from .util.cst import KBOLTZ
@@ -573,4 +573,24 @@ class Ktable(Ktable_io):
         self.wns=(wnedges[1:]+wnedges[:-1])*0.5
         self.Nw=self.wns.size
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
+
+    def remap_g(self, ggrid=None, weights=None):
+        """Method to resample a kcoeff table to a new g grid (inplace).
+
+        Parameters
+        ----------
+            ggrid: array
+                New grid of abcissas for quadrature
+            weights: array
+                New grid of weights
+        """
+        weights=np.array(weights)
+        ggrid=np.array(ggrid)
+        self.Ng=weights.size
+        newkdata=np.zeros((self.Np, self.Nt, self.Nw, self.Ng))
+        g_sample_4d(ggrid, newkdata, self.ggrid, self.kdata)
+        self.kdata=newkdata
+        self.ggrid=ggrid
+        self.weights=weights
+        self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
 
