@@ -46,11 +46,13 @@ class Settings(Singleton):
             local_path=[]
         else:
             local_path=[os.path.abspath('.')]
-        if path_type == 'kdata' or path_type == 'all':
-            self._search_path = local_path.copy()
-        if path_type == 'cia' or path_type == 'all':
+        if path_type in ('kdata', 'ktable', 'all'):
+            self._ktable_search_path = local_path.copy()
+        if path_type in ('kdata', 'xtable', 'all'):
+            self._xtable_search_path = local_path.copy()
+        if path_type in ('cia', 'all'):
             self._cia_search_path = local_path.copy()
-        if path_type == 'aerosol' or path_type == 'all':
+        if path_type in ('aerosol', 'all'):
             self._aerosol_search_path = local_path.copy()
 
     def add_search_path(self, *search_paths, path_type = 'kdata'):
@@ -63,7 +65,9 @@ class Settings(Singleton):
                 Search path(s) to look for opacities.
             path_type: str
                 What type of path to change. Possibilities are:
-                  * 'kdata' (default): xsec and corr-k search path
+                  * 'kdata' (default): global xsec and corr-k search path
+                  * 'ktable' : only corr-k files
+                  * 'xtable' : only cross section files
                   * 'cia': search path for CIA files
                   * 'aerosol': search path for Aerosol optical property files
 
@@ -76,20 +80,27 @@ class Settings(Singleton):
              '/your/path/to/exo_k/data/xsec',
              '/your/path/to/exo_k/data/corrk']
         """
-        if path_type == 'kdata':
-            path_to_change=self._search_path
-        elif path_type == 'cia':
-            path_to_change=self._cia_search_path
+        path_to_change=[]
+        if path_type == 'cia':
+            path_to_change.append(self._cia_search_path)
         elif path_type == 'aerosol':
-            path_to_change=self._aerosol_search_path
+            path_to_change.append(self._aerosol_search_path)
+        else:
+            if path_type in ('kdata', 'ktable'):
+                path_to_change.append(self._ktable_search_path)
+            if path_type in ('kdata', 'xtable'):
+                path_to_change.append(self._xtable_search_path)
 
+        if path_to_change == []:
+            raise RuntimeError('I did not understand the path type provided.')
         for path in search_paths:
             if not os.path.isdir(path):
                 raise NotADirectoryError("""The search_path you provided
                     does not exist or is not a directory""")
             else:
-                if os.path.abspath(path) not in path_to_change:
-                    path_to_change.append(os.path.abspath(path))
+                for to_change in path_to_change:
+                    if os.path.abspath(path) not in to_change:
+                        to_change.append(os.path.abspath(path))
 
     def add_cia_search_path(self, *search_paths):
         """Add path(s) to the list of paths that will be searched for
@@ -132,20 +143,23 @@ class Settings(Singleton):
         """
         self.set_search_path(*search_paths, path_type = 'aerosol')
 
+    @property
     def search_path(self):
         """Returns the current value of the global search path (_search_path)
         """
-        return self._search_path
+        return {'ktable': self._ktable_search_path, 'xtable': self._xtable_search_path,
+             'cia': self._cia_search_path, 'aerosol': self._aerosol_search_path}
 
     def cia_search_path(self):
-        """Returns the current value of the global search path (_search_path)
+        """Returns the current value of the cia search path (_cia_search_path)
         """
-        return self._cia_search_path
+        raise RuntimeError('Deprecated after v0.0.5. Use xk.Settings().search_path["cia"] instead.')
 
     def aerosol_search_path(self):
-        """Returns the current value of the global search path (_search_path)
+        """Returns the current value of the aerosol search path (_aerosol_search_path)
         """
-        return self._aerosol_search_path
+        raise RuntimeError(
+            'Deprecated after v0.0.5. Use xk.Settings().search_path["aerosol"] instead.')
 
     def set_delimiter(self, newdelimiter):
         """Sets the delimiter string used to separate molecule names in filenames.
@@ -225,7 +239,7 @@ class Settings(Singleton):
     def list_files(self, *str_filters, molecule = None, 
             only_one = False, search_path = None, path_type = 'kdata'):
         """A routine that provides a list of all filenames containing
-        a set of string filters in the global _search_path or a local one.
+        a set of string filters in one of the global _search_path or a local one.
 
         Whether the search is case sensitive is specified through the
         Settings.set_case_sensitive() method. 
@@ -259,8 +273,10 @@ class Settings(Singleton):
         if search_path is not None:
             local_search_path=[search_path]
         else:
-            if path_type == 'kdata':
-                local_search_path=self._search_path
+            if path_type == 'ktable':
+                local_search_path=self._ktable_search_path
+            elif path_type == 'xtable':
+                local_search_path=self._xtable_search_path
             elif path_type == 'aerosol':
                 local_search_path=self._aerosol_search_path
 

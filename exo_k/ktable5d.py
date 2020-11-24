@@ -56,7 +56,7 @@ class Ktable5d(Data_table):
         elif filename_filters or (mol is not None and path is None): 
         # a none empty sequence returns a True in a conditional statement
             self.filename=self._settings.list_files(*filename_filters, molecule = mol,
-                only_one=True, search_path=search_path)[0]
+                only_one=True, search_path=search_path, path_type='ktable')[0]
         if self.filename is not None:
             if self.filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename=self.filename, mol=mol)
