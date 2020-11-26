@@ -184,7 +184,7 @@ class Cia_table(Spectral_object):
                 Name of the file to be written.
         """
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            filename=filename+'.hdf5'
+            filename=filename+'.h5'
         f = h5py.File(filename, 'w')
         f.create_dataset("bin_centers", data=self.wns,compression="gzip")
         f.create_dataset("t", data=self.tgrid,compression="gzip")

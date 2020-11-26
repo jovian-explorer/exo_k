@@ -176,7 +176,7 @@ class Atable(Spectral_object):
                 Name of the file to be written.
         """
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            filename=filename+'.hdf5'
+            filename=filename+'.h5'
         f = h5py.File(filename, 'w')
         compression="gzip"
         f.create_dataset("aerosol_name", data=self.aerosol_name)

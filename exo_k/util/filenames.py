@@ -144,7 +144,7 @@ def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     wns=0.01/tmp_wlgrid[::-1]
     
     if not file_out.lower().endswith(('.hdf5', '.h5')):
-        fullfilename=file_out+'.hdf5'
+        fullfilename=file_out+'.h5'
     else:
         fullfilename=file_out
     compression="gzip"

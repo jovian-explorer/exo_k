@@ -81,7 +81,7 @@ class Ktable_io(Data_table):
         dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            fullfilename=filename+'.hdf5'
+            fullfilename=filename+'.h5'
         f = h5py.File(fullfilename, 'w')
         f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
         f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)

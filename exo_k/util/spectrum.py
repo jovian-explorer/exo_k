@@ -191,7 +191,7 @@ class Spectrum(Spectral_object):
         """
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            fullfilename=filename+'.hdf5'
+            fullfilename=filename+'.h5'
         compression="gzip"
         f = h5py.File(fullfilename, 'w')
         f.create_dataset("spectrum", data=self.value, compression=compression)
