@@ -77,37 +77,36 @@ class Xtable(Data_table):
         """
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
             raise RuntimeError("You should provide an input hdf5 file")
-        f = h5py.File(filename, 'r')
-        if 'mol_name' in f:
-            self.mol=f['mol_name'][()]
-        elif 'mol_name' in f.attrs:
-            self.mol=f.attrs['mol_name']
-        else:
-            if mol is not None:
-                self.mol=mol
+        with h5py.File(filename, 'r') as f:
+            if 'mol_name' in f:
+                self.mol=f['mol_name'][()]
+            elif 'mol_name' in f.attrs:
+                self.mol=f.attrs['mol_name']
             else:
-                self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
-        if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
-        if 'DOI' in f:
-            self.DOI=f['DOI'][()][0]
-        if 'bin_edges' in f:
-            self.wns=f['bin_edges'][...]
-            if 'units' in f['bin_edges'].attrs:
-                self.wn_unit=f['bin_edges'].attrs['units']
-        else:
-            self.wns=f['bin_centers'][...]
-            if 'units' in f['bin_centers'].attrs:
-                self.wn_unit=f['bin_centers'].attrs['units']
-        self.wnedges=np.concatenate(  \
-            ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-        self.kdata=f['xsecarr'][...]
-        self.kdata_unit=f['xsecarr'].attrs['units']
-        self.tgrid=f['t'][...]
-        self.pgrid=f['p'][...]
-        self.logpgrid=np.log10(self.pgrid)
-        self.p_unit=f['p'].attrs['units']
-        self.logk=False
-        f.close()  
+                if mol is not None:
+                    self.mol=mol
+                else:
+                    self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+            if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+            if 'DOI' in f:
+                self.DOI=f['DOI'][()][0]
+            if 'bin_edges' in f:
+                self.wns=f['bin_edges'][...]
+                if 'units' in f['bin_edges'].attrs:
+                    self.wn_unit=f['bin_edges'].attrs['units']
+            else:
+                self.wns=f['bin_centers'][...]
+                if 'units' in f['bin_centers'].attrs:
+                    self.wn_unit=f['bin_centers'].attrs['units']
+            self.wnedges=np.concatenate(  \
+                ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+            self.kdata=f['xsecarr'][...]
+            self.kdata_unit=f['xsecarr'].attrs['units']
+            self.tgrid=f['t'][...]
+            self.pgrid=f['p'][...]
+            self.logpgrid=np.log10(self.pgrid)
+            self.p_unit=f['p'].attrs['units']
+            self.logk=False
         self.Np,self.Nt,self.Nw=self.kdata.shape
 
     def write_hdf5(self, filename, compression="gzip", compression_level=9,
@@ -125,29 +124,28 @@ class Xtable(Data_table):
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'
-        f = h5py.File(fullfilename, 'w')
-        f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
-        f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
-        f["mol_mass"].attrs["units"] = 'AMU'
-        if exomol_units:
-            kdata_unit='cm^2/molecule'
-            p_unit='bar'
-        if kdata_unit is not None:
-            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
-            data_to_write=self.kdata*conv_factor
-            f.create_dataset("xsecarr", data=data_to_write, compression=compression,
-                compression_opts=compression_level)
-            f["xsecarr"].attrs["units"] = kdata_unit
-        else:
-            f.create_dataset("xsecarr", data=self.kdata, compression=compression,
-                compression_opts=compression_level)
-            f["xsecarr"].attrs["units"] = self.kdata_unit
-        
-        # where most of the data is actually written
-        self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
-        p_unit=p_unit)
-        f["bin_edges"].attrs["long_name"] = 'Wavenumber grid'
-        f.close()
+        with h5py.File(fullfilename, 'w') as f:
+            f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
+            f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
+            f["mol_mass"].attrs["units"] = 'AMU'
+            if exomol_units:
+                kdata_unit='cm^2/molecule'
+                p_unit='bar'
+            if kdata_unit is not None:
+                conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
+                data_to_write=self.kdata*conv_factor
+                f.create_dataset("xsecarr", data=data_to_write, compression=compression,
+                    compression_opts=compression_level)
+                f["xsecarr"].attrs["units"] = kdata_unit
+            else:
+                f.create_dataset("xsecarr", data=self.kdata, compression=compression,
+                    compression_opts=compression_level)
+                f["xsecarr"].attrs["units"] = self.kdata_unit
+
+            # where most of the data is actually written
+            self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
+            p_unit=p_unit)
+            f["bin_edges"].attrs["long_name"] = 'Wavenumber grid'
 
     def read_exo_transmit(self, filename, mol=None):
         """Creates an xsec object from an exo_transmit like spectra.

@@ -29,42 +29,41 @@ class Ktable_io(Data_table):
         """
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
             raise RuntimeError("You should provide an input hdf5 file")
-        f = h5py.File(filename, 'r')
-        if 'mol_name' in f:
-            self.mol=f['mol_name'][()]
-        elif 'mol_name' in f.attrs:
-            self.mol=f.attrs['mol_name']
-        else:
-            if mol is not None:
-                self.mol=mol
+        with h5py.File(filename, 'r') as f:
+            if 'mol_name' in f:
+                self.mol=f['mol_name'][()]
+            elif 'mol_name' in f.attrs:
+                self.mol=f.attrs['mol_name']
             else:
-                self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
-        if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
-        if 'method' in f:
-            self.sampling_method=f['method'][()][0]
-        if 'DOI' in f:
-            self.DOI=f['DOI'][()][0]
-        self.wns=f['bin_centers'][...]
-        self.wnedges=f['bin_edges'][...]
-        if 'units' in f['bin_edges'].attrs:
-            self.wn_unit=f['bin_edges'].attrs['units']
-        else:
-            if 'units' in f['bin_centers'].attrs:
-                self.wn_unit=f['bin_centers'].attrs['units']
-        self.kdata=f['kcoeff'][...]
-        self.kdata_unit=f['kcoeff'].attrs['units']
-        self.tgrid=f['t'][...]
-        self.pgrid=f['p'][...]
-        self.logpgrid=np.log10(self.pgrid)
-        self.p_unit=f['p'].attrs['units']
-        if 'weights' in f.keys():
-            self.weights=f['weights'][...]
-        else:
-            raise RuntimeError('No weights keyword. This file is probably a cross section file.')
-        self.ggrid=f['samples'][...]
-        self.gedges=np.insert(np.cumsum(self.weights),0,0.)
-        self.logk=False
-        f.close()  
+                if mol is not None:
+                    self.mol=mol
+                else:
+                    self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
+            if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+            if 'method' in f:
+                self.sampling_method=f['method'][()][0]
+            if 'DOI' in f:
+                self.DOI=f['DOI'][()][0]
+            self.wns=f['bin_centers'][...]
+            self.wnedges=f['bin_edges'][...]
+            if 'units' in f['bin_edges'].attrs:
+                self.wn_unit=f['bin_edges'].attrs['units']
+            else:
+                if 'units' in f['bin_centers'].attrs:
+                    self.wn_unit=f['bin_centers'].attrs['units']
+            self.kdata=f['kcoeff'][...]
+            self.kdata_unit=f['kcoeff'].attrs['units']
+            self.tgrid=f['t'][...]
+            self.pgrid=f['p'][...]
+            self.logpgrid=np.log10(self.pgrid)
+            self.p_unit=f['p'].attrs['units']
+            if 'weights' in f.keys():
+                self.weights=f['weights'][...]
+            else:
+                raise RuntimeError('No weights keyword. This file is probably a cross section file.')
+            self.ggrid=f['samples'][...]
+            self.gedges=np.insert(np.cumsum(self.weights),0,0.)
+            self.logk=False
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
     def write_hdf5(self, filename, compression="gzip", compression_level=9,
@@ -83,40 +82,39 @@ class Ktable_io(Data_table):
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'
-        f = h5py.File(fullfilename, 'w')
-        f.create_dataset("temperature_grid_type", (1,), data='regular', dtype=dt)
-        f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
-        f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
-        f["mol_mass"].attrs["units"] = 'AMU'
-        if exomol_units:
-            kdata_unit='cm^2/molecule'
-            p_unit='bar'
-        elif exorem_units:
-            kdata_unit='cm^2/molecule'
-            p_unit='Pa'
-        if kdata_unit is not None:
-            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
-            data_to_write=self.kdata*conv_factor
-            f.create_dataset("kcoeff", data=data_to_write,
+        with h5py.File(fullfilename, 'w') as f:
+            f.create_dataset("temperature_grid_type", (1,), data='regular', dtype=dt)
+            f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
+            f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
+            f["mol_mass"].attrs["units"] = 'AMU'
+            if exomol_units:
+                kdata_unit='cm^2/molecule'
+                p_unit='bar'
+            elif exorem_units:
+                kdata_unit='cm^2/molecule'
+                p_unit='Pa'
+            if kdata_unit is not None:
+                conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
+                data_to_write=self.kdata*conv_factor
+                f.create_dataset("kcoeff", data=data_to_write,
+                    compression=compression, compression_opts=compression_level)
+                f["kcoeff"].attrs["units"] = kdata_unit
+            else:
+                f.create_dataset("kcoeff", data=self.kdata,
+                    compression=compression, compression_opts=compression_level)
+                f["kcoeff"].attrs["units"] = self.kdata_unit
+            f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
+            f.create_dataset("samples", data=self.ggrid,
                 compression=compression, compression_opts=compression_level)
-            f["kcoeff"].attrs["units"] = kdata_unit
-        else:
-            f.create_dataset("kcoeff", data=self.kdata,
+            f.create_dataset("weights", data=self.weights,
                 compression=compression, compression_opts=compression_level)
-            f["kcoeff"].attrs["units"] = self.kdata_unit
-        f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
-        f.create_dataset("samples", data=self.ggrid,
-            compression=compression, compression_opts=compression_level)
-        f.create_dataset("weights", data=self.weights,
-            compression=compression, compression_opts=compression_level)
-        f.create_dataset("ngauss", data=self.Ng)
-        f.create_dataset("bin_centers", data=self.wns,
-            compression=compression, compression_opts=compression_level)
+            f.create_dataset("ngauss", data=self.Ng)
+            f.create_dataset("bin_centers", data=self.wns,
+                compression=compression, compression_opts=compression_level)
 
-        # where most of the data is actually written
-        self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
-        p_unit=p_unit)
-        f.close()    
+            # where most of the data is actually written
+            self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
+            p_unit=p_unit)
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file in a gcm friendly format.
@@ -324,7 +322,11 @@ class Ktable_io(Data_table):
             mol: str, optional
                 Name of the molecule.
         """
-        self.mol=mol
+        if self.mol is None:
+            if mol is not None:
+                self.mol=mol
+            else:
+                self.mol=os.path.basename(self.filename).split(self._settings._delimiter)[0]
         with open(filename, 'r') as file:
             tmp = file.readline().split()
             self.Np=int(tmp[0])

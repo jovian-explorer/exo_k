@@ -10,9 +10,11 @@ provides = ['exo_k', ]
 
 requires = []
 
+python_requires='>=3'
+
 install_requires = ['numpy',
                     'scipy',
-                    'numba>0.49',
+                    'numba>=0.49',
                     'astropy',
                     'h5py',
                     ]
@@ -41,7 +43,7 @@ classifiers = [
 ]
 
 # Handle versioning
-version = '0.0.5'
+version = '1.0.0'
 
 with open("README.md", "r") as fh:
     long_description = fh.read()

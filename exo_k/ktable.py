@@ -109,9 +109,13 @@ class Ktable(Ktable_io):
                 self.read_hdf5(filename=self.filename, mol=mol)
             elif self.filename.lower().endswith('.kta'):
                 self.read_nemesis(filename=self.filename, mol=mol)
+            elif self.filename.lower().endswith('.dat'):
+                self.read_exorem(filename=self.filename, mol=mol)
+            elif self.filename.lower().endswith('.fits'):
+                self.read_arcis(filename=self.filename, mol=mol)
             else:
                 raise NotImplementedError("""Requested format not recognized.
-            Should end with .pickle, .hdf5, .h5, or .kta""")
+            Should end with .pickle, .hdf5, .h5, .fits, .dat, or .kta""")
         elif xtable is not None:
             self.xtable_to_ktable(xtable=xtable, **kwargs)
         elif path is not None:
