@@ -17,6 +17,27 @@ N_A = 6.022140857e+23
 tiny=1.e-13
 OneMintiny=1.-tiny
 
+ktable_long_name_attributes={
+    'p': 'Pressure grid',
+    't': 'Temperature grid',
+    'x': 'Volume mixing ratio grid',
+    'bin_centers': 'Centers of the wavenumber bins',
+    'bin_edges': 'Separations between the wavenumber bins',
+    'weights': 'Weights used in the g-space quadrature',
+    'samples': 'Abscissas used to sample the k-coefficients in g-space',
+    'mol_name': 'Name of the species described',
+    'mol_mass': 'Mass of the species',
+    'kcoeff': 'Table of the k-coefficients with axes (pressure, temperature, wavenumber, g space)',
+    'xsecarr': 'Table of cross sections with axes (pressure, temperature, wavenumber)',
+    'method': 'Name of the method used to sample g-space',
+    'ngauss': 'Number of points used to sample the g-space',
+    'temperature_grid_type': 'Whether the temperature grid is regular (same temperatures for all pressures) or pressure-dependent',
+    'wnrange': 'Wavenumber range covered',
+    'wlrange': 'Wavelength range covered',
+    'DOI': 'Data object identifier linked to the data',
+    'Date_ID':'Date at which the table has been created, along with the version of exo_k',
+    'key_iso_ll': 'Isotopologue identifier'
+}
 
 nemesis_hitran_id_numbers={
 'H2O': 1,

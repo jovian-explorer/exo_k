@@ -67,7 +67,8 @@ class Ktable_io(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
-    def write_hdf5(self, filename, compression="gzip", compression_level=9, exomol_units=False):
+    def write_hdf5(self, filename, compression="gzip", compression_level=9,
+        kdata_unit=None, p_unit=None, exomol_units=False, exorem_units=False):
         """Saves data in a hdf5 format
 
         Parameters
@@ -83,46 +84,38 @@ class Ktable_io(Data_table):
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
-        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
-        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
+        f.create_dataset("temperature_grid_type", (1,), data='regular', dtype=dt)
+        f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
         f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
         f["mol_mass"].attrs["units"] = 'AMU'
-        f.create_dataset("t", data=self.tgrid,
-            compression=compression, compression_opts=compression_level)
         if exomol_units:
-            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))
+            kdata_unit='cm^2/molecule'
+            p_unit='bar'
+        elif exorem_units:
+            kdata_unit='cm^2/molecule'
+            p_unit='Pa'
+        if kdata_unit is not None:
+            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
             data_to_write=self.kdata*conv_factor
             f.create_dataset("kcoeff", data=data_to_write,
                 compression=compression, compression_opts=compression_level)
-            f["kcoeff"].attrs["units"] = 'cm^2/molecule'
-            conv_factor=u.Unit(rm_molec(self.p_unit)).to(u.Unit('bar'))
-            data_to_write=self.pgrid*conv_factor
-            f.create_dataset("p", data=data_to_write,
-                compression=compression, compression_opts=compression_level)
-            f["p"].attrs["units"] = 'bar'
+            f["kcoeff"].attrs["units"] = kdata_unit
         else:
             f.create_dataset("kcoeff", data=self.kdata,
                 compression=compression, compression_opts=compression_level)
             f["kcoeff"].attrs["units"] = self.kdata_unit
-            f.create_dataset("p", data=self.pgrid,
-                compression=compression, compression_opts=compression_level)
-            f["p"].attrs["units"] = self.p_unit
         f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
         f.create_dataset("samples", data=self.ggrid,
             compression=compression, compression_opts=compression_level)
         f.create_dataset("weights", data=self.weights,
             compression=compression, compression_opts=compression_level)
         f.create_dataset("ngauss", data=self.Ng)
-        f.create_dataset("bin_edges", data=self.wnedges,
-            compression=compression, compression_opts=compression_level)
         f.create_dataset("bin_centers", data=self.wns,
             compression=compression, compression_opts=compression_level)
-        f["bin_edges"].attrs["units"] = self.wn_unit
-        f.create_dataset("wnrange", data=self.wnrange,
-            compression=compression, compression_opts=compression_level)
-        f.create_dataset("wlrange", data=self.wlrange,
-            compression=compression, compression_opts=compression_level)
+
+        # where most of the data is actually written
+        self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
+        p_unit=p_unit)
         f.close()    
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):

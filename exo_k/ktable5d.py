@@ -135,7 +135,8 @@ class Ktable5d(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nx,self.Nw,self.Ng=self.kdata.shape
 
-    def write_hdf5(self, filename):
+    def write_hdf5(self, filename, compression="gzip", compression_level=9,
+        kdata_unit=None, p_unit=None):
         """Saves data in a hdf5 format
 
         Parameters
@@ -146,27 +147,33 @@ class Ktable5d(Data_table):
         dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            fullfilename=filename+'.hdf5'
-        compression="gzip"
+            fullfilename=filename+'.h5'
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
-        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
-        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
-        f.create_dataset("p", data=self.pgrid,compression=compression)
-        f["p"].attrs["units"] = self.p_unit
-        f.create_dataset("t", data=self.tgrid,compression=compression)
-        f.create_dataset("x", data=self.xgrid,compression=compression)
-        f.create_dataset("kcoeff", data=self.kdata,compression=compression)
-        f["kcoeff"].attrs["units"] = self.kdata_unit
+        f.create_dataset("x", data=self.xgrid, compression=compression,
+            compression_opts=compression_level)
+        f["x"].attrs["units"] = 'dimentionless'
+        if kdata_unit is not None:
+            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
+            data_to_write=self.kdata*conv_factor
+            f.create_dataset("kcoeff", data=data_to_write,
+                compression=compression, compression_opts=compression_level)
+            f["kcoeff"].attrs["units"] = kdata_unit
+        else:
+            f.create_dataset("kcoeff", data=self.kdata,
+                compression=compression, compression_opts=compression_level)
+            f["kcoeff"].attrs["units"] = self.kdata_unit
         f.create_dataset("method", (1,), data=self.sampling_method, dtype=dt)
-        f.create_dataset("samples", data=self.ggrid,compression=compression)
-        f.create_dataset("weights", data=self.weights,compression=compression)
+        f.create_dataset("samples", data=self.ggrid,
+            compression=compression, compression_opts=compression_level)
+        f.create_dataset("weights", data=self.weights,
+            compression=compression, compression_opts=compression_level)
         f.create_dataset("ngauss", data=self.Ng)
-        f.create_dataset("bin_edges", data=self.wnedges,compression=compression)
-        f.create_dataset("bin_centers", data=self.wns,compression=compression)
-        f["bin_edges"].attrs["units"] = self.wn_unit
-        f.create_dataset("wnrange", data=self.wnrange, compression=compression)
-        f.create_dataset("wlrange", data=self.wlrange, compression=compression)
+        f.create_dataset("bin_centers", data=self.wns,
+            compression=compression, compression_opts=compression_level)
+
+        # where most of the data is actually written
+        self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
+        p_unit=p_unit)
         f.close()    
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):

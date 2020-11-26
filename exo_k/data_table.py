@@ -4,11 +4,14 @@
 """
 from datetime import date
 import numpy as np
+import h5py
 import pkg_resources  # part of setuptools
+import astropy.units as u
 from .util.interp import rm_molec,unit_convert,interp_ind_weights,bilinear_interpolation
 from .settings import Settings
 from .util.spectral_object import Spectral_object
 from .util.molar_mass import Molar_mass
+from .util.cst import ktable_long_name_attributes
 
 class Data_table(Spectral_object):
     """An abstract class that will serve as a basis for Ktable and Xtable.
@@ -523,6 +526,49 @@ class Data_table(Spectral_object):
         """Computes molar mass from molecule name
         """
         return Molar_mass().fetch(self.mol)
+
+    def write_hdf5_common(self, f, compression="gzip", compression_level=9,
+        p_unit=None):
+        """Method that writes datasets and attributes that are common to
+        X and Ktables. 
+
+        Parameters
+        ----------
+            f: h5py file instance
+                The file to write that is created in daughter classes
+        """
+        dt = h5py.special_dtype(vlen=str)
+        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
+        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
+        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
+        f.create_dataset("t", data=self.tgrid,
+            compression=compression, compression_opts=compression_level)
+        f["t"].attrs["units"] = 'K'
+
+        if p_unit is not None:
+            conv_factor=u.Unit(self.p_unit).to(u.Unit(p_unit))
+            data_to_write=self.pgrid*conv_factor
+            f.create_dataset("p", data=data_to_write,
+                compression=compression, compression_opts=compression_level)
+            f["p"].attrs["units"] = p_unit
+        else:
+            f.create_dataset("p", data=self.pgrid,
+                compression=compression, compression_opts=compression_level)
+            f["p"].attrs["units"] = self.p_unit
+
+        f.create_dataset("bin_edges", data=self.wnedges,
+            compression=compression, compression_opts=compression_level)
+
+        f.create_dataset("wnrange", data=self.wnrange,
+            compression=compression, compression_opts=compression_level)
+        f.create_dataset("wlrange", data=self.wlrange,
+            compression=compression, compression_opts=compression_level)
+
+        for key,val in ktable_long_name_attributes.items():
+            if key in f: f[key].attrs["long_name"] = val
+        for key in ('bin_edges', 'bin_centers', 'wnrange'):
+            if key in f: f[key].attrs["units"] = self.wn_unit
+        if 'wlrange' in f: f['wlrange'].attrs["units"] = 'micron'
 
 
     def toLogK(self):

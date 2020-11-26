@@ -110,7 +110,8 @@ class Xtable(Data_table):
         f.close()  
         self.Np,self.Nt,self.Nw=self.kdata.shape
 
-    def write_hdf5(self, filename, exomol_units=False):
+    def write_hdf5(self, filename, compression="gzip", compression_level=9,
+        kdata_unit=None, p_unit=None, exomol_units=False):
         """Saves data in a hdf5 format
 
         Parameters
@@ -121,37 +122,31 @@ class Xtable(Data_table):
                 If True, data are converted back to
                 cm^2 and bar units before being written.
         """
-        dt = h5py.special_dtype(vlen=str)
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
-            fullfilename=filename+'.hdf5'
-        compression="gzip"
+            fullfilename=filename+'.h5'
         f = h5py.File(fullfilename, 'w')
-        f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
-        f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
-        f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
         f.create_dataset("key_iso_ll", (1,), data=self.isotopolog_id)
         f.create_dataset("mol_mass", (1,), data=self.molar_mass*1000.)
         f["mol_mass"].attrs["units"] = 'AMU'
         if exomol_units:
-            conv_factor=u.Unit(rm_molec(self.p_unit)).to(u.Unit('bar'))
-            data_to_write=self.pgrid*conv_factor
-            f.create_dataset("p", data=data_to_write, compression=compression)
-            f["p"].attrs["units"] = 'bar'
-            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))
+            kdata_unit='cm^2/molecule'
+            p_unit='bar'
+        if kdata_unit is not None:
+            conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
             data_to_write=self.kdata*conv_factor
-            f.create_dataset("xsecarr", data=data_to_write, compression=compression)
-            f["xsecarr"].attrs["units"] = 'cm^2/molecule'
+            f.create_dataset("xsecarr", data=data_to_write, compression=compression,
+                compression_opts=compression_level)
+            f["xsecarr"].attrs["units"] = kdata_unit
         else:
-            f.create_dataset("p", data=self.pgrid, compression=compression)
-            f["p"].attrs["units"] = self.p_unit
-            f.create_dataset("xsecarr", data=self.kdata, compression=compression)
+            f.create_dataset("xsecarr", data=self.kdata, compression=compression,
+                compression_opts=compression_level)
             f["xsecarr"].attrs["units"] = self.kdata_unit
-        f.create_dataset("t", data=self.tgrid, compression=compression)
-        f.create_dataset("bin_edges", data=self.wns, compression=compression)
-        f["bin_edges"].attrs["units"] = self.wn_unit
-        f.create_dataset("wnrange", data=self.wnrange, compression=compression)
-        f.create_dataset("wlrange", data=self.wlrange, compression=compression)
+        
+        # where most of the data is actually written
+        self.write_hdf5_common(f, compression=compression, compression_level=compression_level,
+        p_unit=p_unit)
+        f["bin_edges"].attrs["long_name"] = 'Wavenumber grid'
         f.close()
 
     def read_exo_transmit(self, filename, mol=None):
