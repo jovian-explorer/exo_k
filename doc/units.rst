@@ -1,39 +1,103 @@
 Notes on units and formats
 ==========================
 
+Keeping track of units
+----------------------
+
 It is fair to say that units have often been a source of error, and that there are many unit systems 
 in use when dealing with opacities and radiative data!
 
-Keeping track of units
-----------------------
 
 To avoid as much confusion as possible, `exo_k` keeps track of the units
 for the pressure and cross sections along with the data themselves (as attributes of the various
 classes in the library). To do so, the library needs to
 know the units used in the input files read. 
 
-There are two possible cases:
+Available formats
+-----------------
 
-  1. Self defining formats can directly specify the units in the file. 
-     This is the case for all the hdf5 (.h5 or .hdf5) and pickle (.pickle)
-     files created with `exo_k` or from the Exomol project. 
+The currently supported formats are the following
+(for the moment, the format is recognized by the library using the extension of the file).
 
-  2. Some specific formats use fixed, known units. The ones we handle for the moment are:
+.. list-table::
+   :widths: 5 5 5 5 5
+   :header-rows: 1
 
-     * LMDZ correlated-k tables (cm^2/molecule, mbar)
-     * Nemesis binary files (.kta; 10^-20 cm^2/molecule, bar)
-     * ARCIS fits files (.fits; cm^2/molecule, bar)
-     * Exo_transmit (.dat; m^2/molecule, Pa). See https://github.com/elizakempton/Exo_Transmit
-       or Kempton et al. (2016) for details
-     * Any high-resolution spectra provided in ascii format with at least a column for wavenumber and one for opacity, such as:
+   * - Name 
+     - Data type 
+     - Ext.
+     - k unit
+     - P unit
+   * - `ExoMol <http://exomol.com/data/data-types/opacity/>`_
+     - k-table/x-sec
+     - .h5
+     - cm^2/molec
+     - bar
+   * - LMDZ
+     - k-tables
+     - 
+     - cm^2/molec
+     - mbar
+   * - Nemesis 
+     - k-tables
+     - .kta
+     - 10^-20 cm^2/molec
+     - bar
+   * - ARCIS
+     - k-tables
+     - .fits 
+     - cm^2/molec
+     - bar
+   * - `ExoREM <https://lesia.obspm.fr/exorem/>`_
+     - k-tables
+     - .h5
+     - cm^2/molec
+     - bar
+   * - `Exo_transmit <https://github.com/elizakempton/Exo_Transmit>`_
+     - x-sec
+     - .dat
+     - m^2/molec
+     - Pa 
+   * - kspectrum
+     - high-resolution
+     - ASCII
+     - m^-1
+     - 
+   * - `Helios-k <https://helios-k.readthedocs.io/en/latest/>`_
+     - high-resolution
+     - ASCII
+     - cm^2/molec
+     - 
+   * - HITRAN
+     - CIA coefficients
+     - .cia
+     - cm^5/molec
+     - 
+   * - `petit RADTRANS <https://www.dropbox.com/sh/w7sa20v8qp19b4d/AABKF0GsjghsYLJMUJXDgrHma?dl=0>`_
+     - high-resolution
+     - binary
+     -
+     -     
 
-       * kspectrum (absorption coefficients in m^-1)     
-       * Helios-k high-resolution spectra (For the moment, only their output in cm^2/molecule is supported).
-         See https://helios-k.readthedocs.io/en/latest/ for details. 
+.. important::
+    Self defining formats, like HDF5, make it possible to
+    specify directly the units of the various physical quantities
+    in the file as attributes.
 
-     * HITRAN cia tables (.cia; cia coefficient in cm^5/molecule)
+    `Exo_k` takes full advantage of this feature and is able to read/write
+    such hdf5 files with any combination of units. In addition, while being completely
+    compatible with the Exomol format, our hdf5 format adds several variables and attributes
+    to render the files more self-sufficient.
 
-(If you would like to see your favorite format up there, please go see this :ref:`section<contribute_format>`)
+    Data output in one of the other formats discussed above
+    is automatically converted back to the right units before writing. 
+
+
+
+For high-resolution spectra, any file provided in ascii format with at least a column for wavenumber and one for opacity will work.
+
+
+If you would like to see your favorite format up there, please go see this :ref:`section<contribute_format>`
 
 In any case, the code can be forced to assume that the input file is using different units
 by using the `file_kdata_unit` and `file_p_unit` keywords in the initialization methods for
@@ -42,10 +106,6 @@ cross sections and correlated-k tables (see the Getting Started section).
 Then, the data can be converted to another unit system by simply calling the
 `convert_kdata_unit` and `convert_p_unit` methods with the new desired units
 (see the Getting Started section). 
-
-Data output by the code in a self defining format save the units used as well so they can be read
-and used when this file is used elsewhere. Data output in one of the formats discussed above
-is automatically converted back to the right units before writing. 
 
 Spectral units
 --------------

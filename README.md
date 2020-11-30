@@ -26,6 +26,9 @@ J. Leconte
 
 # Latest release
 
+v1.0.0 (Dec 2020): Finally our first official version. Creation of a
+'examples' notebook with fully worked out use cases for the `Exo_k`. 
+
 v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables.
 
 # Installation

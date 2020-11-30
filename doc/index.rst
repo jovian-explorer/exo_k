@@ -35,7 +35,12 @@ J. Leconte
 Latest release
 ==============
 
-v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables (`Chubb et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
+v1.0.0 (Dec 2020): Finally our first official version. Creation of a
+:ref:`'Neat examples'<neat_examples>` section with fully worked out use cases for the `Exo_k`. 
+
+v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k
+and cross-section tables
+(`Chubb et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020arXiv200900687C/abstract>`_).
 
 
 Doc Contents
@@ -49,6 +54,7 @@ Doc Contents
    units
    getting_started
    where_to_find_data
+   neat_examples
    API reference <autoapi/index>
    genindex
    how_to_contribute
