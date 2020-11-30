@@ -67,7 +67,7 @@ class Ktable_io(Data_table):
         self.Np,self.Nt,self.Nw,self.Ng=self.kdata.shape
 
     def write_hdf5(self, filename, compression="gzip", compression_level=9,
-        kdata_unit=None, p_unit=None, exomol_units=False, exorem_units=False):
+        kdata_unit=None, p_unit=None, exomol_units=False):
         """Saves data in a hdf5 format
 
         Parameters
@@ -90,9 +90,6 @@ class Ktable_io(Data_table):
             if exomol_units:
                 kdata_unit='cm^2/molecule'
                 p_unit='bar'
-            elif exorem_units:
-                kdata_unit='cm^2/molecule'
-                p_unit='Pa'
             if kdata_unit is not None:
                 conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit(rm_molec(kdata_unit)))
                 data_to_write=self.kdata*conv_factor

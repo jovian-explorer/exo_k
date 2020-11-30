@@ -31,7 +31,7 @@ ktable_long_name_attributes={
     'xsecarr': 'Table of cross sections with axes (pressure, temperature, wavenumber)',
     'method': 'Name of the method used to sample g-space',
     'ngauss': 'Number of points used to sample the g-space',
-    'temperature_grid_type': 'Whether the temperature grid is regular (same temperatures for all pressures) or pressure-dependent',
+    'temperature_grid_type': 'Whether the temperature grid is "regular" (same temperatures for all pressures) or "pressure-dependent"',
     'wnrange': 'Wavenumber range covered',
     'wlrange': 'Wavelength range covered',
     'DOI': 'Data object identifier linked to the data',
