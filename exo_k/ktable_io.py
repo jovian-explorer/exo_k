@@ -11,7 +11,7 @@ import numpy as np
 import astropy.units as u
 from .data_table import Data_table
 from .util.interp import rm_molec, gauss_legendre
-from .util.filenames import _read_array
+from .util.filenames import _read_array, _read_exorem_k_array
 from .util.cst import nemesis_hitran_id_numbers
 
 class Ktable_io(Data_table):
@@ -349,8 +349,7 @@ class Ktable_io(Data_table):
                 #if iW=self.Nw-1: read_new_line=False
                 for iP in range(self.Np):
                     for iT in range(self.Nt):
-                        self.kdata[-iP-1,iT,iW]=_read_array(file,
-                            self.Ng,  N_per_line=1, Nline=self.Ng)
+                        self.kdata[-iP-1,iT,iW]=_read_exorem_k_array(file, self.Ng)
                         #if read_new_line: tmp = file.readline().split()
                         tmp = file.readline().split()
             self.kdata_unit='cm^2/molec'

@@ -198,6 +198,35 @@ def _read_array(file, Nvalue, N_per_line=5, Nline=None, revert=False):
     #print(new_array)
     return new_array
 
+def _read_exorem_k_array(file, Nline):
+    """Reads an array in a .dat filestream. 
+    Assumes that the arrays are arranged N_per_line values per line.
+
+    Parameters
+    ----------
+        file: file stream
+            File to be read.
+        Nline: int
+            Number of values/lines to be read. 
+
+    Returns
+    -------
+        Array
+            A numpy array with the values.
+    """
+    
+    new_array=[]
+    for _ in range(Nline):
+        srt=file.readline()
+        try:
+            new_array.append(float(srt))
+        except ValueError:
+            i = srt.index('-')
+            srt = srt[:i] + 'e' + srt[i:]
+            new_array.append(float(srt))
+    new_array=np.array(new_array)
+    return new_array
+
 
 
 ####### OLD FUNCTIONS ###################
