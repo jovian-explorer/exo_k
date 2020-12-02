@@ -264,7 +264,7 @@ class Gas_mix(Spectral_object):
 
     def cross_section(self, composition=None, logp_array=None, t_array=None,
             wl_range=None, wn_range=None, rayleigh=True,
-            write=0, random_overlap=False, **kwargs):
+            write=0, random_overlap=False, logp_interp=True, **kwargs):
         """Computes the cross section (m^2/total number of molecule) for the mix
         at each of the logPT points as a function of wavenumber (and possibly g point).
 
@@ -329,6 +329,7 @@ class Gas_mix(Spectral_object):
         for mol in mol_to_be_done:
             tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
                 t_array=self.t_array, x_array=vmr_prof[mol], wngrid_limit=local_wn_range,
+                logp_interp=logp_interp,
                 **kwargs)
             if first_mol:
                 kdata_array=tmp_kdata
