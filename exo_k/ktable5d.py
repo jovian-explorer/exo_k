@@ -473,6 +473,10 @@ class Ktable5d(Data_table):
             array of shape (logp_array.size, self.Nw , self.Ng)
                 The interpolated kdata.
         """
+        #clipping data
+        logp_array=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
+        t_array=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
+        x_array=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
         coord_to_interp=np.array([logp_array,t_array,np.log(x_array)]).transpose()
         tmp_res=self._finterp_kdata(coord_to_interp)
         if wngrid_limit is None:
@@ -504,6 +508,10 @@ class Ktable5d(Data_table):
         is controlled by self._settings._log_interp but only when the ktable is loaded.
         If you change that after the loading, you should rerun setup_interpolation().
         """
+        #clipping data
+        logp_array=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
+        t_array=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
+        x_array=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
         coord=np.array(np.meshgrid(logp_array, t_array, np.log(x_array))).transpose((2,1,3,0))
         if self._local_log_interp:
             tmp_res=np.exp(self._finterp_kdata(coord))
