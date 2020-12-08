@@ -141,6 +141,8 @@ class Xtable(Data_table):
                 f.create_dataset("xsecarr", data=self.kdata, compression=compression,
                     compression_opts=compression_level)
                 f["xsecarr"].attrs["units"] = self.kdata_unit
+            f.create_dataset("bin_edges", data=self.wns,
+                compression=compression, compression_opts=compression_level)
 
             # where most of the data is actually written
             self.write_hdf5_common(f, compression=compression, compression_level=compression_level,

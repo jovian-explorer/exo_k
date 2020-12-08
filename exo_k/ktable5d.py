@@ -170,6 +170,8 @@ class Ktable5d(Data_table):
             f.create_dataset("ngauss", data=self.Ng)
             f.create_dataset("bin_centers", data=self.wns,
                 compression=compression, compression_opts=compression_level)
+            f.create_dataset("bin_edges", data=self.wnedges,
+                compression=compression, compression_opts=compression_level)
 
             # where most of the data is actually written
             self.write_hdf5_common(f, compression=compression, compression_level=compression_level,

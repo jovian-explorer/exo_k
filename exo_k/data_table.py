@@ -556,9 +556,6 @@ class Data_table(Spectral_object):
                 compression=compression, compression_opts=compression_level)
             f["p"].attrs["units"] = self.p_unit
 
-        f.create_dataset("bin_edges", data=self.wnedges,
-            compression=compression, compression_opts=compression_level)
-
         f.create_dataset("wnrange", data=self.wnrange,
             compression=compression, compression_opts=compression_level)
         f.create_dataset("wlrange", data=self.wlrange,
