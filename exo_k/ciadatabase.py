@@ -167,7 +167,7 @@ class CIAdatabase(Spectral_object):
             logP_array: array
 
             T_array: array
-                log10 Pressure and temperature profiles
+                log10 Pressure (Pa) and temperature profiles
 
             gas_comp: :class:`~exo_k.gas_mix.Gas_mix` object
                 behaves like a dict with mol names as keys and vmr as values.
