@@ -40,10 +40,14 @@ class Ktable_io(Data_table):
                 else:
                     self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
             if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+            if isinstance(self.mol, bytes): self.mol=self.mol.decode('UTF-8')
             if 'method' in f:
                 self.sampling_method=f['method'][()][0]
+                if isinstance(self.sampling_method, bytes):
+                    self.sampling_method=self.sampling_method.decode('UTF-8')
             if 'DOI' in f:
                 self.DOI=f['DOI'][()][0]
+                if isinstance(self.DOI, bytes): self.DOI=self.DOI.decode('UTF-8')
             self.wns=f['bin_centers'][...]
             self.wnedges=f['bin_edges'][...]
             if 'units' in f['bin_edges'].attrs:
@@ -78,7 +82,7 @@ class Ktable_io(Data_table):
                 If True, data are converted back to
                 cm^2 and bar units before being written.
         """
-        dt = h5py.special_dtype(vlen=str)
+        dt = h5py.string_dtype(encoding='utf-8')
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'

@@ -537,7 +537,7 @@ class Data_table(Spectral_object):
             f: h5py file instance
                 The file to write that is created in daughter classes
         """
-        dt = h5py.special_dtype(vlen=str)
+        dt = h5py.string_dtype(encoding='utf-8')
         f.create_dataset("DOI", (1,), data=self.DOI, dtype=dt)
         f.create_dataset("Date_ID", (1,), data=self.Date_ID, dtype=dt)
         f.create_dataset("mol_name", (1,), data=self.mol, dtype=dt)
