@@ -78,7 +78,7 @@ class Ktable_io(Data_table):
                 If True, data are converted back to
                 cm^2 and bar units before being written.
         """
-        dt = h5py.special_dtype(vlen=str)
+        dt = h5py.string_dtype(encoding='utf-8')
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'

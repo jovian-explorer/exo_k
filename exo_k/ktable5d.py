@@ -144,7 +144,7 @@ class Ktable5d(Data_table):
             filename: str
                 Name of the file to be created and saved
         """
-        dt = h5py.special_dtype(vlen=str)
+        dt = h5py.string_dtype(encoding='utf-8')
         fullfilename=filename
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'
