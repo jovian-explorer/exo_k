@@ -170,6 +170,9 @@ class Cia_table(Spectral_object):
             self.mol1,self.mol2=f['cia_pair'][()].split('-')
         elif 'cia_pair' in f.attrs:
             self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
+        if isinstance(self.mol1, bytes):
+            self.mol1=self.mol1.decode('UTF-8')
+            self.mol2=self.mol2.decode('UTF-8')
         f.close()  
         self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
         self.Nt=self.tgrid.size
