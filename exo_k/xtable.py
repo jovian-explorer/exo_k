@@ -88,6 +88,7 @@ class Xtable(Data_table):
                 else:
                     self.mol=os.path.basename(filename).split(self._settings._delimiter)[0]
             if isinstance(self.mol, np.ndarray): self.mol=self.mol[0]
+            if isinstance(self.mol, bytes): self.mol=self.mol.decode('UTF-8')
             if 'DOI' in f:
                 self.DOI=f['DOI'][()][0]
             if 'bin_edges' in f:
