@@ -12,7 +12,7 @@ It enables you to:
   (hdf5, LMDZ GCM, Exomol, Nemesis, PetitCode, TauREx, ExoREM, ARCIS, etc.).
 * Adapt precomputed correlated-k tables to your needs by changing:
 
-  * the resolution and quadrature (g) grid,
+  * the spectral and quadrature (g) grids,
   * the pressure/temperature grid.
 * Create tables for a mix of gases using tables for individual gases.
 * Create your own tables from high-resolution spectra (for example from K-spectrum, Helios-K, etc.).
@@ -32,8 +32,12 @@ Enjoy!
 
 J. Leconte
 
-Latest release
-==============
+Recent releases
+===============
+
+v1.0.1 (Jan 2021): Solves a binary/string conversion issue on some platforms.
+Enables linear interpolation in pressure (default is log). Enables creation of
+empty tables to filled later and spectral extension of existing tables. 
 
 v1.0.0 (Dec 2020): Finally our first official version. Creation of a
 :ref:`'Neat examples'<neat_examples>` section with fully worked out use cases for the `Exo_k`. 
