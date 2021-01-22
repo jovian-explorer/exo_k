@@ -458,7 +458,7 @@ class Data_table(Spectral_object):
         """Defines the "+" operator with another Data_table
 
         .. warning::
-            __radd__ is not implmented because we want to use the __add__ (or combine_with)
+            __radd__ is not implemented because we want to use the __add__ (or combine_with)
             method of the left object.
         """
         return self.combine_with(other)
@@ -494,6 +494,92 @@ class Data_table(Spectral_object):
             self.kdata=self.kdata[:,:,iw_min:iw_max]
         else:
             self.kdata=self.kdata[:,:,:,iw_min:iw_max]
+
+    def extend_spectral_range(self, wngrid_left=None, wngrid_right=None,
+            wnedges_left=None, wnedges_right=None,
+            remove_zeros=False):
+        """Extends the spectral range of an existing table (inplace).
+        The new bins are filled with zeros (except if remove_zeros=True)
+
+        Parameters
+        ----------
+            wngrid_left: array
+                Array of wavenumbers to add to the small wn end of the table.
+            wngrid_right: array
+                Array of wavenumbers to add to the high wn end of the table.
+
+        .. warning::
+            There should not be any overlap between wngrid_left, wngrid_right,
+            and the current wavenumber grid of the table. 
+
+        Other Parameters
+        ----------------
+            remove_zeros: bool (optional)
+                Whether zeros in the resulting table should be removed using
+                :func:`remove_zeros`.
+        """
+        new_wns=[]
+        new_wnedges=[]
+        idx_offset=0
+        if wngrid_left is not None:
+            wngrid_left=np.array(wngrid_left, dtype=float)
+            if wngrid_left[-1]>=self.wnedges[0]:
+                raise RuntimeError("The left grid overlaps with the current one")
+            new_wns.append(wngrid_left)
+            if wnedges_left is not None:
+                wnedges_left=np.array(wnedges_left, dtype=float)
+                new_wnedges.append(wnedges_left)
+            else:
+                new_wnedges.append([wngrid_left[0]])
+                new_wnedges.append(0.5*(wngrid_left[:-1]+wngrid_left[1:]))
+            idx_offset=wngrid_left.size
+        else:
+            if wnedges_left is not None:
+                if wnedges_left[-1]>=self.wnedges[0]:
+                    raise RuntimeError("The left grid overlaps with the current one")
+                wnedges_left=np.array(wnedges_left, dtype=float)
+                new_wnedges.append(wnedges_left)
+                new_wns.append(0.5*(wnedges_left[:-1]+wnedges_left[1:]))
+                new_wns.append([0.5*(wnedges_left[-1]+self.wnedges[0])])
+                idx_offset=wnedges_left.size
+
+        new_wns.append(self.wns)
+        new_wnedges.append(self.wnedges)
+        if wngrid_right is not None:
+            wngrid_right=np.array(wngrid_right, dtype=float)
+            if wngrid_right[0]<=self.wnedges[-1]:
+                raise RuntimeError("The right grid overlaps with the current one")
+            new_wns.append(wngrid_right)
+            if wnedges_right is not None:
+                wnedges_right=np.array(wnedges_right, dtype=float)
+                new_wnedges.append(wnedges_right)
+            else:
+                new_wnedges.append(0.5*(wngrid_right[:-1]+wngrid_right[1:]))
+                new_wnedges.append([wngrid_right[-1]])
+        else:
+            if wnedges_right is not None:
+                wnedges_right=np.array(wnedges_right, dtype=float)
+                if wnedges_right[0]<=self.wnedges[-1]:
+                    raise RuntimeError("The right grid overlaps with the current one")
+                new_wnedges.append(wnedges_right)
+                new_wns.append([0.5*(wnedges_right[0]+self.wnedges[-1])])
+                new_wns.append(0.5*(wnedges_right[:-1]+wnedges_right[1:]))
+        new_wns=np.concatenate(new_wns)
+        new_wnedges=np.concatenate(new_wnedges)
+        newshape=self.shape
+        if self.Nx is None:
+            newshape[2]=new_wns.size
+            newkdata=np.zeros(newshape)
+            newkdata[:,:,idx_offset:idx_offset+self.Nw]=self.kdata
+        else:
+            newshape[3]=new_wns.size
+            newkdata=np.zeros(newshape)
+            newkdata[:,:,:,idx_offset:idx_offset+self.Nw]=self.kdata
+        self.kdata=newkdata
+        self.wns=new_wns
+        self.wnedges=new_wnedges
+        self.Nw=self.wns.size
+        if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     def bin_down_cp(self, wnedges=None, **kwargs):
         """Creates a copy of the instance and bins it down using the methods in 

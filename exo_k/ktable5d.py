@@ -740,6 +740,16 @@ class Ktable5d(Data_table):
         if self.kdata is not None:
             self.setup_interpolation()
 
+    def extend_spectral_range(self, **kwargs):
+        """Extends the spectral range of an existing table (inplace).
+        The new bins are filled with zeros (except if remove_zeros=True).
+
+        See :func:`exo_k.data_table.Data_table.extend_spectral_range` method for details
+        on the arguments and options.
+        """
+        super().extend_spectral_range(**kwargs)
+        self.setup_interpolation()
+
     def remap_g(self, ggrid=None, weights=None):
         """Method to resample a kcoeff table to a new g grid (inplace).
 

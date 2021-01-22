@@ -37,7 +37,7 @@ class Atm_profile(object):
                 Vmr can be arrays of size Nlev-1 (i.e. the number of layers).
             grav: float
                 Planet surface gravity (gravity constant with altitude for now).
-            Rp: float of Astropy.unit quantity
+            Rp: float or Astropy.unit quantity
                 Planet radius. If float, Jupiter radii are assumed.
             rcp: float
                 Adiabatic lapse rate for the gas (R/cp)

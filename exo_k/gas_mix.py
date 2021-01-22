@@ -174,9 +174,11 @@ class Gas_mix(Spectral_object):
             self.Ng=self.kdatabase.Ng
             if self.kdatabase.p_unit != 'Pa' or rm_molec(self.kdatabase.kdata_unit) != 'm^2':
                 print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
-                You can convert to mks using convert_to_mks.
+                You can convert to mks using convert_to_mks on your Kdatabase.
                 More generally, you can specify exo_k.Settings().set_mks(True) 
-                to force automatic conversion to mks for all newly loaded data.
+                to set MKS system as default for all newly loaded data,
+                but beware that this global setting is overridden by local options
+                specified during the loading.
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the Kdatabase used with Gas_mix.")
@@ -198,11 +200,14 @@ class Gas_mix(Spectral_object):
         if self.cia_database is not None:
             if self.cia_database.abs_coeff_unit != 'm^5':
                 print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
-                You can convert to mks using convert_to_mks.
+                You can convert to mks using convert_to_mks on your CIAdatabase.
                 More generally, you can specify exo_k.Settings().set_mks(True) 
-                to force automatic conversion to mks of all newly loaded data.
+                to set MKS system as default for all newly loaded data,
+                but beware that this global setting is overridden by local options
+                specified during the loading.
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
+
                 raise RuntimeError("Bad units in the CIAdatabase used with Gas_mix.")
 
     def _compute_spectral_range(self, wn_range=None, wl_range=None):
