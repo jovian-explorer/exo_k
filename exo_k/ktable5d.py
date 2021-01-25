@@ -453,7 +453,7 @@ class Ktable5d(Data_table):
         self.setup_interpolation()
 
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array= None,
-            log_interp=None, wngrid_limit=None):
+            log_interp=None, logp_interp=True, wngrid_limit=None):
         """interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. 
 
@@ -480,6 +480,8 @@ class Ktable5d(Data_table):
                 The interpolated kdata.
         """
         #clipping data
+        if not logp_interp:
+            raise RuntimeError('Linear p interpolation not yet supported for Ktable5d.')
         logp_array=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
         t_array=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
         x_array=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
@@ -499,7 +501,8 @@ class Ktable5d(Data_table):
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array= None):
         """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid
-        (inplace). 
+        (inplace). If an `x_array` is specified, the interpolation occurs along the 
+        vmr axis as well. 
 
         Parameters
         ----------
@@ -510,28 +513,37 @@ class Ktable5d(Data_table):
             x_array: Array
                 vmr of variable gas array to interpolate to
 
-        Whether the interpolation is linear in kdata or in log(kdata)
-        is controlled by self._settings._log_interp but only when the ktable is loaded.
-        If you change that after the loading, you should rerun setup_interpolation().
+        .. warning::
+            Whether the interpolation is linear in kdata or in log(kdata)
+            is controlled by self._settings._log_interp but only when the ktable is loaded.
+            If you change that after the loading, you should rerun setup_interpolation().
         """
         #clipping data
-        logp_array=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
-        t_array=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
-        x_array=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
-        coord=np.array(np.meshgrid(logp_array, t_array, np.log(x_array))).transpose((2,1,3,0))
+        logp_array_tmp=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
+        t_array_tmp=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
+        if x_array is None:
+            x_array_tmp=self.xgrid
+            #it is a bit silly to interpolate on x anyway, even when the user
+            # only wants to remap on P and T, but it is
+            # way simpler to write!
+        else:
+            x_array_tmp=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
+        coord=np.array(np.meshgrid(
+            logp_array_tmp, t_array_tmp, np.log(x_array_tmp))).transpose((2,1,3,0))
         if self._local_log_interp:
             tmp_res=np.exp(self._finterp_kdata(coord))
         else:
             tmp_res=self._finterp_kdata(coord)
         self.logpgrid= logp_array
         self.pgrid   = 10**self.logpgrid
-        self.tgrid   = t_array
-        self.xgrid   = x_array
         self.Np      = logp_array.size
+        self.tgrid   = t_array
         self.Nt      = t_array.size
-        self.Nx      = x_array.size
+        if x_array is not None:
+            self.xgrid   = x_array
+            self.Nx      = x_array.size
         self.set_kdata(tmp_res)
-        self.setup_interpolation()
+#        self.setup_interpolation()
 
     def copy(self,cp_kdata=True):
         """Creates a new instance of :class:`Ktable5d` object and (deep) copies data into it
