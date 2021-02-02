@@ -13,6 +13,7 @@ from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
+from .util.two_stream import two_stream_quad_nu
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
@@ -528,6 +529,63 @@ class Atm(Atm_profile):
             transmittance=path_integral_xsec( \
                 self.Nlay,self.Nw,self.tangent_path,self.density,self.kdata)
         return transmittance
+
+
+    def emission_spectrum_2stream(self, integral=True, mu0=2./3., dtau_min=1.e-13, iW=None, **kwargs):
+        """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
+
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+
+        Other Parameters
+        ----------------
+            mu0: float
+                Cosine of the quadrature angle use to compute output flux
+
+        Returns
+        -------
+            Spectrum object 
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """
+        self.opacity(rayleigh=False, **kwargs)
+        if integral:
+            #JL2020 What is below is slightly faster for very large resolutions
+            #dw=np.diff(self.wnedges)
+            #piBatm=np.empty((self.Nlev,self.Nw))
+            #for ii in range(self.Nlev):
+            #    piBatm[ii]=PI*Bnu_integral_num(self.wnedges,self.tlev[ii])/dw
+            #JL2020 What is below is much faster for moderate to low resolutions
+            piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                /np.diff(self.wnedges)
+        else:
+            piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
+        self.compute_layer_col_density()
+        if self.Ng is None:
+            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
+        else:
+            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu0)
+            weights=self.kdatabase.weights
+        single_scat_albedo = np.zeros_like(dtau)
+        asym_param = np.zeros_like(dtau)
+        dtau=np.where(dtau<dtau_min,dtau_min,dtau)
+        flux_up, flux_down = two_stream_quad_nu(self.Ng, piBatm, dtau,
+                                single_scat_albedo, asym_param, AMU1 = mu0)
+        if iW is not None:
+            print('piBatm', piBatm[:,iW])
+            print('dtau', dtau[:,iW])
+            print('tau', self.tau[:,iW])
+            print('flux_up', flux_up[:,iW])
+            print('flux_down', flux_down[:,iW])
+        if self.Ng is None:
+            return Spectrum(flux_up[0],self.wns,self.wnedges)
+        else:
+            return Spectrum(np.sum(flux_up[0]*weights,axis=1),self.wns,self.wnedges)
+
 
     def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):
         """Computes the transmission spectrum of the atmosphere.
