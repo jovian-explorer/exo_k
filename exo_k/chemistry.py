@@ -4,6 +4,8 @@
 """
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
+import pandas as pd
+from .util.interp import bilinear_interpolation_array, interp_ind_weights
 
 class EquChemTable(object):
     """Class to load and interpolate chemistry data.
@@ -140,3 +142,88 @@ class EquChemTable(object):
 #                assume_sorted=is_sorted).transpose())
 #        return res
 
+
+
+class InterpolationChemistry(object):
+    """Chemistry model interpolating Volume Mixing Ratios based on a datafile
+    provided by V. Parmentier.
+    """
+
+    def __init__(self, filename=None, t_min=260):
+        """
+
+        Parameters
+        ----------
+            filename: str
+                The path to the datafile.
+
+            t_min: float
+                minimal temperature to consider.
+                Cannot be below 260K because not enough data in the file.
+
+        """
+        self.df = pd.read_csv(filename,sep=r"\s{1,}", engine='python')
+        self.df = self.df[self.df["T"] >= t_min]
+        self.tgrid = np.unique(self.df["T"])
+        self.logpgrid = np.log10(np.exp(np.unique(self.df["P"])))+2.
+        #self.logpgrid = np.unique(self.df["P"])
+        self.data = {}
+
+        for gas in self.df.columns:
+            if gas in ['T','P']: continue
+            self.data[gas] = np.empty(self.logpgrid.shape + self.tgrid.shape)
+            for i_t in range(self.tgrid.size):
+                for i_p in range(self.logpgrid.size):
+                    if gas=='e-':
+                        pass
+                    self.data[gas][i_p, i_t] = self.df[gas].iloc[i_t * len(self.logpgrid) + i_p]
+
+    def compute_vmr(self, molecule = None, logp_array = None, t_array = None):
+        """
+
+        Parameters
+        ----------
+            molecule: str
+                Name of molecule to deal with
+            logp_array: array
+                Array of log10 pressures (Pa)
+            t_array: array
+                Array of temperatures (K)
+
+        """
+        if (molecule is None) or (logp_array is None) or (t_array is None):
+            raise RuntimeError('Missing keyword argument.')
+        logp_array=np.array(logp_array, dtype=float)
+        t_array=np.array(t_array, dtype=float)
+        i_p,weight_p = interp_ind_weights(logp_array, self.logpgrid)
+        i_t,weight_t = interp_ind_weights(t_array, self.tgrid)
+
+        p1t1=self.data[molecule][i_p,  i_t  ]
+        p0t1=self.data[molecule][i_p-1,i_t  ]
+        p1t0=self.data[molecule][i_p,  i_t-1]
+        p0t0=self.data[molecule][i_p-1,i_t-1]
+
+        return np.exp(bilinear_interpolation_array(p0t0, p1t0, p0t1, p1t1, weight_p, weight_t))
+
+    def compute_vmr_grid(self, molecule = None, logp_array = None, t_array = None):
+        if (molecule is None) or (logp_array is None) or (t_array is None):
+            raise RuntimeError('Missing keyword argument.')
+        i_p,weight_p = interp_ind_weights(logp_array, self.logpgrid)
+        i_t,weight_t = interp_ind_weights(t_array, self.tgrid)
+        
+        # now put everything on 2D grids.
+        tmp=np.meshgrid(i_p, i_t, indexing='ij')
+        shape=tmp[0].shape
+        i_p_grid=tmp[0].ravel()
+        i_t_grid=tmp[1].ravel()
+        tmp=np.meshgrid(weight_p, weight_t, indexing='ij')
+        weight_p_grid=tmp[0].ravel()
+        weight_t_grid=tmp[1].ravel()
+        
+        p1t1=self.data[molecule][i_p_grid,  i_t_grid  ]
+        p0t1=self.data[molecule][i_p_grid-1,i_t_grid  ]
+        p1t0=self.data[molecule][i_p_grid,  i_t_grid-1]
+        p0t0=self.data[molecule][i_p_grid-1,i_t_grid-1]
+        
+        return np.reshape(np.exp(bilinear_interpolation_array(p0t0, p1t0, p0t1, p1t1,
+                weight_p_grid, weight_t_grid)), shape)

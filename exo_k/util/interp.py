@@ -37,6 +37,36 @@ def bilinear_interpolation(z00, z10, z01, z11, x, y):
     return res
 
 @numba.njit(nogil=True,fastmath=True)
+def bilinear_interpolation_array(z00, z10, z01, z11, x, y):
+    """
+    2D interpolation
+    Applies linear interpolation across x and y between xmin,xmax and ymin,ymax.
+    For this variant of bilinear_interpolation (mainly for chemistry),
+    x, y and z must be 1D-arrays of the same length.
+
+    Parameters
+    ----------
+        z00: array
+            Array corresponding to xmin,ymin
+        z10: array
+            Array corresponding to xmax,ymin
+        z01: array
+            Array corresponding to xmin,ymax
+        z11: array
+            Array corresponding to xmax,ymax
+        x: array
+            weights on x coord
+        y: array
+            weights on y coord
+    """
+    xy = x*y
+    res = np.zeros_like(z00)
+    for i in range(z00.shape[0]):
+        res[i] = (z11[i]-z01[i]+z00[i]-z10[i])*xy[i] +(z01[i]-z00[i])*y[i] +(z10[i]-z00[i])*x[i] +z00[i]
+    return res
+
+
+@numba.njit(nogil=True,fastmath=True)
 def linear_interpolation(z00, z10, x):
     """1D interpolation.
 
