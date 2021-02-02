@@ -67,8 +67,6 @@ class CIAdatabase(Spectral_object):
                     except NoFileFoundError:
                         pass
 
-
-    
     def add_cia_tables(self, *cia_tables):
         """Adds new :class:`~exo_k.cia_table.Cia_table` objects to a CIA database (inplace).
 
@@ -158,7 +156,8 @@ class CIAdatabase(Spectral_object):
                     self.abs_coeff_unit=cia_table.abs_coeff_unit
         
 
-    def cia_cross_section(self, logP_array, T_array, gas_comp, wngrid_limit=None):
+    def cia_cross_section(self, logP_array, T_array, gas_comp,
+        wngrid_limit=None, Nw=None):
         """Computes the absorption coefficient in m^-1 for the whole mix specified 
         (assumes data in MKS).
 
@@ -175,12 +174,20 @@ class CIAdatabase(Spectral_object):
             wngrid_limit: array, optional
                 Smaller and bigger wavenumbers inside which to perform the calculation.
 
-        Returns:
+        Returns
+        -------
             array:
                 The cia effective cross section coefficient profile for the whole gas (in m^2).
+
+        Other Parameters
+        ----------------
+            Nw: int
+                Number of wavenumber points of the table to output for the specific case
+                where there would not be any active cia gas and wngrid_limit would
+                not be None. 
         """
-        logP_array=np.array(logP_array)
-        T_array=np.array(T_array)
+        logP_array=np.array(logP_array, dtype=float)
+        T_array=np.array(T_array, dtype=float)
         first=True
         if self.wns is None: raise RuntimeError("""cia tables must be sampled
             on the same grid before calling cia_cross_section.
@@ -198,7 +205,66 @@ class CIAdatabase(Spectral_object):
                             res+=self.cia_tables[mol][mol2].effective_cross_section( \
                                 logP_array, T_array, x1, x2, wngrid_limit=wngrid_limit)
         if first: # means that no molecule was in the database, we need to initialize res
-            res=np.zeros((T_array.size,self.wns.size))
+            if Nw is None:
+                res=np.zeros((T_array.size,self.wns.size))
+            else:
+                res=np.zeros((T_array.size,Nw))
+        return res
+
+    def cia_cross_section_grid(self, logP_array, T_array, gas_comp,
+        wngrid_limit=None, Nw=None):
+        """Computes the absorption coefficient in m^-1 for the whole mix specified 
+        (assumes data in MKS).
+
+        Parameters
+        ----------
+            logP_array: 1d array
+
+            T_array: 1d array
+                log10 Pressure (Pa) and temperature grids
+
+            gas_comp: :class:`~exo_k.gas_mix.Gas_mix` object
+                behaves like a dict with mol names as keys and vmr as values.
+
+            wngrid_limit: array, optional
+                Smaller and bigger wavenumbers inside which to perform the calculation.
+
+        Returns
+        -------
+            array:
+                The cia effective cross section coefficient profile for the whole gas (in m^2).
+
+        Other Parameters
+        ----------------
+            Nw: int
+                Number of wavenumber points of the table to output for the specific case
+                where there would not be any active cia gas and wngrid_limit would
+                not be None. 
+        """
+        logP_array = np.array(logP_array, dtype=float)
+        T_array    = np.array(T_array, dtype=float)
+        if self.wns is None: raise RuntimeError("""cia tables must be sampled
+            on the same grid before calling cia_cross_section.
+            Please use the sample() method.""")
+        if Nw is None:
+            res=np.zeros((logP_array.size,T_array.size,self.wns.size))
+        else:
+            res=np.zeros((logP_array.size,T_array.size,Nw))
+        for mol,x1 in gas_comp.items():
+            if mol in self.cia_tables.keys():
+                for mol2 in self.cia_tables[mol].keys():
+                    if mol2 in gas_comp.keys():
+                        x2=gas_comp[mol2]
+                        #print('x2 float', isinstance(x2, float))
+                        for iP, logP in enumerate(logP_array):
+                            if isinstance(x1, float):
+                                x1_tmp=x1
+                                x2_tmp=x2
+                            else:
+                                x1_tmp=x1[iP]
+                                x2_tmp=x2[iP]
+                            res[iP]+=self.cia_tables[mol][mol2].effective_cross_section( \
+                                logP, T_array, x1_tmp, x2_tmp, wngrid_limit=wngrid_limit)
         return res
 
         

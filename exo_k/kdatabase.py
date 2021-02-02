@@ -112,11 +112,11 @@ class Kdatabase(Spectral_object):
                 if (self.Ng is not None) and (not np.array_equal(tmp_ktable.ggrid,self.ggrid)):
                     raise RuntimeError('All Ktables in a database must have the same g grid.')
                 if self.p_unit != tmp_ktable.p_unit:
-                    print("""Carefull, not all tables have the same p unit.
+                    print("""Careful, not all tables have the same p unit.
                         You'll need to use convert_p_unit""")
                     self.consolidated_p_unit=False
                 if rm_molec(self.kdata_unit) != rm_molec(tmp_ktable.kdata_unit):
-                    print("""Carefull, not all tables have the same kdata unit.
+                    print("""Careful, not all tables have the same kdata unit.
                         You'll need to use convert_kdata_unit""")
                     self.consolidated_kdata_unit=False
                 self.ktables[tmp_ktable.mol]=tmp_ktable
@@ -124,7 +124,7 @@ class Kdatabase(Spectral_object):
                   ((self.Ng is not None) and not np.array_equal(tmp_ktable.wnedges,self.wnedges))):
                   # If Xtables, compare wns. If Ktables, compare wnedges
                     self.consolidated_wn_grid=False
-                    print("""Carefull, not all tables have the same wevelength grid.
+                    print("""Careful, not all tables have the same wavelength grid.
                         You'll need to use bin_down (Ktable) or sample (Xtable)""")
                     self.wns    = None
                     self.wnedges= None
@@ -137,7 +137,7 @@ class Kdatabase(Spectral_object):
                     self.tgrid   = None
                     self.Np      = None
                     self.Nt      = None
-                    print("""Carefull, not all tables have the same PT grid.
+                    print("""Careful, not all tables have the same PT grid.
                         You'll need to use remap_logPT""")
             self.molecules=list(self.ktables.keys())
 
@@ -322,8 +322,9 @@ class Kdatabase(Spectral_object):
         self.consolidated_p_unit=True
         self.consolidated_kdata_unit=True
 
-    def create_mix_ktable(self, composition, inactive_species=[]):
-        """Creates a :class:`~exo_k.ktable.Ktable`
+    def create_mix_ktable(self, composition, inactive_species=[],
+        cia_database=None, verbose=False):
+        """Creates a :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable`
         for a mix of molecules.
 
         The table is computed over the P,T grid of the `Kdatabase` instance. 
@@ -344,15 +345,17 @@ class Kdatabase(Spectral_object):
             inactive_species: list, optional
                 List the gases that are in composition but for which we do not want the 
                 opacity to be accounted for. 
+            cia_database: :class:`~exo_k.ciadatabase.CIAdatabase`
+                If a `CIAdatabase` is provided, cia opacity is added to the
+                resulting table. 
+            verbose: bool
+                Enables verbose mode.
 
         Returns
         -------
-            :class:`~exo_k.ktable.Ktable` object
-                A new ktable for the mix.
+            :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable` object
+                A new `Ktable`or `Xtable` for the mix.
         """
-        if self.Ng is None: raise RuntimeError( \
-            """Create_mix_ktable cannot work with a database of cross sections.
-            Please load correlated-k data.""")
         if not self.consolidated_wn_grid: raise RuntimeError( \
             """All tables in the database should have the same wavenumber grid to proceed.
             You should probably use bin_down().""")
@@ -368,15 +371,18 @@ class Kdatabase(Spectral_object):
         mol_to_be_done=set(composition.keys())
         mol_to_be_done=mol_to_be_done-set(inactive_species)
         if all(elem in self.molecules for elem in mol_to_be_done):
-            print('I have all the requested molecules in my database')
-            print(mol_to_be_done)
+            if verbose:
+                print('I have all the requested molecules in my database')
+                print(mol_to_be_done)
         else:
-            print('Do not have all the molecules in my database')
             mol_to_be_done=mol_to_be_done.intersection(set(self.molecules))
-            print('Molecules to be treated: ', mol_to_be_done)
+            if verbose:
+                print('Do not have all the molecules in my database')
+                print('Molecules to be treated: ', mol_to_be_done)
         if not mol_to_be_done:
-            print("""You are creating a mix without any active gas:
-                This will be awfully transparent""")
+            if verbose:
+                print("""You are creating a mix without any active gas:
+                    This will be awfully transparent""")
             res=self[self.molecules[0]].copy(cp_kdata=False)
             res.kdata=np.zeros(res.shape)
             return res
@@ -390,15 +396,21 @@ class Kdatabase(Spectral_object):
                 except TypeError:
                     print('gave bad mixing ratio format to vmr_normalize')
                     raise TypeError('bad mixing ratio type')            
-                if len(mol_to_be_done)==1:
-                    print('only 1 molecule:',mol)
-                    return res
                 first_mol=False
             else:
-              print('treating molecule ',mol)
-              res.kdata=res.RandOverlap(self.ktables[mol], None, gas_mixture[mol])
-              # no need to re normalize with respect to 
-              # the abundances of the molecules already done.
+                if verbose: print('treating molecule ',mol)
+                if self.Ng is not None:
+                    res.kdata=res.RandOverlap(self.ktables[mol], None, gas_mixture[mol])
+                    # no need to re normalize with respect to 
+                    # the abundances of the molecules already done.
+                else:
+                    res.kdata+=self.ktables[mol].vmr_normalize(gas_mixture[mol])
+        if cia_database is not None:
+            cia=cia_database.cia_cross_section_grid(self.logpgrid, self.tgrid, gas_mixture)
+            if self.Ng is None:
+                res.kdata+=cia
+            else:
+                res.kdata+=cia[:,:,:,None]
         return res  
 
     def create_mix_ktable5d(self, bg_comp={}, vgas_comp={}, x_array=None,

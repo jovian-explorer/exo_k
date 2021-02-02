@@ -107,7 +107,7 @@ class Gas_mix(Spectral_object):
                 except ValueError:
                     raise TypeError('Incompatible shapes in Gas_mix arrays.')
         if np.amax(other_vmr)>1.:
-            print("""Carefull: the sum of the vmr of your gas components is > 1.
+            print("""Careful: the sum of the vmr of your gas components is > 1.
             If there is a background gas, its vmr will become negative.
             I hope you know what you are doing.""")
         self.composition[self.bg_gas]=1.-other_vmr
@@ -347,7 +347,7 @@ class Gas_mix(Spectral_object):
             cont_sig=np.zeros((self.Narray,self.Nw))
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
-                    self.t_array, vmr_prof, wngrid_limit=local_wn_range)
+                    self.t_array, vmr_prof, wngrid_limit=local_wn_range, Nw=self.Nw)
             if rayleigh:
                 if cst_prof:
                     cont_sig+=Rayleigh().sigma(self.wns, self.composition)
