@@ -4,7 +4,7 @@
 __init__ module to load the exo_k library
 """
 from exo_k.util.user_func import *
-from exo_k.util.two_stream import *
+from exo_k.two_stream import two_stream_crisp, two_stream_toon
 from exo_k.util.radiation import *
 from exo_k.util.interp import gauss_legendre, split_gauss_legendre
 from exo_k.util.cst import *

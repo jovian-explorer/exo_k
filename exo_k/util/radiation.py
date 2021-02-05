@@ -321,9 +321,11 @@ def rad_prop_xsec(dcol_density, opacity_prof, mu0):
     Returns
     -------
         tau: Array
-            cumulative optical depth from the top (with zeros at the top of the first layer)
+            cumulative optical depth from the top (with zeros at the top of the first layer).
         dtau: Array
             optical depth of each layer for each wavenumber.
+    
+    The 1/mu0 factor is taken account so that these are the depths along the ray.
     """
     Nlev,Nw=opacity_prof.shape
     OvMu=1./mu0

@@ -11,42 +11,46 @@ import numba
 
 
 #@numba.jit(nopython=True,fastmath=True)
-def two_stream_quad_nu(NG, SOURCE_NU, DTAU_NU, OM_NU, G_NU,
-                AMU1=2./3., FLX_TOP_DOWN_NU=0., PREC = 1.e-10,
-                EMAX1 = 8., EMAX2 = 24.):
+def solve_2stream_nu(NG, source_nu, dtau_nu, omega0_nu, g_asym_nu,
+                mu0=2./3., flux_top_dw_nu=0., alb_surf=0., verbose=False):
     """Deals with the spectral axis
     """
-    NLEV=SOURCE_NU.shape[0]
-    NW = DTAU_NU.shape[1]
+    NLEV=source_nu.shape[0]
+    NW = dtau_nu.shape[1]
     if NG is None:
-        FLXU=np.zeros((NLEV, NW))
-        FLXD=np.zeros((NLEV, NW))
+        flux_up=np.zeros((NLEV, NW))
+        flux_dw=np.zeros((NLEV, NW))
+        flux_net=np.zeros((NLEV, NW))
         for iW in range(NW):
-            FLXU[:,iW], FLXD[:,iW] = two_stream_quad(SOURCE_NU[:,iW], DTAU_NU[:,iW],
-                OM_NU[:,iW], G_NU[:,iW],
-                AMU1=AMU1, FLX_TOP_DOWN=FLX_TOP_DOWN_NU,
-                PREC = PREC, EMAX1 = EMAX1, EMAX2 = EMAX2)
+            flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW] = \
+                solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
+                    omega0_nu[:,iW], g_asym_nu[:,iW],
+                    mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                    alb_surf=alb_surf, verbose=verbose)
     else:
-        FLXU=np.zeros((NLEV, NW, NG))
-        FLXD=np.zeros((NLEV, NW, NG))
-        #SOURCE_NU2=np.zeros((NLEV, NW, NG), dtype=float)
-        #print(FLXU.shape, FLXD.shape, SOURCE_NU.shape, DTAU_NU.shape, OM_NU.shape, G_NU.shape)
+        flux_up=np.zeros((NLEV, NW, NG))
+        flux_dw=np.zeros((NLEV, NW, NG))
+        flux_net=np.zeros((NLEV, NW, NG))
+        #source_nu2=np.zeros((NLEV, NW, NG), dtype=float)
+        #print(flux_up.shape, flux_dw.shape, source_nu.shape, dtau_nu.shape,
+        #  omega0_nu.shape, g_asym_nu.shape)
         for iW in range(NW):
             for iG in range(NG):
                 #print(iG,NG)
-                #SOURCE_NU2[:,iW,iG]=SOURCE_NU[:,iW]
-                FLXU[:,iW, iG],FLXD[:,iW, iG]=two_stream_quad(SOURCE_NU[:,iW], DTAU_NU[:,iW,iG], 
-                    OM_NU[:,iW,iG], G_NU[:,iW,iG],
-                    AMU1=AMU1, FLX_TOP_DOWN=FLX_TOP_DOWN_NU,
-                    PREC = PREC, EMAX1 = EMAX1, EMAX2 = EMAX2)
-    return FLXU, FLXD
+                #source_nu2[:,iW,iG]=source_nu[:,iW]
+                flux_up[:,iW, iG], flux_dw[:,iW, iG], flux_net[:,iW, iG] = \
+                    solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
+                        omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
+                        mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                        alb_surf=alb_surf, verbose=verbose)
+    return flux_up, flux_dw, flux_up-flux_dw
     
 
 
 
 @numba.jit(nopython=True,fastmath=True)
-def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e-10,
-                EMAX1 = 8., EMAX2 = 24.):
+def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
+            alb_surf=0., verbose=False):
     """
     Inherited from ExoRem (Blain et al. 2020):
     https://gitlab.obspm.fr/dblain/exorem/-/blob/master/src/fortran/exorem/radiative_transfer.f90
@@ -56,7 +60,7 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     THIS subroutine COMPUTES THE UPWARD, DOWNWARD AND NET THERMAL   
     FLUX IN AN INHOMOGENEOUS ABSORBING, SCATTERING ATMOSPHERE.      
     THE TWO_STREAM APPROXIMATION (QUADRATURE WITH COS OF            
-    AVERAGE ANGLE = AMU1) IS USED TO FIND THE DIFFUSE   	        
+    AVERAGE ANGLE = mu0) IS USED TO FIND THE DIFFUSE   	        
     REFLECTIVITY AND TRANSMISSIVITY AND THE TOTAL UPWARD AND        
     DOWNWARD FLUXES FOR EACH OF THE NLAY HOMOGENEOUS LAYERS.        
     THE ADDING METHOD IS then USED TO COMBINE THESE LAYERS.  IF     
@@ -65,50 +69,49 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     AS INFINITE LAYERS.                                             
 
     NOTE: TO ACCOUNT FOR A DIFFUSE FLUX AT THE TOP OF THE ATMOS-    
-          PHERE, THE USER MUST SET FLXD(1) EQUAL TO THAT VALUE.     
+          PHERE, THE USER MUST SET flux_dw(1) EQUAL TO THAT VALUE.     
           FOR NO DOWNWARD DIFFUSE FLUX AT THE TOP OF THE ATMOSPHERE,
-          THE USER MUST INITIALIZE FLXD(1) TO ZERO IN THE CALLING   
+          THE USER MUST INITIALIZE flux_dw(1) TO ZERO IN THE CALLING   
           PROGRAM.                                                  
 
 
     Parameters
     ----------
-        DTAU: array
+        source: array
+            PLANCK function AT EACH LEVEL FROM TOP OF THE          
+            ATMOSPHERE (L=0) TO THE SURFACE (L=NLAY) (NLAY+1 VALUES)  
+            JL: actually seems to be pi times the planck function
+            as defined in the rest of the code. 
+        dtau: array
             ARRAY OF NORMAL INCIDENCE OPTICAL DEPTHS IN EACH       
             HOMOGENEOUS MODEL LAYER. (NLAY VALUES)                 
-        OM: array
+        omega0: array
             ARRAY OF SINGLE SCATTERING ALBEDOS FOR EACH HOMO-      
             GENEOUS MODEL LAYER. (NLAY VALUES)                     
-        G: array
+        g_asym: array
             ARRAY OF ASSYMETRY parameterS FOR EACH HOMOGENEOUS     
             MODEL LAYER. (NLAY VALUES)                             
-        SOURCE: array
-            PLANCK function AT EACH LEVEL FROM TOP OF THE          
-            ATMOSPHERE (L=0) TO THE SURFACE (L=NLAY) (NLAY+1 VALUES)             
     
     Returns
     -------                                                        
 
-        FLXU: array
+        flux_up: array
             UPWARD FLUX AT NLAY+1 LAYER BOUNDARIES.                 
-            (FLXU(L) REFERS TO THE UPWARD FLUX AT THE TOP          
+            (flux_up(L) REFERS TO THE UPWARD FLUX AT THE TOP          
             OF LAYER L)                                           
-        FLXD: array
+        flux_dw: array
             DOWNWARD FLUX AT NLAY+1 LAYER BOUNDARIES.               
-            (FLXD(L) REFERS TO THE DOWNWARD FLUX AT THE BOTTOM     
-            OF LAYER L-1)                                         
+            (flux_dw(L) REFERS TO THE DOWNWARD FLUX AT THE BOTTOM     
+            OF LAYER L-1) 
+        flux_up-flux_dw: array
+            Net flux at the same levels
 
     Other Parameters
     ----------------
-        AMU1: float
-            Cos of quadrature angle (Original AMU1 was 2/3.)
-        FLX_TOP_DOWN: float
-            Diffsue downward flux at upper interface.
-        PREC: float
-            precision
-        EMAX1, EMAX2: float
-            optical depth at which layers are treated as semi infinite
-            and infinite (resp). 
+        mu0: float
+            Cos of quadrature angle (Original mu0 was 2/3.)
+        flux_top_dw: float
+            Diffuse downward flux at upper interface.
     """
 #            se atmosphere, only : n_levels
 #
@@ -118,14 +121,15 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
 #            ********** COMMON BLOCKS USED IN DELTA-EDDINGTON ROUTINES.
 #            
 #            integer, intent(in) :: nlay
-#            doubleprecision, intent(in) :: DTAU(n_levels - 1), G(n_levels - 1), SOURCE(n_levels)
+#            doubleprecision, intent(in) :: dtau(n_levels - 1),
+#                   g_asym(n_levels - 1), source(n_levels)
 #
-#            doubleprecision, intent(inout) :: OM(n_levels - 1)
+#            doubleprecision, intent(inout) :: omega0(n_levels - 1)
 #
-#            doubleprecision, intent(out) :: FLXU(n_levels), FLXD(n_levels),
+#            doubleprecision, intent(out) :: flux_up(n_levels), flux_dw(n_levels),
 #                 DKERNEL(n_levels, n_levels)
 #
-#            doubleprecision :: SOURCE2(n_levels), OMP(n_levels - 1), DTAUP(n_levels - 1), 
+#            doubleprecision :: source2(n_levels), OMP(n_levels - 1), dtauP(n_levels - 1), 
 #                RU(n_levels), &
 #                DD(n_levels), DFLUX(n_levels - 1), G1(n_levels - 1), G2(n_levels - 1), &
 #                DU(n_levels - 1), UFL(n_levels), DFL(n_levels), UFLUX(n_levels), 
@@ -133,33 +137,37 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
 #                SK(n_levels - 1), RL(n_levels), temperatures_layers(n_levels), RS(n_levels)
 #
 #            integer :: j, l, np2, nlev
-#            doubleprecision :: skt, prec, emax1, emax2, alb, AMU1, denom, e2ktm, emis,
-#                FLX_TOP_DOWN
-
-    NLAY = DTAU.size
+#            doubleprecision :: skt, prec, emax1, emax2, alb, mu0, denom, e2ktm, emis,
+#                flux_top_dw
+    PREC = 1.e-10
+    EMAX1 = 8.
+    EMAX2 = 24.
+    #EMAX1, EMAX2: optical depth at which layers are treated as semi infinite
+    #        and infinite (resp). 
+    NLAY = dtau.size
     NLEV = NLAY + 1
     NP2 = NLAY + 2
 
-    DTAUP=np.zeros_like(DTAU)
-    OMP=np.zeros_like(DTAU)
-    G1=np.zeros_like(DTAU)
-    G2=np.zeros_like(DTAU)
-    SK=np.zeros_like(DTAU)
-    DU=np.zeros_like(DTAU)
-    EKT=np.zeros_like(DTAU)
-    DFLUX=np.zeros_like(DTAU)
+    dtauP=np.zeros_like(dtau)
+    OMP=np.zeros_like(dtau)
+    G1=np.zeros_like(dtau)
+    G2=np.zeros_like(dtau)
+    SK=np.zeros_like(dtau)
+    DU=np.zeros_like(dtau)
+    EKT=np.zeros_like(dtau)
+    DFLUX=np.zeros_like(dtau)
 
-    RL=np.zeros_like(SOURCE)
-    RS=np.zeros_like(SOURCE)
-    RU=np.zeros_like(SOURCE)
-    DD=np.zeros_like(SOURCE)
-    DFL=np.zeros_like(SOURCE)
-    UFLUX=np.zeros_like(SOURCE)
-    UFL=np.zeros_like(SOURCE)
-    SOURCE2=np.zeros_like(SOURCE)
-    temperatures_layers=np.zeros_like(SOURCE)
-    FLXU=np.zeros_like(SOURCE)
-    FLXD=np.zeros_like(SOURCE)
+    RL=np.zeros_like(source)
+    RS=np.zeros_like(source)
+    RU=np.zeros_like(source)
+    DD=np.zeros_like(source)
+    DFL=np.zeros_like(source)
+    UFLUX=np.zeros_like(source)
+    UFL=np.zeros_like(source)
+    source2=np.zeros_like(source)
+    temperatures_layers=np.zeros_like(source)
+    flux_up=np.zeros_like(source)
+    flux_dw=np.zeros_like(source)
 
     DKERNEL=np.zeros((NLEV,NLEV))
     #
@@ -170,11 +178,11 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     #       FOR THE CASE OF A CONSERVATIVE ATMOSPHERE
     #
     for L in range(NLAY):
-        if (1. - OM[L])  <  PREC: OM[L] = 1. - PREC
-        DTAUP[L] = (1. - OM[L] * G[L]) * DTAU[L]
-        OMP[L] = (1. - G[L]) * OM[L] / (1. - OM[L] * G[L])
-        G1[L] = (1. - 0.5 * OMP[L]) / AMU1
-        G2[L] = 0.5 * OMP[L] / AMU1
+        if (1. - omega0[L])  <  PREC: omega0[L] = 1. - PREC
+        dtauP[L] = (1. - omega0[L] * g_asym[L]) * dtau[L]
+        OMP[L] = (1. - g_asym[L]) * omega0[L] / (1. - omega0[L] * g_asym[L])
+        G1[L] = (1. - 0.5 * OMP[L]) / mu0
+        G2[L] = 0.5 * OMP[L] / mu0
         SK[L] = np.sqrt(G1[L] * G1[L] - G2[L] * G2[L])
     #
     #**** DIFFUSE TRANSMITTANCE AND REFLECTANCE OF EACH HOMOGENEOUS LAYER
@@ -183,7 +191,7 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     #     PART OF THE EQUATION OF TRANSFER (IE. NO SOURCE TERM)
     #
     for L in range(NLAY):
-        SKT = SK[L] * DTAUP[L]
+        SKT = SK[L] * dtauP[L]
         #print(L)
         if SKT  > EMAX2 :
         #
@@ -213,12 +221,13 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     #       AS LAYER NLAY. FOR "EMISSIVITY", ASSUME SAME dB/dTau AS LAYER NLAY
     #JL21 below, I put a new boundary condition at the bottom to mimick a dark surface.
     #JL ALB = G2[NLAY-1] / (G1[NLAY-1] + SK[NLAY-1])
-    ALB=0.
+    ALB=alb_surf
     #JL RL[NLEV-1] = (1. - ALB)
     RL[NLEV-1]=1.
     temperatures_layers[NLEV-1] = 0.e0
-    #JL EMIS = 1. - ALB + (1. + ALB) * AMU1 * (1. - SOURCE[NLEV - 2] / SOURCE[NLEV-1]) / DTAUP[NLAY-1]
-    EMIS=1.
+    #JL EMIS = 1. - ALB + (1. + ALB) * mu0 * \
+    #   (1. - source[NLEV - 2] / source[NLEV-1]) / dtauP[NLAY-1]
+    EMIS=1.-ALB
     #
     #****   USE ADDING METHOD TO FIND THE REFLECTANCE AND TRANSMITTANCE
     #       OF COMBINED LAYERS.  ADD DOWNWARD FROM THE TOP AND UPWARD
@@ -241,28 +250,29 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
     for J in range(NLEV + 1):
         DFL[NLEV-1] = 0.e0
         if J <= NLEV-1:
-            FLXD[0] = 0.e0
+            flux_dw[0] = 0.e0
             for L in range(NLEV):
                 DKERNEL[L, J] = 0.e0
-                SOURCE2[L] = 0.e0
-            SOURCE2[J] = 1.
+                source2[L] = 0.e0
+            source2[J] = 1.
         else:
-            FLXD[0] = FLX_TOP_DOWN
+            flux_dw[0] = flux_top_dw
             for L in range(NLEV):
-                SOURCE2[L] = SOURCE[L]
-        UFL[NLEV-1] = EMIS * SOURCE2[NLEV-1]
+                source2[L] = source[L]
+        UFL[NLEV-1] = EMIS * source2[NLEV-1]
         for L in range(NLAY):
-            UFL[L], DFL[L]=DEDIR1(SOURCE2[L], SOURCE2[L + 1], OM[L], G[L], DTAU[L])
+            UFL[L], DFL[L]=_DEDIR1(source2[L], source2[L + 1], omega0[L],
+                                g_asym[L], dtau[L], mu0)
         #
         #****   USE ADDING METHOD TO FIND UPWARD AND DOWNWARD FLUXES
         #       FOR COMBINED LAYERS.  START AT TOP
         #
-        DFLUX[0] = DFL[0] + temperatures_layers[0] * FLXD[0]
+        DFLUX[0] = DFL[0] + temperatures_layers[0] * flux_dw[0]
 
         for L in range(NLAY-1):
             DFLUX[L + 1] = temperatures_layers[L + 1] * \
                 (RS[L] * (RL[L + 1] * DFLUX[L] + UFL[L + 1]) * DD[L] + DFLUX[L]) + DFL[L + 1]
-        FLXD[NLEV-1] = (DFLUX[NLAY-1] + RS[NLAY-1] * EMIS * SOURCE2[NLEV-1]) / \
+        flux_dw[NLEV-1] = (DFLUX[NLAY-1] + RS[NLAY-1] * EMIS * source2[NLEV-1]) / \
             (1. - RS[NLAY-1] * ALB)
         #
         #****   USE ADDING METHOD TO FIND UPWARD AND DOWNWARD FLUXES
@@ -277,30 +287,30 @@ def two_stream_quad(SOURCE, DTAU, OM, G, AMU1=2./3., FLX_TOP_DOWN=0., PREC = 1.e
         #****   FIND THE TOTAL UPWARD AND DOWNWARD FLUXES AT INTERFACES
         #       BETWEEN INHOMOGENEOUS LAYERS.
         #
-        FLXU[0] = UFLUX[0] + RU[0] * FLXD[0]
-        FLXU[NLEV-1] = ALB * FLXD[NLEV-1] + EMIS * SOURCE2[NLEV-1]
+        flux_up[0] = UFLUX[0] + RU[0] * flux_dw[0]
+        flux_up[NLEV-1] = ALB * flux_dw[NLEV-1] + EMIS * source2[NLEV-1]
         for L in range(NLAY-1):
-            FLXU[NLEV - L - 2] = (UFLUX[NLEV - L - 2] + RU[NLEV - L - 2] * \
+            flux_up[NLEV - L - 2] = (UFLUX[NLEV - L - 2] + RU[NLEV - L - 2] * \
                     DFLUX[NLAY - L - 2]) / (1. - RU[NLEV - L - 2] * \
                     RS[NLAY - L - 2])
         for L in range(NLAY-1):
-            FLXD[L + 1] = DFLUX[L] + RS[L] * FLXU[L + 1]
+            flux_dw[L + 1] = DFLUX[L] + RS[L] * flux_up[L + 1]
         #
         if J <= NLEV-1:
             for L in range(NLEV):
-                DKERNEL[L, J] = FLXU[L] - FLXD[L]
+                DKERNEL[L, J] = flux_up[L] - flux_dw[L]
 
-    return FLXU, FLXD #, DKERNEL
+    return flux_up, flux_dw, flux_up-flux_dw#, DKERNEL
 
 @numba.jit(nopython=True,fastmath=True)
-def DEDIR1(BATM1, BATM2, AIR, GIR, TAU):
+def _DEDIR1(BATM1, BATM2, AIR, GIR, TAU, mu0):
     """            
             CCCCCCCCCCCCCCCCCCCCCCCCCCC  D E D I R 1  CCCCCCCCCCCCCCCCCCCCCCCCCCCCC
             C                                                                    CC
             C    PURPOSE :                                                       CC
             C                                                                    CC
             C    THIS subroutine USES THE TWO-STREAM ROUTINE (QUADRATURE WITH    CC
-            C    COS OF AVERAGE ANGLE = AMU1) TO FIND THE UPWARD AND DOWNWARD    CC
+            C    COS OF AVERAGE ANGLE = mu0) TO FIND THE UPWARD AND DOWNWARD    CC
             C    THERMAL FLUXES EMITTED FROM A HOMOGENEOUS LAYER.                CC
             C                                                                    CC
             C    AUTHORS:  DAVID PAIGE AND DAVID CRISP                           CC
@@ -324,21 +334,20 @@ def DEDIR1(BATM1, BATM2, AIR, GIR, TAU):
 #            doubleprecision, intent(in) :: BATM1, BATM2, air, gir, tau
 #            doubleprecision, intent(out) :: fuptop, fdnbot
 #
-#            doubleprecision :: AMU1, c1, c2, cap, dair, db, DTAUIR, emkt, \
+#            doubleprecision :: mu0, c1, c2, cap, dair, db, dtauIR, emkt, \
 #                          epkt, omttp, opttp, v1, v2, v3, v4, v5, v6
-    AMU1 = 2. / 3.
     DAIR = AIR * (1. - GIR) / (1. - GIR * AIR)
-    CAP = np.sqrt(1. - DAIR) / AMU1
+    CAP = np.sqrt(1. - DAIR) / mu0
     OPTTP = np.sqrt(1. - 0.5 * DAIR + np.sqrt(1. - DAIR))
     OMTTP = np.sqrt(1. - 0.5 * DAIR - np.sqrt(1. - DAIR))
-    DTAUIR = (1. - GIR * AIR) * TAU
-    db = (BATM2 - BATM1) * AMU1 / DTAUIR
+    dtauIR = (1. - GIR * AIR) * TAU
+    db = (BATM2 - BATM1) * mu0 / dtauIR
 
-    if CAP * DTAUIR < 24.:
+    if CAP * dtauIR < 24.:
         #
         #****     THE LAYER THICKNESS IS FINITE
         #
-        EPKT = np.exp(+CAP * DTAUIR)
+        EPKT = np.exp(+CAP * dtauIR)
         EMKT = 1. / EPKT
         #
         #****     SET TOP B.C.

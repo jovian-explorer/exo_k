@@ -4,7 +4,6 @@
 __init__ module to load util subpackage
 """
 from .radiation import *
-from .two_stream import *
 from .cst import *
 from .spectrum import Spectrum
 from .filenames import *

@@ -13,7 +13,8 @@ from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
-from .util.two_stream import two_stream_quad_nu
+from .two_stream.two_stream_crisp import solve_2stream_nu as solve_2stream_nu_crisp
+from .two_stream.two_stream_toon import solve_2stream_nu as solve_2stream_nu_toon
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
@@ -392,19 +393,20 @@ class Atm(Atm_profile):
         else:
             self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu0)
             weights=self.kdatabase.weights
+        # tau and dtau include the 1/mu0 factor.
         expdtau=np.exp(-dtau)
         expdtauminone=np.where(dtau<1.e-14,-dtau,expdtau-1.)
         # careful: due to numerical limitations, 
         # the limited development of Exp(-dtau)-1 needs to be used for small values of dtau
         exptau=np.exp(-self.tau)
         if self.Ng is None:
-            timesBatmTop=(-expdtau-expdtauminone/dtau)*exptau[:-1]
-            timesBatmBottom=(1.+expdtauminone/dtau)*exptau[:-1]
-            timesBatmBottom[-1]=timesBatmBottom[-1]+exptau[-1]
+            timesBatmTop=(1.+expdtauminone/dtau)*exptau[:-1]
+            timesBatmBottom=(-expdtau-expdtauminone/dtau)*exptau[:-1]
+            timesBatmBottom[-1]+=exptau[-1]
         else:
-            timesBatmTop=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
-            timesBatmBottom=np.sum((1.+expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
-            timesBatmBottom[-1]=timesBatmBottom[-1]+np.sum(exptau[-1]*weights,axis=1)
+            timesBatmTop=np.sum((1.+expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
+            timesBatmBottom=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1]*weights,axis=2)
+            timesBatmBottom[-1]+=np.sum(exptau[-1]*weights,axis=1)
         IpTop=np.sum(piBatm[:-1]*timesBatmTop+piBatm[1:]*timesBatmBottom,axis=0)
 
         return Spectrum(IpTop,self.wns,self.wnedges)
@@ -531,7 +533,8 @@ class Atm(Atm_profile):
         return transmittance
 
 
-    def emission_spectrum_2stream(self, integral=True, mu0=2./3., dtau_min=1.e-13, iW=None, **kwargs):
+    def emission_spectrum_2stream(self, integral=True, mu0=0.5,
+            method='toon', dtau_min=1.e-13, iW=None, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
@@ -565,16 +568,23 @@ class Atm(Atm_profile):
         else:
             piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
         self.compute_layer_col_density()
+        mutau=1. # because the mu effect is taken into account in solve_2stream_nu
+                 # we must compute the vertical optical depth here.
         if self.Ng is None:
-            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu0)
+            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mutau)
         else:
-            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu0)
+            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mutau)
             weights=self.kdatabase.weights
         single_scat_albedo = np.zeros_like(dtau)
         asym_param = np.zeros_like(dtau)
         dtau=np.where(dtau<dtau_min,dtau_min,dtau)
-        flux_up, flux_down = two_stream_quad_nu(self.Ng, piBatm, dtau,
-                                single_scat_albedo, asym_param, AMU1 = mu0)
+        if method == 'crisp':
+            solve_2stream_nu=solve_2stream_nu_crisp
+        else:
+            solve_2stream_nu=solve_2stream_nu_toon
+        flux_up, flux_down, _ = solve_2stream_nu(self.Ng, piBatm, dtau,
+                                single_scat_albedo, asym_param, mu0 = mu0)
+
         if iW is not None:
             print('piBatm', piBatm[:,iW])
             print('dtau', dtau[:,iW])
