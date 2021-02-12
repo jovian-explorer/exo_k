@@ -286,11 +286,11 @@ class Data_table(Spectral_object):
         kc_p1t0=self.kdata[lpindextended,tind-1]
         kc_p0t0=self.kdata[lpindextended-1,tind-1]
         if self._settings._log_interp is True:
-            kdata_tmp=  np.log10(kc_p1t1)*pw*tw          \
-                            +np.log10(kc_p0t1)*(1.-pw)*tw \
-                            +np.log10(kc_p1t0)*pw*(1.-tw) \
-                            +np.log10(kc_p0t0)*(1.-pw)*(1.-tw)
-            self.kdata=10**kdata_tmp
+            kdata_tmp=  np.log(kc_p1t1)*pw*tw          \
+                            +np.log(kc_p0t1)*(1.-pw)*tw \
+                            +np.log(kc_p1t0)*pw*(1.-tw) \
+                            +np.log(kc_p0t0)*(1.-pw)*(1.-tw)
+            self.kdata=np.exp(kdata_tmp)
         else:
             kdata_tmp=  (kc_p1t1)*pw*tw          \
                         +(kc_p0t1)*(1.-pw)*tw \
