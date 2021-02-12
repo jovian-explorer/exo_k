@@ -15,6 +15,7 @@ from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
 from .two_stream.two_stream_crisp import solve_2stream_nu as solve_2stream_nu_crisp
 from .two_stream.two_stream_toon import solve_2stream_nu as solve_2stream_nu_toon
+from .two_stream.two_stream_lmdz import solve_2stream_nu as solve_2stream_nu_lmdz
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
@@ -294,6 +295,7 @@ class Atm(Atm_profile):
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
+        self.flux_net=None
 
     def set_k_database(self, k_database=None):
         """Change the radiative database used by the
@@ -580,21 +582,38 @@ class Atm(Atm_profile):
         dtau=np.where(dtau<dtau_min,dtau_min,dtau)
         if method == 'crisp':
             solve_2stream_nu=solve_2stream_nu_crisp
+        elif method == 'lmdz':
+            solve_2stream_nu=solve_2stream_nu_lmdz
         else:
             solve_2stream_nu=solve_2stream_nu_toon
-        flux_up, flux_down, _ = solve_2stream_nu(self.Ng, piBatm, dtau,
-                                single_scat_albedo, asym_param, mu0 = mu0)
+        self.flux_up, self.flux_down, self.flux_net = \
+            solve_2stream_nu(self.Ng, piBatm, dtau,
+                    single_scat_albedo, asym_param, mu0 = mu0)
 
         if iW is not None:
             print('piBatm', piBatm[:,iW])
             print('dtau', dtau[:,iW])
             print('tau', self.tau[:,iW])
-            print('flux_up', flux_up[:,iW])
-            print('flux_down', flux_down[:,iW])
+            print('flux_up', self.flux_up[:,iW])
+            print('flux_down', self.flux_down[:,iW])
         if self.Ng is None:
-            return Spectrum(flux_up[0],self.wns,self.wnedges)
+            return Spectrum(self.flux_up[0],self.wns,self.wnedges)
         else:
-            return Spectrum(np.sum(flux_up[0]*weights,axis=1),self.wns,self.wnedges)
+            return Spectrum(np.sum(self.flux_up[0]*weights,axis=1),self.wns,self.wnedges)
+
+    def ir_cooling(self):
+        if self.flux_net is None: raise RuntimeError('should have ran emission_spectrum_2stream.')
+        dwnedges=np.diff(self.wnedges)
+        if self.Ng is None:
+            up=np.sum(self.flux_up*dwnedges,axis=1)
+            dw=np.sum(self.flux_down*dwnedges,axis=1)
+            net=np.sum(self.flux_net*dwnedges,axis=1)
+        else:
+            weights=self.kdatabase.weights
+            up=np.sum(np.sum(self.flux_up*weights,axis=2)*dwnedges,axis=1)
+            dw=np.sum(np.sum(self.flux_down*weights,axis=2)*dwnedges,axis=1)
+            net=np.sum(np.sum(self.flux_net*weights,axis=2)*dwnedges,axis=1)
+        return up,dw,net
 
 
     def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):

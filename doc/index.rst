@@ -37,7 +37,7 @@ Recent releases
 
 v1.0.1 (Jan 2021): Solves a binary/string conversion issue on some platforms.
 Enables linear interpolation in pressure (default is log). Enables creation of
-empty tables to filled later and spectral extension of existing tables. 
+empty tables to be filled later and spectral extension of existing tables. 
 
 v1.0.0 (Dec 2020): Finally our first official version. Creation of a
 :ref:`'Neat examples'<neat_examples>` section with fully worked out use cases for the `Exo_k`. 
