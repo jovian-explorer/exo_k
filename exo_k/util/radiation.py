@@ -14,6 +14,7 @@ from exo_k.util.cst import PI,PLANCK,C_LUM,KBOLTZ,SIG_SB
 PLANCK_CST1MKS=2.*PLANCK*C_LUM**2
 PLANCK_CST1=1.e2*PLANCK_CST1MKS
 PLANCK_CST2=PLANCK*C_LUM/(KBOLTZ)
+PLANCK_CST3=PLANCK_CST1*PLANCK_CST2
 PLANCK_CST1_lamb=1.e-6*2.*PLANCK*C_LUM**2
 
 
@@ -45,6 +46,8 @@ def Bnu(nu, T):
 def Bnu_integral(nu_edges, T):
     """Computes the integral of the Planck function in wavenumber bins.
     
+    Uses scipy.integrate.quad. Quite slow.
+
     Parameters
     ----------
         nu_edges: array
@@ -68,6 +71,12 @@ def Bnu_integral(nu_edges, T):
 @numba.jit(nopython=True, fastmath=True)
 def Bnu_integral_num(nu_edges, T, n=30):
     """Computes the integral of the Planck function in wavenumber bins.
+
+    Uses a series expansion of the integral derived in 
+    "PLANCK FUNCTIONS AND INTEGRALS; METHODS OF COMPUTATION
+    by Thomas E. Michels
+    Goddard Space Flight Center Greenbelt, Md.
+    MARCH 1968"
     
     Parameters
     ----------
@@ -103,7 +112,13 @@ def Bnu_integral_num(nu_edges, T, n=30):
 @numba.jit(nopython=True, fastmath=True)
 def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
     """Computes the integral of the Planck function in wavenumber bins.
-    
+
+    Uses a series expansion of the integral derived in 
+    "PLANCK FUNCTIONS AND INTEGRALS; METHODS OF COMPUTATION
+    by Thomas E. Michels
+    Goddard Space Flight Center Greenbelt, Md.
+    MARCH 1968"
+
     Parameters
     ----------
         nu_edges: array
@@ -146,23 +161,34 @@ def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
             tmp=tmp2
     return res
 
-def Bnu_integral_old(nu_edges, T):
-    """Deprecated.
-    
-    Computes the integral of the Planck function in wavenumber bins.
-    nu_edges is an array of the edges of the wavenumber bins in cm^-1.
-    
-    sigma*T^4=sum of Bnu_integral
+@numba.jit(nopython=True, fastmath=True)
+def dBnudT_array(nu, T_array, Nw, Nt):
+    """Computes the derivative of the Planck function with respect to temperature.
 
-    Bnu_integral is in W/m^2/str
+    Parameters
+    ----------
+        nu: array
+            Wavenumbers in cm^-1.
+        T: array
+            Array of temperature (K).
+        Nw: int
+            Number of spectral bins.
+        Nt: int
+            Number of temperatures.
+    
+    Returns
+    -------
+        Array of shape (T_array.size,nu.size)
+            dBnudT: derivative of the Planck function at
+            temperatures T_array.
     """
-    a1=1.e8*2.*PLANCK*C_LUM**2
-    a2=1.e2*PLANCK*C_LUM/(KBOLTZ*T)
-    res=np.empty(nu_edges.size-1)
-    for ii in range(nu_edges.size-1):
-        res[ii]=integrate.quad(lambda nu: nu**3/(np.exp(nu*a2)-1.),nu_edges[ii],nu_edges[ii+1])[0]
-    return res*a1
-
+    res=np.empty((Nt,Nw))
+    sigma=nu*1.e2
+    for iT, T in enumerate(T_array):
+        exp=np.exp(PLANCK_CST2*sigma/T)
+        tmp=((exp-1.)*T)**2
+        res[iT]=exp * PLANCK_CST3 * sigma**4 / tmp
+    return res
 
 @numba.jit(nopython=True)
 def Bmicron(lamb, T):
