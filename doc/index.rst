@@ -28,14 +28,17 @@ The API reference section also lists systematically all the classes and methods 
 and available options for each of them. This documentation is
 searchable with the search bar in the top left corner. 
 
+If you find this library useful in your reasearch, please acknowledge it by citing
+`Leconte (2021) <https://ui.adsabs.harvard.edu/abs/2021A%26A...645A..20L/abstract>`_.
+
 Enjoy!
 
-J. Leconte
+`Jeremy Leconte <http://perso.astrophy.u-bordeaux.fr/~jleconte/>`_.
 
 Recent releases
 ===============
 
-v1.0.1 (Jan 2021): Solves a binary/string conversion issue on some platforms.
+v1.0.1 (Jan 2021): Solves a binary/string conversion issue introduced by version 3 of h5py.
 Enables linear interpolation in pressure (default is log). Enables creation of
 empty tables to be filled later and spectral extension of existing tables. 
 

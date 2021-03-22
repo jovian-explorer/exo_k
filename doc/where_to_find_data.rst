@@ -13,7 +13,8 @@ Fortunately, several projects have released publicly available datasets. Hereaft
 listed some of these public sources of radiative data. If they are useful
 to your work, please cite the relevant articles listed below or
 refer to the corresponding websites to know the proper way to acknowledge
-their contribution (in addition to acknowledging `exo_k` if you use the library itself). 
+their contribution (in addition to acknowledging `exo_k` if you use the library itself;
+`Leconte, 2021 <https://ui.adsabs.harvard.edu/abs/2021A%26A...645A..20L/abstract>`_). 
 
 Cross sections and k-coefficient tables from the Exomol project
 ---------------------------------------------------------------
