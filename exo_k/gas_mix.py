@@ -318,6 +318,7 @@ class Gas_mix(Spectral_object):
              I ll compute opacites with the available ones:""")
         if write>3 : print(mol_to_be_done)
 
+        # does what needs to be done to reduce the spectral range
         local_wn_range=self._compute_spectral_range(wl_range=wl_range, wn_range=wn_range)
         self._compute_wn_range_indices(wn_range=local_wn_range)
         self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
@@ -345,14 +346,15 @@ class Gas_mix(Spectral_object):
 
         if rayleigh or (self.cia_database is not None):
             cont_sig=np.zeros((self.Narray,self.Nw))
-            if self.cia_database is not None:
-                cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
-                    self.t_array, vmr_prof, wngrid_limit=local_wn_range, Nw=self.Nw)
             if rayleigh:
                 if cst_prof:
                     cont_sig+=Rayleigh().sigma(self.wns, self.composition)
                 else:
                     cont_sig+=Rayleigh().sigma_array(self.wns, vmr_prof)
+                self.kdata_scat=np.copy(cont_sig)
+            if self.cia_database is not None:
+                cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
+                    self.t_array, vmr_prof, wngrid_limit=local_wn_range, Nw=self.Nw)
             if self.kdatabase.Ng is None:
                 kdata_array+=cont_sig
             else:

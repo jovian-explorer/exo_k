@@ -1,51 +1,51 @@
 # -*- coding: utf-8 -*-
 """
-Created on Jun 20 2019
+Created in Jan 2021
 
 @author: jeremy leconte
-
-Library of useful functions for radiative transfer calculations
 """
 import numpy as np
 import numba
 
+jit=False
 
-#@numba.jit(nopython=True,fastmath=True)
-def solve_2stream_nu(NG, source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                mu0=2./3., flux_top_dw_nu=0., alb_surf=0., verbose=False):
+@numba.jit(nopython=True,fastmath=True)
+def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+                mu0=2./3., flux_top_dw_nu=0., alb_surf=0., verbose=False, mid_layer=False):
     """Deals with the spectral axis
     """
-    NLEV=source_nu.shape[0]
-    NW = dtau_nu.shape[1]
-    if NG is None:
-        flux_up=np.zeros((NLEV, NW))
-        flux_dw=np.zeros((NLEV, NW))
-        flux_net=np.zeros((NLEV, NW))
-        for iW in range(NW):
-            flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW] = \
-                solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
-                    omega0_nu[:,iW], g_asym_nu[:,iW],
+    NLEV, NW = source_nu.shape
+    flux_up=np.zeros((NLEV, NW))
+    flux_dw=np.zeros((NLEV, NW))
+    flux_net=np.zeros((NLEV, NW))
+    kernel=np.zeros((NLEV, NLEV, NW))
+    for iW in range(NW):
+        flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW], kernel[:,:,iW] = \
+            solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
+                omega0_nu[:,iW], g_asym_nu[:,iW],
+                mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                alb_surf=alb_surf, verbose=verbose)
+    return flux_up, flux_dw, flux_up-flux_dw, kernel
+    
+@numba.jit(nopython=True,fastmath=True)
+def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+                mu0=2./3., flux_top_dw_nu=0., alb_surf=0., verbose=False, mid_layer=False):
+    """Deals with the spectral axis
+    """
+    NLEV, NW = source_nu.shape
+    NG = dtau_nu.shape[-1]
+    flux_up=np.zeros((NLEV, NW, NG))
+    flux_dw=np.zeros((NLEV, NW, NG))
+    flux_net=np.zeros((NLEV, NW, NG))
+    kernel=np.zeros((NLEV, NLEV, NW, NG))
+    for iW in range(NW):
+        for iG in range(NG):
+            flux_up[:,iW, iG], flux_dw[:,iW,iG], flux_net[:,iW,iG], kernel[:,:,iW,iG] = \
+                solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
+                    omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
                     mu0=mu0, flux_top_dw=flux_top_dw_nu,
                     alb_surf=alb_surf, verbose=verbose)
-    else:
-        flux_up=np.zeros((NLEV, NW, NG))
-        flux_dw=np.zeros((NLEV, NW, NG))
-        flux_net=np.zeros((NLEV, NW, NG))
-        #source_nu2=np.zeros((NLEV, NW, NG), dtype=float)
-        #print(flux_up.shape, flux_dw.shape, source_nu.shape, dtau_nu.shape,
-        #  omega0_nu.shape, g_asym_nu.shape)
-        for iW in range(NW):
-            for iG in range(NG):
-                #print(iG,NG)
-                #source_nu2[:,iW,iG]=source_nu[:,iW]
-                flux_up[:,iW, iG], flux_dw[:,iW, iG], flux_net[:,iW, iG] = \
-                    solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
-                        omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
-                        mu0=mu0, flux_top_dw=flux_top_dw_nu,
-                        alb_surf=alb_surf, verbose=verbose)
-    return flux_up, flux_dw, flux_up-flux_dw
-    
-
+    return flux_up, flux_dw, flux_up-flux_dw, kernel
 
 
 @numba.jit(nopython=True,fastmath=True)
@@ -219,15 +219,15 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
     #****   SET THE "REFLECTIVITY", "TRANSMISSIVITY" AND "EMISSIVITY" OF
     #       THE "SURFACE" ASSUMING SEMI-INFINITE LAYER WITH SAME OMP
     #       AS LAYER NLAY. FOR "EMISSIVITY", ASSUME SAME dB/dTau AS LAYER NLAY
-    #JL21 below, I put a new boundary condition at the bottom to mimick a dark surface.
-    #JL ALB = G2[NLAY-1] / (G1[NLAY-1] + SK[NLAY-1])
+    #ALB = G2[NLAY-1] / (G1[NLAY-1] + SK[NLAY-1])
+    #RL[NLEV-1] = (1. - ALB)
+    #EMIS = 1. - ALB + (1. + ALB) * mu0 * \
+    #    (1. - source[NLEV - 2] / source[NLEV-1]) / dtauP[NLAY-1]
+    ##JL21 below, I put a new boundary condition at the bottom to mimick a dark surface.
     ALB=alb_surf
-    #JL RL[NLEV-1] = (1. - ALB)
     RL[NLEV-1]=1.
-    temperatures_layers[NLEV-1] = 0.e0
-    #JL EMIS = 1. - ALB + (1. + ALB) * mu0 * \
-    #   (1. - source[NLEV - 2] / source[NLEV-1]) / dtauP[NLAY-1]
     EMIS=1.-ALB
+    temperatures_layers[NLEV-1] = 0.e0
     #
     #****   USE ADDING METHOD TO FIND THE REFLECTANCE AND TRANSMITTANCE
     #       OF COMBINED LAYERS.  ADD DOWNWARD FROM THE TOP AND UPWARD
@@ -252,7 +252,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
         if J <= NLEV-1:
             flux_dw[0] = 0.e0
             for L in range(NLEV):
-                DKERNEL[L, J] = 0.e0
+                DKERNEL[J, L] = 0.e0
                 source2[L] = 0.e0
             source2[J] = 1.
         else:
@@ -298,9 +298,9 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
         #
         if J <= NLEV-1:
             for L in range(NLEV):
-                DKERNEL[L, J] = flux_up[L] - flux_dw[L]
+                DKERNEL[J, L] = flux_up[L] - flux_dw[L]
 
-    return flux_up, flux_dw, flux_up-flux_dw#, DKERNEL
+    return flux_up, flux_dw, flux_up-flux_dw, DKERNEL
 
 @numba.jit(nopython=True,fastmath=True)
 def _DEDIR1(BATM1, BATM2, AIR, GIR, TAU, mu0):

@@ -12,10 +12,10 @@ from numba.typed import List
 from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
-    Bnu_integral_array, path_integral_corrk, path_integral_xsec
-from .two_stream.two_stream_crisp import solve_2stream_nu as solve_2stream_nu_crisp
-from .two_stream.two_stream_toon import solve_2stream_nu as solve_2stream_nu_toon
-from .two_stream.two_stream_lmdz import solve_2stream_nu as solve_2stream_nu_lmdz
+    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
+from .two_stream import two_stream_toon as toon
+from .two_stream import two_stream_lmdz as lmdz
+from .two_stream import two_stream_crisp as crisp
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
@@ -295,7 +295,7 @@ class Atm(Atm_profile):
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
-        self.flux_net=None
+        self.flux_net_nu=None
 
     def set_k_database(self, k_database=None):
         """Change the radiative database used by the
@@ -376,7 +376,13 @@ class Atm(Atm_profile):
             return self.emission_spectrum_quad(integral=integral,
                 mu_quad_order=mu_quad_order, **kwargs)
 
-        self.opacity(rayleigh=False, **kwargs)
+        try:
+            self.opacity(rayleigh=False, **kwargs)
+        except TypeError:
+            raise RuntimeError("""Cannot use rayleigh option with emission_spectrum.
+            Probably meant to use emission_spectrum_2stream.
+            """)
+
         if integral:
             #JL2020 What is below is slightly faster for very large resolutions
             #dw=np.diff(self.wnedges)
@@ -463,6 +469,145 @@ class Atm(Atm_profile):
 
         return Spectrum(IpTop,self.wns,self.wnedges)
 
+    def emission_spectrum_2stream(self, integral=True, mu0=0.5,
+            method='toon', dtau_min=1.e-13, mid_layer=False, rayleigh=False, **kwargs):
+        """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
+
+        Parameters
+        ----------
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+
+        Other Parameters
+        ----------------
+            mu0: float
+                Cosine of the quadrature angle use to compute output flux
+
+        Returns
+        -------
+            Spectrum object 
+                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
+        """
+        self.opacity(rayleigh=rayleigh, **kwargs)
+        if integral:
+            piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                /np.diff(self.wnedges)
+        else:
+            piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
+        self.compute_layer_col_density()
+        mutau=1. # because the mu effect is taken into account in solve_2stream_nu
+                 # we must compute the vertical optical depth here.
+        module_to_use=globals()[method]
+        # globals()[method] converts the method string into a module name
+        #  if the module has been loaded
+        if self.Ng is None:
+            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mutau)
+            solve_2stream_nu=module_to_use.solve_2stream_nu_xsec
+        else:
+            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mutau)
+            weights=self.kdatabase.weights
+            solve_2stream_nu=module_to_use.solve_2stream_nu_corrk
+        if rayleigh:
+            if self.Ng is None:
+                single_scat_albedo = self.gas_mix.kdata_scat / self.kdata
+            else:
+                single_scat_albedo = self.gas_mix.kdata_scat[:,:,None] / self.kdata
+        else:
+            single_scat_albedo = np.zeros_like(dtau)
+        asym_param = np.zeros_like(dtau)
+        dtau=np.where(dtau<dtau_min,dtau_min,dtau)
+        if method == 'crisp':
+            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu, self.kernel_nu = \
+                solve_2stream_nu(piBatm, dtau,
+                single_scat_albedo, asym_param, mu0 = mu0)
+        else:
+            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
+                solve_2stream_nu(piBatm, dtau,
+                single_scat_albedo, asym_param, mu0 = mu0, mid_layer=mid_layer)
+        if self.Ng is None:
+            return Spectrum(self.flux_up_nu[0],self.wns,self.wnedges)
+        else:
+            return Spectrum(np.sum(self.flux_up_nu[0]*weights,axis=1),self.wns,self.wnedges)
+
+    def bolometric_fluxes(self, internal_flux=0.):
+        """Computes the bolometric fluxes at levels and the divergence of the net flux in the layers
+        (used to compute heating rates).
+
+        :func:`emission_spectrum_2stream` needs to be ran first.
+
+        Returns
+        -------
+            up: array
+                Upward fluxes at level surfaces
+            dw: array
+                Downward fluxes at level surfaces
+            net: array
+                Net fluxes at level surfaces
+            H: array
+                Heating rate in each layer (Difference of the net fluxes). Positive means heating.
+                The last value is the net flux impinging on the surface + the internal flux.
+        """
+        if self.flux_net_nu is None:
+            raise RuntimeError('should have ran emission_spectrum_2stream.')
+        dwnedges=np.diff(self.wnedges)
+        if self.Ng is None:
+            up=np.sum(self.flux_up_nu*dwnedges,axis=1)
+            dw=np.sum(self.flux_down_nu*dwnedges,axis=1)
+            net=np.sum(self.flux_net_nu*dwnedges,axis=1)
+        else:
+            weights=self.kdatabase.weights
+            up=np.sum(np.sum(self.flux_up_nu*weights,axis=2)*dwnedges,axis=1)
+            dw=np.sum(np.sum(self.flux_down_nu*weights,axis=2)*dwnedges,axis=1)
+            net=np.sum(np.sum(self.flux_net_nu*weights,axis=2)*dwnedges,axis=1)
+        H=np.copy(net)
+        H[:-1]-=H[1:]
+        H=-H
+        H[-1]+=internal_flux
+        return up, dw, net, H
+
+    def flux_divergence(self, compute_kernel=False, internal_flux=0.):
+        """Computes the divergence of the net flux in the layers
+        (used to compute heating rates).
+
+        :func:`emission_spectrum_2stream` needs to be ran first.
+
+        Returns
+        -------
+            net: array
+                Net fluxes at level surfaces
+            H: array
+                Heating rate in each layer (Difference of the net fluxes). Positive means heating.
+                The last value is the net flux impinging on the surface + the internal flux.
+        """
+        if self.flux_net_nu is None:
+            raise RuntimeError('should have ran emission_spectrum_2stream.')
+        dwnedges=np.diff(self.wnedges)
+        if self.Ng is None:
+            net=np.sum(self.flux_net_nu*dwnedges,axis=1)
+        else:
+            weights=self.kdatabase.weights
+            net=np.sum(np.sum(self.flux_net_nu*weights,axis=2)*dwnedges,axis=1)
+
+        H=np.copy(net)
+        H[:-1]-=H[1:]
+        H=-H
+        H[-1]+=internal_flux
+
+        if compute_kernel:
+            dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
+            if self.Ng is None:
+                kernel=np.sum(self.kernel_nu*dB*dwnedges,axis=2)
+            else:
+                kernel=np.sum(np.sum(self.kernel_nu*weights,axis=3)*dB*dwnedges,axis=2)
+
+        if compute_kernel:
+            return net, H, kernel
+        else:
+            return net, H
+
     def exp_minus_tau(self):
         """Sums Exp(-tau) over gauss points
         """
@@ -534,97 +679,17 @@ class Atm(Atm_profile):
                 self.Nlay,self.Nw,self.tangent_path,self.density,self.kdata)
         return transmittance
 
-
-    def emission_spectrum_2stream(self, integral=True, mu0=0.5,
-            method='toon', dtau_min=1.e-13, iW=None, **kwargs):
-        """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
-
-        Parameters
-        ----------
-            integral: boolean, optional
-                * If true, the black body is integrated within each wavenumber bin.
-                * If not, only the central value is used.
-                  False is faster and should be ok for small bins,
-                  but True is the correct version. 
-
-        Other Parameters
-        ----------------
-            mu0: float
-                Cosine of the quadrature angle use to compute output flux
-
-        Returns
-        -------
-            Spectrum object 
-                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
-        """
-        self.opacity(rayleigh=False, **kwargs)
-        if integral:
-            #JL2020 What is below is slightly faster for very large resolutions
-            #dw=np.diff(self.wnedges)
-            #piBatm=np.empty((self.Nlev,self.Nw))
-            #for ii in range(self.Nlev):
-            #    piBatm[ii]=PI*Bnu_integral_num(self.wnedges,self.tlev[ii])/dw
-            #JL2020 What is below is much faster for moderate to low resolutions
-            piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
-                /np.diff(self.wnedges)
-        else:
-            piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
-        self.compute_layer_col_density()
-        mutau=1. # because the mu effect is taken into account in solve_2stream_nu
-                 # we must compute the vertical optical depth here.
-        if self.Ng is None:
-            self.tau,dtau=rad_prop_xsec(self.dcol_density,self.kdata,mutau)
-        else:
-            self.tau,dtau=rad_prop_corrk(self.dcol_density,self.kdata,mutau)
-            weights=self.kdatabase.weights
-        single_scat_albedo = np.zeros_like(dtau)
-        asym_param = np.zeros_like(dtau)
-        dtau=np.where(dtau<dtau_min,dtau_min,dtau)
-        if method == 'crisp':
-            solve_2stream_nu=solve_2stream_nu_crisp
-        elif method == 'lmdz':
-            solve_2stream_nu=solve_2stream_nu_lmdz
-        else:
-            solve_2stream_nu=solve_2stream_nu_toon
-        self.flux_up, self.flux_down, self.flux_net = \
-            solve_2stream_nu(self.Ng, piBatm, dtau,
-                    single_scat_albedo, asym_param, mu0 = mu0)
-
-        if iW is not None:
-            print('piBatm', piBatm[:,iW])
-            print('dtau', dtau[:,iW])
-            print('tau', self.tau[:,iW])
-            print('flux_up', self.flux_up[:,iW])
-            print('flux_down', self.flux_down[:,iW])
-        if self.Ng is None:
-            return Spectrum(self.flux_up[0],self.wns,self.wnedges)
-        else:
-            return Spectrum(np.sum(self.flux_up[0]*weights,axis=1),self.wns,self.wnedges)
-
-    def ir_cooling(self):
-        if self.flux_net is None: raise RuntimeError('should have ran emission_spectrum_2stream.')
-        dwnedges=np.diff(self.wnedges)
-        if self.Ng is None:
-            up=np.sum(self.flux_up*dwnedges,axis=1)
-            dw=np.sum(self.flux_down*dwnedges,axis=1)
-            net=np.sum(self.flux_net*dwnedges,axis=1)
-        else:
-            weights=self.kdatabase.weights
-            up=np.sum(np.sum(self.flux_up*weights,axis=2)*dwnedges,axis=1)
-            dw=np.sum(np.sum(self.flux_down*weights,axis=2)*dwnedges,axis=1)
-            net=np.sum(np.sum(self.flux_net*weights,axis=2)*dwnedges,axis=1)
-        return up,dw,net
-
-
     def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):
-        """Computes the transmission spectrum of the atmosphere.
+        r"""Computes the transmission spectrum of the atmosphere.
         In general (see options below), the code returns the transit depth:
 
-        delta_nu=(pi*Rp^2+alpha_nu)/(pi*Rstar^2).
+        .. math::
+            \delta_\nu=(\pi R_p^2+\alpha_\nu)/(\pi R_{star}^2),
 
         where
 
-        alpha_nu=2*pi*Int_0^zmax (Rp+z)*(1-exp(-tau_nu(z))) dz
+        .. math::
+          \alpha_\nu=2 \pi \int_0^{z_{max}} (R_p+z)*(1-e^{-\tau_\nu(z)) d z.
         
         Parameters
         ----------
@@ -632,13 +697,22 @@ class Atm(Atm_profile):
                 Radius of the host star. Does not need to be given here if
                 as already been specified as an attribute of the self.Atm object.
                 If specified, the result is the transit depth:
-                delta_nu=(pi*Rp^2+alpha_nu)/(pi*Rstar^2).
+
+                .. math::
+                  \delta_\nu=(\pi R_p^2+\alpha_\nu)/(\pi R_{star}^2).
+
             normalized: boolean, optional
-                Used only if self.Rstar and Rstar are None.
-                * If true, the result is normalized to the planetary radius:
-                  delta_nu=1+alpha_nu/(pi*Rp^2).
-                * If False, delta_sigma=1+(h_sigma/R_planet)^2.
-                  delta_nu=pi*Rp^2+alpha_nu.
+                Used only if self.Rstar and Rstar are None:
+
+                * If True,
+                  the result is normalized to the planetary radius:
+
+                  .. math::
+                    \delta_\nu=1+\frac{\alpha_\nu}{\pi R_p^2}.
+                * If False,
+                                    
+                  .. math::
+                    \delta_\nu=\pi R_p^2+\alpha_\nu.
 
         Returns
         -------

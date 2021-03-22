@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-Created on Jun 20 2019
+Created in Jan 2021
 
 @author: jeremy leconte
-
-Library of useful functions for radiative transfer calculations
 """
 import numpy as np
 import numba
 
-#def solve_2stream_nu(NG, source_nu, dtau_nu, omega0_nu=0., g_asym_nu=0.,
-#                mu0=0.5, flux_top_dw_nu=0., alb_surf=0., verbose=False):
-#    """Deals with the spectral axis
-#    """
-#    pass
+def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu, mu0=0.5,
+        flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+    """Deals with the spectral axis
+    """
+    raise NotImplementedError("method='lmdz' cannot be used with cross-section data.")
+
 
 @numba.jit(nopython=True,fastmath=True)
-def solve_2stream_nu(NG, source_nu,dtau_nu,omega0_nu,g_asym_nu,mu0=0.5,
-        flux_top_dw_nu=0., alb_surf=0.):
+def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu, mu0=0.5,
+        flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+    """Deals with the spectral axis
+    """
 #      
 #      use radinc_h
 #      use radcommon_h, only: planckir, tlimit,sigma, gweight
@@ -367,7 +368,8 @@ def DSOLVER(NL,GAMA,CP,CM,CPM1,CMM1,E1,E2,E3,E4,BTOP,
         if XK2[N] == 0.0: continue
 #        IF (ABS (XK2(N)/XK(2*N-1)) .LT. 1.E-30) XK2(N)=0.0
 
-        if (np.abs(XK2[N]/(XK[2*N-1]+1.e-20)) <= 1.E-30): XK2[N]=0.0   # For debug only (with -Ktrap=fp option)
+        if np.abs(XK2[N]/(XK[2*N-1]+1.e-20)) <= 1.E-30:
+            XK2[N]=0.0   # For debug only (with -Ktrap=fp option)
 
     return XK1, XK2
 

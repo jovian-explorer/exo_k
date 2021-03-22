@@ -1,53 +1,53 @@
 # -*- coding: utf-8 -*-
 """
-Created on Jun 20 2019
+Created in Jan 2021
 
 @author: jeremy leconte
-
-Library of useful functions for radiative transfer calculations
 """
 import numpy as np
 from scipy.linalg import solve_banded
 import numba
 
-def solve_2stream_nu(NG, source_nu, dtau_nu, omega0_nu=0., g_asym_nu=0.,
-                mu0=0.5, flux_top_dw_nu=0., alb_surf=0.):
+@numba.jit(nopython=True,fastmath=True)
+def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+                mu0=0.5, flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
     """
-    NLEV=source_nu.shape[0]
-    NW = dtau_nu.shape[1]
-    if NG is None :
-        flux_up=np.empty((NLEV, NW))
-        flux_dw=np.empty((NLEV, NW))
-        flux_net=np.empty((NLEV, NW))
-        for iW in range(NW):
-            flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW] = \
-                solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
-                    omega0_nu[:,iW], g_asym_nu[:,iW],
+    NLEV, NW = source_nu.shape
+    flux_up=np.empty((NLEV, NW))
+    flux_dw=np.empty((NLEV, NW))
+    flux_net=np.empty((NLEV, NW))
+    for iW in range(NW):
+        flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW] = \
+            solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
+                omega0_nu[:,iW], g_asym_nu[:,iW],
+                mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                alb_surf=alb_surf, mid_layer=mid_layer)
+    return flux_up, flux_dw, flux_up-flux_dw
+
+@numba.jit(nopython=True,fastmath=True)
+def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+                mu0=0.5, flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+    """Deals with the spectral axis
+    """
+    NLEV, NW = source_nu.shape
+    NG = dtau_nu.shape[-1]
+    flux_up=np.empty((NLEV, NW, NG))
+    flux_dw=np.empty((NLEV, NW, NG))
+    flux_net=np.empty((NLEV, NW, NG))
+    for iW in range(NW):
+        for iG in range(NG):
+            flux_up[:,iW, iG], flux_dw[:,iW, iG], flux_net[:,iW, iG] = \
+                solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
+                    omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
                     mu0=mu0, flux_top_dw=flux_top_dw_nu,
-                    alb_surf=alb_surf)
-    else:
-        flux_up=np.empty((NLEV, NW, NG))
-        flux_dw=np.empty((NLEV, NW, NG))
-        flux_net=np.empty((NLEV, NW, NG))
-        #source_nu2=np.zeros((NLEV, NW, NG), dtype=float)
-        #print(flux_up.shape, flux_dw.shape, source_nu.shape, dtau_nu.shape,
-        #  omega0_nu.shape, g_asym_nu.shape)
-        for iW in range(NW):
-            for iG in range(NG):
-                #print(iG,NG)
-                #source_nu2[:,iW,iG]=source_nu[:,iW]
-                flux_up[:,iW, iG], flux_dw[:,iW, iG], flux_net[:,iW, iG] = \
-                    solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
-                        omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
-                        mu0=mu0, flux_top_dw=flux_top_dw_nu,
-                        alb_surf=alb_surf)
+                    alb_surf=alb_surf, mid_layer=mid_layer)
     return flux_up, flux_dw, flux_up-flux_dw
 
 @numba.jit(nopython=True,fastmath=True)
 def solve_2stream(source, dtau, omega0, g_asym,
-                mu0=0.5, flux_top_dw=0., alb_surf=0.):
-    """After Toon et al. (1989)
+                mu0=0.5, flux_top_dw=0., alb_surf=0., mid_layer=False):
+    """After Toon et al. (JGR, 1989). Equation number refer to this article.
     
     emis_surf=1.-alb_surf
     
@@ -77,7 +77,7 @@ def solve_2stream(source, dtau, omega0, g_asym,
     Nlay=dtau.size
     gam_1, gam_2=_gammas_toon(omega0, g_asym, mu0=mu0)
     flux_net, J4pimu=matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu0,
-                flux_top_dw, alb_surf)
+                flux_top_dw, alb_surf, mid_layer)
     return 0.5*(J4pimu+flux_net), 0.5*(J4pimu-flux_net), flux_net
 
 @numba.jit(nopython=True,fastmath=True)
@@ -104,7 +104,7 @@ def _gammas_toon(omega0, g_asym, mu0=0.5):
 
 @numba.jit(nopython=True,fastmath=True)
 def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
-        flux_top_dw, alb_surf):
+        flux_top_dw, alb_surf, mid_layer):
     """
     Returns
     -------
@@ -142,8 +142,18 @@ def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
     Y=DTRIDGL(2*Nlay,A,B,D,E)
     flux_net = np.empty((Nlay+1))
     J4pimu   = np.empty((Nlay+1))
-    flux_net[1:] = Y[::2]*(e_1-e_3)+Y[1::2]*(e_2-e_4)+c_up_bot-c_dw_bot
-    J4pimu[1:]   = Y[::2]*(e_1+e_3)+Y[1::2]*(e_2+e_4)+c_up_bot+c_dw_bot
+    if mid_layer:
+        c_up_mid, c_dw_mid = c_planck_mid(source, dtau, gam_1, gam_2, mu1)
+        #print('mid:',np.amax(np.abs((c_up_mid-c_up_top)/c_up_top)))
+        #print('bot:',np.amax(np.abs((c_up_bot-c_up_top)/c_up_top)))
+        mid_factor = mid_factor_toon(dtau, gam_1, gam_2)
+        flux_net[1:] = Y[1::2]*mid_factor+c_up_mid-c_dw_mid
+        J4pimu[1:]   = Y[::2]*mid_factor+c_up_mid+c_dw_mid
+        #flux_net[-1] = Y[-2]*(e_1[-1]-e_3[-1])+Y[-1]*(e_2[-1]-e_4[-1])+c_up_bot[-1]-c_dw_bot[-1]
+        #J4pimu[-1]   = Y[-2]*(e_1[-1]+e_3[-1])+Y[-1]*(e_2[-1]+e_4[-1])+c_up_bot[-1]+c_dw_bot[-1]
+    else:
+        flux_net[1:] = Y[::2]*(e_1-e_3)+Y[1::2]*(e_2-e_4)+c_up_bot-c_dw_bot
+        J4pimu[1:]   = Y[::2]*(e_1+e_3)+Y[1::2]*(e_2+e_4)+c_up_bot+c_dw_bot
     flux_net[0]  = Y[0]*e_3[0]-Y[1]*e_4[0]+c_up_top[0]
     J4pimu[0]    = flux_net[0] + flux_top_dw
     flux_net[0] -= flux_top_dw
@@ -173,8 +183,8 @@ def c_planck(source, dtau, gam_1, gam_2, mu1):
     removed a pi factor because source is pi*B
     """
     #cst=2*mu1
-    cst=1. # this factor avoids emissivity greater than one. 
-           # but is it correct ???
+    cst=1. # this factor seems to avoid emissivity greater than one. 
+           # but what is the analytical basis for this ???
     #print(gam_1+gam_2)
     inv_dtaugam=1./(dtau*(gam_1+gam_2))
     #print(1./(dtau*(gam_1+gam_2)), 1./dtau*(gam_1+gam_2))
@@ -186,8 +196,21 @@ def c_planck(source, dtau, gam_1, gam_2, mu1):
     return c_up_top, c_dw_top, c_up_bot, c_dw_bot
 
 @numba.jit(nopython=True,fastmath=True)
+def c_planck_mid(source, dtau, gam_1, gam_2, mu1):
+    """c_up/dw is for c+/- whithout direct beam scattering.
+    These are computed at the middle of the layer, i.e. at tau=dtau/2.
+    removed a pi factor because source is pi*B
+    """
+    cst=1. # this factor seems to avoid emissivity greater than one. 
+           # but what is the analytical basis for this ???
+    inv_dtaugam=1./(dtau*(gam_1+gam_2))
+    c_up_mid=cst*( source[:-1]*(.5-inv_dtaugam)+source[1:]*(0.5+inv_dtaugam))
+    c_dw_mid=cst*( source[:-1]*(.5+inv_dtaugam)+source[1:]*(0.5-inv_dtaugam))
+    return c_up_mid, c_dw_mid
+
+@numba.jit(nopython=True,fastmath=True)
 def e_i_toon(dtau, gam_1, gam_2):
-    """e_i factors defined 
+    """e_i factors defined in eq 44.
     """
     lamb,GAMMA=lambda_GAMMA(gam_1, gam_2)
     expdtau=np.exp(-lamb*dtau)
@@ -197,6 +220,15 @@ def e_i_toon(dtau, gam_1, gam_2):
     e_3=GAMMA+expdtau
     e_4=GAMMA-expdtau
     return e_1, e_2, e_3, e_4
+
+@numba.jit(nopython=True,fastmath=True)
+def mid_factor_toon(dtau, gam_1, gam_2):
+    """Factors to recover the flux at mid layer. 
+    """
+    lamb,GAMMA=lambda_GAMMA(gam_1, gam_2)
+    expdtaumid=np.exp(-lamb*dtau*0.5)
+    mid_fac=2.*(1.-GAMMA)*expdtaumid
+    return mid_fac
 
 @numba.jit(nopython=True,fastmath=True)
 def DTRIDGL(L,AF,BF,CF,DF):
