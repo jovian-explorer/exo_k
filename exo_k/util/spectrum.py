@@ -14,20 +14,25 @@ class Spectrum(Spectral_object):
     """
 
     def __init__(self, value=None, wns=None, wnedges=None, filename=None,
-            from_taurex=False, dataset='native_spectrum'):
+            from_taurex=False, dataset='native_spectrum', **kwargs):
         """Instanciate with a value, bin centers, and bin edges.
         Can also load a Taurex spectrum if filename is provided.
         """
         self.wn_unit='cm^-1'
-        if filename is None:
-            self.value=value
-            self.wns=wns
-            self.wnedges=wnedges
-        else:
+        self.value=value
+        self.wns=wns
+        self.wnedges=wnedges
+        if filename is not None:
             if from_taurex:
                 self.load_taurex(filename, dataset)
-            else:
+            elif filename.lower().endswith(('.hdf5', '.h5')):
                 self.read_hdf5(filename)
+            elif filename.lower().endswith(('.dat', '.txt')):
+                self.read_ascii(filename, **kwargs)
+        if (self.wnedges is None) and (self.wns is not None):
+            self.wnedges=np.concatenate(([self.wns[0]],
+                (self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+
     
     def copy(self):
         """Deep copy of the spectrum.
@@ -200,6 +205,48 @@ class Spectrum(Spectral_object):
         f.create_dataset("bin_centers", data=self.wns, compression=compression)
         f["bin_centers"].attrs["units"] = 'cm^-1'
         f.close()
+
+    def read_ascii(self, filename, spec_axis='wns', skip_header=None):
+        """Saves data in a ascii format
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be read
+            spec_axis: str
+                Whether the secptral axis in the file is
+                wavenumber in cm^-1 ('wns') or wavelength in microns ('wls')
+            skip_header: int
+                Number of lines to skip
+        """
+        raw=np.genfromtxt(filename, skip_header=skip_header,
+            usecols=(0,1), names=('spec_axis','value'))
+        if spec_axis=='wls':
+            raw['spec_axis']=1.e4/raw['spec_axis'][::-1] #conversion to wavenumber in cm-1
+            raw['value']=raw['value'][::-1]
+        self.value=raw['value']
+        self.wns=raw['spec_axis']
+
+    def write_ascii(self, filename, fmt='%.18e', spec_axis='wns', header=None):
+        """Saves data in a ascii format
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be created and saved
+        """
+        fullfilename=filename
+        if not filename.lower().endswith(('.dat', '.txt')):
+            fullfilename=filename+'.dat'
+        head=header
+        if spec_axis=='wns':
+            if head is None: head='wavenumber(cm^-1)     spectrum'
+            np.savetxt(fullfilename, np.array([self.wns,self.value]).transpose(),
+                fmt=fmt, header=head)
+        else:    
+            if head is None: head='wavelength(micron)    spectrum'
+            np.savetxt(fullfilename, np.array([self.wls[::-1],self.value[::-1]]).transpose(),
+                fmt=fmt, header=head)
 
     def load_taurex(self, filename,dataset='native_spectrum'):
         """Loads a taurex file
