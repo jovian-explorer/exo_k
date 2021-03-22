@@ -236,7 +236,7 @@ def g_sample_5d(new_ggrid, new_kdata, old_ggrid, old_kdata):
             new_kdata[iP,iT,iX,iW,:]=np.interp(new_ggrid, old_ggrid, old_kdata[iP,iT,iX,iW,:])
     return
 
-#@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True,fastmath=True)
 def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
     """Function to randomely mix the opacities of 2 species in an atmospheric profile.
 
@@ -268,6 +268,13 @@ def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
 
     for ilay in range(Nlay):
         for iW in range(Nw):
+            if (kdata1[ilay,iW,-1]-kdata2[ilay,iW,0])*(kdata2[ilay,iW,-1]-kdata1[ilay,iW,0])<0.:
+                #ii+=1
+                if kdata1[ilay,iW,-1] > kdata2[ilay,iW,-1]:
+                    newkdata[ilay,iW,:] = kdata1[ilay,iW,:] 
+                else:
+                    newkdata[ilay,iW,:] = kdata2[ilay,iW,:]
+                continue
             tmp=kdataconv[ilay,iW,:]
             indices=np.argsort(tmp)
             kdatasort=tmp[indices]
