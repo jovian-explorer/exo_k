@@ -369,24 +369,27 @@ class Cia_table(Spectral_object):
             'abs_coeff_unit',unit_file=tmp_k_u_file,unit_in=tmp_k_u_in,unit_out=tmp_k_u_out)
         self.abs_coeff=self.abs_coeff*conversion_factor
 
-    def convert_to_mks(self):
+    def convert_to_mks(self, verbose=False):
         """Converts units to MKS
         """
+        message=None
         if self.abs_coeff_unit=='cm^5':
-            print('Conversion from cm^5 to m^5')
+            message='Conversion from cm^5 to m^5'
             self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
         elif self.abs_coeff_unit in ['cm^2','m^2']:
-            print('Conversion from '+self.abs_coeff_unit+'/amagat to m^5')
+            message='Conversion from '+self.abs_coeff_unit+'/amagat to m^5'
             self.convert_abs_coeff_unit(abs_coeff_unit='m^2')
             self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)
             #conversion from m^2/amagat to m^5
         elif self.abs_coeff_unit in ['cm^-1','m^-1']:
-            print('Conversion from '+self.abs_coeff_unit+'/amagat^2 to m^5')
+            message='Conversion from '+self.abs_coeff_unit+'/amagat^2 to m^5'
             self.convert_abs_coeff_unit(abs_coeff_unit='m^-1')
             self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)**2
             #conversion from m^-1/amagat^2 to m^5
         else:
             pass
+        if verbose and message is not None:
+            print(message)
         self.abs_coeff_unit='m^5'
         return
 

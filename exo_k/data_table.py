@@ -180,7 +180,7 @@ class Data_table(Spectral_object):
         ----------
             logp_array: array
                 log 10 pressure array to interpolate to
-            t_array: array, same size a logp_array
+            t_array: array, same size as logp_array
                 Temperature array to interpolate to
             x_array: None
                 Volume mixing ratio array used to renormalize the cross section.

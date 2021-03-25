@@ -64,7 +64,8 @@ class Ktable_io(Data_table):
             if 'weights' in f.keys():
                 self.weights=f['weights'][...]
             else:
-                raise RuntimeError('No weights keyword. This file is probably a cross section file.')
+                raise RuntimeError("""No weights keyword.
+                    This file is probably a cross section file.""")
             self.ggrid=f['samples'][...]
             self.gedges=np.insert(np.cumsum(self.weights),0,0.)
             self.logk=False
