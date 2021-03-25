@@ -310,6 +310,15 @@ class Gas_mix(Spectral_object):
             self.set_composition(composition)
         molecs=self.composition.keys()
         mol_to_be_done=list(set(molecs).intersection(self.kdatabase.molecules))
+        vmr_prof, cst_prof=self.get_vmr_array((self.Narray,))
+        if not mol_to_be_done:
+            if 'total' in self.kdatabase.molecules:
+                mol_to_be_done=['total']
+                vmr_prof['total']=np.ones((self.Narray))
+            else:
+                raise RuntimeError("""The k_database you provided 
+                    should contain at least one molecule in your atm,
+                    or a ktable with the 'total' key.""")
         if all(elem in self.kdatabase.molecules for elem in molecs):
             if write>3 : print("""I have all the molecules present in the atmosphere
               in ktables provided:""")
@@ -322,10 +331,10 @@ class Gas_mix(Spectral_object):
         local_wn_range=self._compute_spectral_range(wl_range=wl_range, wn_range=wn_range)
         self._compute_wn_range_indices(wn_range=local_wn_range)
         self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
+        self.dwnedges=np.diff(self.wnedges)
         self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
         self.Nw=self.wns.size
 
-        vmr_prof, cst_prof=self.get_vmr_array((self.Narray,))
         first_mol=True
         for mol in mol_to_be_done:
             tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
