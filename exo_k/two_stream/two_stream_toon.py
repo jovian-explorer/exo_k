@@ -10,7 +10,7 @@ import numba
 
 @numba.jit(nopython=True,fastmath=True)
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                mu0=0.5, flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+                flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -21,13 +21,13 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
         flux_up[:,iW], flux_dw[:,iW], flux_net[:,iW] = \
             solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
                 omega0_nu[:,iW], g_asym_nu[:,iW],
-                mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
                 alb_surf=alb_surf, mid_layer=mid_layer)
     return flux_up, flux_dw, flux_up-flux_dw
 
 @numba.jit(nopython=True,fastmath=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                mu0=0.5, flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+                flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -40,7 +40,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             flux_up[:,iW, iG], flux_dw[:,iW, iG], flux_net[:,iW, iG] = \
                 solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
                     omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
-                    mu0=mu0, flux_top_dw=flux_top_dw_nu,
+                    mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
                     alb_surf=alb_surf, mid_layer=mid_layer)
     return flux_up, flux_dw, flux_up-flux_dw
 
@@ -51,7 +51,7 @@ def solve_2stream(source, dtau, omega0, g_asym,
     
     emis_surf=1.-alb_surf
     
-    As we only consider hemispheric mean or quadrature, mu1==m0
+    As we only consider hemispheric mean or quadrature, mu1==mu0
 
     Parameters
     ----------
@@ -72,6 +72,12 @@ def solve_2stream(source, dtau, omega0, g_asym,
             Incoming difuse flux at the upper boundary
         alb_surf: float
             Surface albedo. Emissivity is assumed to be 1.-alb_surf
+        mid_layer: bool, optional
+            if mid_layer is False, fluxes are calculated at the level surfaces.
+            If True, fluxes are computed at the midle of the layers, except for the
+            top of atmosphere flux, which is still computed at the top of the uppermost layer
+            (1st level).
+
 
     """
     Nlay=dtau.size

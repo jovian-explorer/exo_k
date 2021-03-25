@@ -7,50 +7,48 @@ Created in Jan 2021
 import numpy as np
 import numba
 
-def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu, mu0=0.5,
-        flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+        flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
     """
-    raise NotImplementedError("method='lmdz' cannot be used with cross-section data.")
-
+      
+    Nlay,Nw   = dtau_nu.shape
+    FLUXUPI_nu   = np.zeros((Nlay+1, Nw))
+    FLUXDWI_nu   = np.zeros((Nlay+1, Nw))
+    FNETI_nu     = np.zeros((Nlay+1, Nw))
+              
+# WE NOW ENTER A MAJOR LOOP OVER SPECTRAL INTERVALS IN THE INFRARED
+# TO CALCULATE THE NET FLUX IN EACH SPECTRAL INTERVAL
+            
+    for NW in range(Nw):         
+            
+# SET UP THE UPPER AND LOWER BOUNDARY CONDITIONS ON THE IR
+# CALCULATE THE DOWNWELLING RADIATION AT THE TOP OF THE MODEL
+# OR THE TOP LAYER WILL COOL TO SPACE UNPHYSICALLY
+            
+#            TAUTOP = dtau_nu[1,NW,iG]*PLEV[2]/(PLEV[4]-PLEV[2])
+#JL21 simple boundary condition for now to compare with toon
+#            TAUTOP = TAUCUMI[0,NW,iG]
+#            BTOP   = (1.e0-np.exp(-TAUTOP/mu0))*PLTOP
+            
+# WE CAN NOW SOLVE FOR THE COEFFICIENTS OF THE TWO STREAM
+# CALL A SUBROUTINE THAT SOLVES  FOR THE FLUX TERMS
+# WITHIN EACH INTERVAL AT THE MIDPOINT WAVENUMBER 
+            
+        FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW],
+                omega0_nu[:,NW], g_asym_nu[:,NW], mu0=mu0,
+                flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf)
+        FLUXUPI_nu[:,NW] = FMUPI
+        FLUXDWI_nu[:,NW] = FMDI
+        FNETI_nu[:,NW] = FNETI
+               
+    return FLUXUPI_nu, FLUXDWI_nu, FNETI_nu
 
 @numba.jit(nopython=True,fastmath=True)
-def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu, mu0=0.5,
-        flux_top_dw_nu=0., alb_surf=0., mid_layer=False):
+def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
+        flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
     """
-#      
-#      use radinc_h
-#      use radcommon_h, only: planckir, tlimit,sigma, gweight
-#      use comcstfi_mod, only: pi
-#      
-#      implicit none
-#      #      
-#      real*8 TLEV(L_LEVELS), PLEV(L_LEVELS)
-#      real*8 TAUCUMI(L_LEVELS,L_NSPECTI,L_NGAUSS)
-#      real*8 FMNETI(L_NLAYRAD)
-#      real*8 WNOI(L_NSPECTI), DWNI(L_NSPECTI)
-#      real*8 dtau_nu(L_NLAYRAD,L_NSPECTI,L_NGAUSS)
-#      real*8 FMUPI(L_NLEVRAD), FMDI(L_NLEVRAD)
-#      real*8 COSBI(L_NLAYRAD,L_NSPECTI,L_NGAUSS)
-#      real*8 omega0_nu(L_NLAYRAD,L_NSPECTI,L_NGAUSS)
-#      real*8 NFLUXTOPI
-#      real*8 NFLUXTOPI_nu(L_NSPECTI)
-#      real*8 fluxupi_nu(L_NLAYRAD,L_NSPECTI)
-#      real*8 FTOPUP
-#      
-#      real*8 mu0, RSFI, TSURF, BSURF, TTOP, BTOP, TAUTOP
-#      real*8 PLANCK, PLTOP
-#      real*8 fluxupi(L_NLAYRAD), fluxdni(L_NLAYRAD)
-#      
-#      real*8 PLANCKSUM,PLANCKREF
-#      
-## AB : variables for interpolation
-#      REAL*8 C1
-#      REAL*8 C2
-#      REAL*8 P1
-#      
-##======================================================================#
       
     Nlay,Nw,Ng   = dtau_nu.shape
     FLUXUPI_nu   = np.zeros((Nlay+1, Nw, Ng))
@@ -78,33 +76,17 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu, mu0=0.5,
             
             FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW,iG],
                     omega0_nu[:,NW,iG], g_asym_nu[:,NW,iG], mu0=mu0,
-                    flux_top_dw=flux_top_dw_nu, alb_surf=alb_surf)
+                    flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf,
+                    mid_layer=mid_layer)
             FLUXUPI_nu[:,NW,iG] = FMUPI
             FLUXDWI_nu[:,NW,iG] = FMDI
             FNETI_nu[:,NW,iG] = FNETI
-         
-## NOW CALCULATE THE CUMULATIVE IR NET FLUX
-#            NFLUXTOPI += FTOPUP*GWEIGHT[iG]
-#            
-## and same thing by spectral band... (RDW)
-#            NFLUXTOPI_nu[NW] += FTOPUP * GWEIGHT[iG] 
-#            
-#            for L in range(L_NLEVRAD-1):
-##           CORRECT FOR THE WAVENUMBER INTERVALS
-#                FMNETI[L]  += (FMUPI[L]-FMDI[L]) * GWEIGHT[iG]
-#                FLUXUPI[L] += FMUPI[L]*GWEIGHT[iG]
-#                FLUXDNI[L] += FMDI[L]*GWEIGHT[iG]
-##         and same thing by spectral band... (RW)
-#                FLUXUPI_nu[L,NW] += FMUPI[L] * GWEIGHT[iG] 
-#      #End NGAUSS LOOP
-         
-# *** END OF MAJOR SPECTRAL INTERVAL LOOP IN THE INFRARED****
-      
+               
     return FLUXUPI_nu, FLUXDWI_nu, FNETI_nu
 
 @numba.jit(nopython=True,fastmath=True)
 def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0., 
-                      alb_surf=0.):
+                      alb_surf=0., mid_layer=False):
     """Based on gfluxi in LMDZ code      
 ##-----------------------------------------------------------------------
 ##  THIS SUBROUTINE TAKES THE OPTICAL CONSTANTS AND BOUNDARY CONDITIONS
@@ -134,34 +116,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0.,
 ## FMIDM(NLAYER)  = DOWNWARD FLUX AT LAYER MIDPOINTS
 ##-----------------------------------------------------------------------
 """
-#      
-#      INTEGER NLL, NLAYER, L, NW, NT, NT2
-#      REAL*8  TERM, CPMID, CMMID
-#      REAL*8  PLANCK
-#      REAL*8  EM,EP
-#      REAL*8  g_asym(L_NLAYRAD), omega0(L_NLAYRAD), dtau(L_NLAYRAD)
-#      REAL*8  TAUCUM(L_LEVELS), DTAUK
-#      REAL*8  TLEV(L_LEVELS)
-#      REAL*8  WAVEN, DW, mu0, alb_surf
-#      REAL*8  BTOP, BSURF, FMIDP(L_NLAYRAD), FMIDM(L_NLAYRAD)
-#      REAL*8  B0(L_NLAYRAD)
-#      REAL*8  B1(L_NLAYRAD)
-#      REAL*8  ALPHA(L_NLAYRAD)
-#      REAL*8  LAMDA(L_NLAYRAD),XK1(L_NLAYRAD),XK2(L_NLAYRAD)
-#      REAL*8  GAMA(L_NLAYRAD),CP(L_NLAYRAD),CM(L_NLAYRAD)
-#      REAL*8  CPM1(L_NLAYRAD),CMM1(L_NLAYRAD),E1(L_NLAYRAD)
-#      REAL*8  E2(L_NLAYRAD)
-#      REAL*8  E3(L_NLAYRAD)
-#      REAL*8  E4(L_NLAYRAD)
-#      REAL*8  FTOPUP, FLUXUP, FLUXDN
-#      REAL*8 :: TAUMAX = L_TAUMAX
-#
-## AB : variables for interpolation
-#      REAL*8 C1
-#      REAL*8 C2
-#      REAL*8 P1
-#      REAL*8 P2
-#      
+
 ##=======================================================================
 ##     WE GO WITH THE HEMISPHERIC CONSTANT APPROACH IN THE INFRARED
 #      
@@ -231,37 +186,61 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0.,
                 BSURF,alb_surf)
       
 # NOW WE CALCULATE THE FLUXES
+#UPPER LAYER
+    #DTAUK = 0.
+    TERM  = mu0/(1.e0-omega0[0]*g_asym[0])
+    CPMID    = B0[0] +B1[0]*TERM
+    CMMID    = B0[0] -B1[0]*TERM
+    FMIDP[0] = XK1[0] + GAMA[L]*XK2[0] + CPMID
+    FMIDM[0] = XK1[0]*GAMA[L] + XK2[0] + CMMID
       
-    for L in range(Nlay):
-        DTAUK = 0.
-        EP    = np.exp(min(LAMDA[L]*DTAUK,TAUMAX)) # CLIPPED EXPONENTIAL 
-        EM    = 1.e0/EP
-        TERM  = mu0/(1.e0-omega0[L]*g_asym[L])
+    if mid_layer:
+        for L in range(Nlay):
+            DTAUK = dtau[L]/2.
+            EP    = np.exp(min(LAMDA[L]*DTAUK,TAUMAX)) # CLIPPED EXPONENTIAL 
+            EM    = 1.e0/EP
+            TERM  = mu0/(1.e0-omega0[L]*g_asym[L])
          
 # CP AND CM ARE THE CPLUS AND CMINUS TERMS EVALUATED AT THE
 # TOP OF THE LAYER.  THAT IS AT 0  OPTICAL DEPTH
          
-        CPMID    = B0[L]+B1[L]*DTAUK +B1[L]*TERM
-        CMMID    = B0[L]+B1[L]*DTAUK -B1[L]*TERM
-        FMIDP[L] = XK1[L]*EP + GAMA[L]*XK2[L]*EM + CPMID
-        FMIDM[L] = XK1[L]*EP*GAMA[L] + XK2[L]*EM + CMMID
-        
+            CPMID    = B0[L]+B1[L]*DTAUK +B1[L]*TERM
+            CMMID    = B0[L]+B1[L]*DTAUK -B1[L]*TERM
+            FMIDP[L+1] = XK1[L]*EP + GAMA[L]*XK2[L]*EM + CPMID
+            FMIDM[L+1] = XK1[L]*EP*GAMA[L] + XK2[L]*EM + CMMID
+
+    else:
+        for L in range(1,Nlay):
+            DTAUK = 0.
+            EP    = np.exp(min(LAMDA[L]*DTAUK,TAUMAX)) # CLIPPED EXPONENTIAL 
+            EM    = 1.e0/EP
+            TERM  = mu0/(1.e0-omega0[L]*g_asym[L])
+         
+# CP AND CM ARE THE CPLUS AND CMINUS TERMS EVALUATED AT THE
+# TOP OF THE LAYER.  THAT IS AT 0  OPTICAL DEPTH
+         
+            CPMID    = B0[L]+B1[L]*DTAUK +B1[L]*TERM
+            CMMID    = B0[L]+B1[L]*DTAUK -B1[L]*TERM
+            FMIDP[L] = XK1[L]*EP + GAMA[L]*XK2[L]*EM + CPMID
+            FMIDM[L] = XK1[L]*EP*GAMA[L] + XK2[L]*EM + CMMID
+
+
 # And now, for the special bottom layer
 
-    L    = Nlay-1
-    DTAUK=dtau[L]
-    #DTAUK= 0.
-    EP   = np.exp(min((LAMDA[L]*DTAUK),TAUMAX)) # CLIPPED EXPONENTIAL 
-    EM   = 1.e0/EP
-    TERM = mu0/(1.e0-omega0[L]*g_asym[L])
+        L    = Nlay-1
+        DTAUK=dtau[L]
+        #DTAUK= 0.
+        EP   = np.exp(min((LAMDA[L]*DTAUK),TAUMAX)) # CLIPPED EXPONENTIAL 
+        EM   = 1.e0/EP
+        TERM = mu0/(1.e0-omega0[L]*g_asym[L])
 
 # CP AND CM ARE THE CPLUS AND CMINUS TERMS EVALUATED AT THE
 # BOTTOM OF THE LAYER.  THAT IS AT dtau  OPTICAL DEPTH
 
-    CPMID    = B0[L]+B1[L]*DTAUK +B1[L]*TERM
-    CMMID    = B0[L]+B1[L]*DTAUK -B1[L]*TERM
-    FMIDP[L+1] = XK1[L]*EP + GAMA[L]*XK2[L]*EM + CPMID
-    FMIDM[L+1] = XK1[L]*EP*GAMA[L] + XK2[L]*EM + CMMID
+        CPMID    = B0[L]+B1[L]*DTAUK +B1[L]*TERM
+        CMMID    = B0[L]+B1[L]*DTAUK -B1[L]*TERM
+        FMIDP[L+1] = XK1[L]*EP + GAMA[L]*XK2[L]*EM + CPMID
+        FMIDM[L+1] = XK1[L]*EP*GAMA[L] + XK2[L]*EM + CMMID
  
     return   FMIDP, FMIDM, FMIDP-FMIDM
 
