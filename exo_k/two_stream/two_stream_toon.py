@@ -8,7 +8,7 @@ import numpy as np
 from scipy.linalg import solve_banded
 import numba
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
@@ -25,7 +25,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 alb_surf=alb_surf, mid_layer=mid_layer)
     return flux_up, flux_dw, flux_up-flux_dw
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
@@ -44,7 +44,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                     alb_surf=alb_surf, mid_layer=mid_layer)
     return flux_up, flux_dw, flux_up-flux_dw
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym,
                 mu0=0.5, flux_top_dw=0., alb_surf=0., mid_layer=False):
     """After Toon et al. (JGR, 1989). Equation number refer to this article.
@@ -86,7 +86,7 @@ def solve_2stream(source, dtau, omega0, g_asym,
                 flux_top_dw, alb_surf, mid_layer)
     return 0.5*(J4pimu+flux_net), 0.5*(J4pimu-flux_net), flux_net
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def _gammas_toon(omega0, g_asym, mu0=0.5):
     """mu0=0.5 yields hemispheric mean
     
@@ -108,7 +108,7 @@ def _gammas_toon(omega0, g_asym, mu0=0.5):
     return (2.-omega0*(1.+g_asym))/(2.*mu0), omega0*(1.-g_asym)/(2.*mu0)
 
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
         flux_top_dw, alb_surf, mid_layer):
     """
@@ -165,13 +165,13 @@ def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
     flux_net[0] -= flux_top_dw
     return flux_net, J4pimu
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def lambda_toon(gam_1, gam_2):
     """lambda from eq 21 of Toon et al.
     """
     return np.sqrt(gam_1*gam_1-gam_2*gam_2)
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def lambda_GAMMA(gam_1, gam_2):
     """lambda and GAMMA from eq 21 and 22 of Toon et al.
     For GAMMA, the positive alterative is used (center in eq 22)
@@ -181,7 +181,7 @@ def lambda_GAMMA(gam_1, gam_2):
     #GAMMA=(gam_1-lamb)/(gam_2)
     return lamb,GAMMA
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def c_planck(source, dtau, gam_1, gam_2, mu1):
     """c_up/dw is for c+/- whithout direct beam scattering. 
     _top is for tau equal 0 (top of the layer)
@@ -201,7 +201,7 @@ def c_planck(source, dtau, gam_1, gam_2, mu1):
     #print(c_up_top, c_dw_top, c_up_bot, c_dw_bot)
     return c_up_top, c_dw_top, c_up_bot, c_dw_bot
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def c_planck_mid(source, dtau, gam_1, gam_2, mu1):
     """c_up/dw is for c+/- whithout direct beam scattering.
     These are computed at the middle of the layer, i.e. at tau=dtau/2.
@@ -214,7 +214,7 @@ def c_planck_mid(source, dtau, gam_1, gam_2, mu1):
     c_dw_mid=cst*( source[:-1]*(.5+inv_dtaugam)+source[1:]*(0.5-inv_dtaugam))
     return c_up_mid, c_dw_mid
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def e_i_toon(dtau, gam_1, gam_2):
     """e_i factors defined in eq 44.
     """
@@ -227,7 +227,7 @@ def e_i_toon(dtau, gam_1, gam_2):
     e_4=GAMMA-expdtau
     return e_1, e_2, e_3, e_4
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def mid_factor_toon(dtau, gam_1, gam_2):
     """Factors to recover the flux at mid layer. 
     """
@@ -236,7 +236,7 @@ def mid_factor_toon(dtau, gam_1, gam_2):
     mid_fac=2.*(1.-GAMMA)*expdtaumid
     return mid_fac
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def DTRIDGL(L,AF,BF,CF,DF):
     """
           DIMENSION AF(L),BF(L),CF(L),DF(L),XK(L)

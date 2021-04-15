@@ -9,7 +9,7 @@ import numba
 
 jit=False
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 flux_top_dw_nu, mu0=2./3., alb_surf=0., verbose=False, mid_layer=False):
     """Deals with the spectral axis
@@ -27,7 +27,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 alb_surf=alb_surf, verbose=verbose)
     return flux_up, flux_dw, flux_up-flux_dw, kernel
     
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 flux_top_dw_nu, mu0=2./3., alb_surf=0., verbose=False, mid_layer=False):
     """Deals with the spectral axis
@@ -48,7 +48,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
     return flux_up, flux_dw, flux_up-flux_dw, kernel
 
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
             alb_surf=0., verbose=False):
     """
@@ -302,7 +302,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=2./3., flux_top_dw=0.,
 
     return flux_up, flux_dw, flux_up-flux_dw, DKERNEL
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def _DEDIR1(BATM1, BATM2, AIR, GIR, TAU, mu0):
     """            
             CCCCCCCCCCCCCCCCCCCCCCCCCCC  D E D I R 1  CCCCCCCCCCCCCCCCCCCCCCCCCCCCC

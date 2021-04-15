@@ -44,7 +44,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                
     return FLUXUPI_nu, FLUXDWI_nu, FNETI_nu
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
         flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
     """Deals with the spectral axis
@@ -84,7 +84,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                
     return FLUXUPI_nu, FLUXDWI_nu, FNETI_nu
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0., 
                       alb_surf=0., mid_layer=False):
     """Based on gfluxi in LMDZ code      
@@ -244,7 +244,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0.,
  
     return   FMIDP, FMIDM, FMIDP-FMIDM
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def DSOLVER(NL,GAMA,CP,CM,CPM1,CMM1,E1,E2,E3,E4,BTOP,
                        BSURF,alb_surf):
     """
@@ -352,7 +352,7 @@ def DSOLVER(NL,GAMA,CP,CM,CPM1,CMM1,E1,E2,E3,E4,BTOP,
 
     return XK1, XK2
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def DTRIDGL(L,AF,BF,CF,DF):
     """
     !  GCM2.0  Feb 2003
