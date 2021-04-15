@@ -6,6 +6,7 @@ Contains classes for atmospheric profiles and their radiative properties.
 That's where forward models are computed. 
 """
 import numpy as np
+import numba
 from scipy.special import expn
 import astropy.units as u
 from numba.typed import List
@@ -75,15 +76,11 @@ class Atm_profile(object):
         self.gas_mix=Gas_mix(composition)
         self.rcp=rcp
         if logplev is None:
-            self.psurf=psurf
-            self.ptop=ptop
             self.Nlev=Nlev
             self.Nlay=Nlev-1
             self.logplev=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlev)
-            self.plev=10**self.logplev
-            self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
-            self.play=10**self.logplay
-            self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat, rcp=rcp)
+            self.compute_pressure_levels()
+            self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat)
         else:
             self.set_logPT_profile(logplev, tlev)
         self.set_Rp(Rp)        
@@ -100,19 +97,34 @@ class Atm_profile(object):
             tlev: numpy array (same size)
                 temperature at the level surfaces.
         """
-        self.logplev=log_plev
-        self.plev=10**self.logplev
-        self.psurf=self.plev[-1]
-        self.ptop=self.plev[0]
-        self.tlev=tlev
-        self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
-        self.play=10**self.logplay
-        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
+        self.logplev=np.array(log_plev, dtype=float)
         self.Nlev=log_plev.size
         self.Nlay=self.Nlev-1
+        self.compute_pressure_levels()
+        self.set_T_profile(tlev)
+
+    def set_T_profile(self, tlev):
+        """Reset the temperature profile without changing the pressure levels
+        """
+        tlev=np.array(tlev, dtype=float)
+        if tlev.shape != self.logplev.shape:
+            raise RuntimeError('tlev and log_plev should have the same size.')
+        self.tlev=tlev
+        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
 
-    def set_adiab_profile(self, Tsurf=None, Tstrat=None, rcp=0.28):
+    def compute_pressure_levels(self):
+        """Computes various pressure related quantities
+        """
+        self.plev=10**self.logplev
+        self.psurf=self.plev[-1]
+        self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
+        self.play=10**self.logplay
+        self.dp_lay=np.concatenate([[self.plev[0]],self.play,[self.psurf]])
+        self.dp_lay=np.diff(self.dp_lay)
+        self.exner=(self.plev/self.psurf)**self.rcp
+
+    def set_adiab_profile(self, Tsurf=None, Tstrat=None):
         """Initializes the logP-T atmospheric profile with an adiabat with index R/cp=rcp
 
         Parameters
@@ -122,11 +134,9 @@ class Atm_profile(object):
             Tstrat: float, optional
                 Temperature of the stratosphere. If None is given,
                 an isothermal atmosphere with T=Tsurf is returned.
-            rcp: float
-                R/c_p of the atmosphere
         """
         if Tstrat is None: Tstrat=Tsurf
-        self.tlev=Tsurf*(self.plev/self.psurf)**rcp
+        self.tlev=Tsurf*self.exner
         self.tlev=np.where(self.tlev<Tstrat,Tstrat,self.tlev)
         self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
@@ -296,6 +306,8 @@ class Atm(Atm_profile):
         self.set_cia_database(cia_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
         self.flux_net_nu=None
+        self.kernel=None
+        self.tlev_kernel=self.tlev
 
     def set_k_database(self, k_database=None):
         """Change the radiative database used by the
@@ -336,6 +348,26 @@ class Atm(Atm_profile):
         """
         self.gas_mix.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
 
+    def spectral_integration(self, spectral_var):
+        """Spectrally integrate an array, taking care of whether
+        we are dealing with corr-k or xsec data.
+
+        Parameters
+        ----------
+            spectral_var: array
+                array to integrate
+
+        Returns
+        -------
+            var: array
+                array integrated over wavenumber (and g-space if relevant)
+        """
+        if self.Ng is None:
+            var=np.sum(spectral_var*self.dwnedges,axis=-1)
+        else:
+            var=np.sum(np.sum(spectral_var*self.weights,axis=-1)*self.dwnedges,axis=-1)
+        return var
+
     def opacity(self, rayleigh = False, **kwargs):
         """Computes the opacity of each of the layers.
 
@@ -368,12 +400,13 @@ class Atm(Atm_profile):
                 #for ii in range(self.Nlev):
                 #    piBatm[ii]=PI*Bnu_integral_num(self.wnedges,self.tlev[ii])/dw
                 #JL2020 What is below is much faster for moderate to low resolutions
-                self.piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
                     /self.dwnedges
             else:
-                self.piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
+                piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
         else:
-            self.piBatm=np.zeros((self.Nlev,self.Nw))
+            piBatm=np.zeros((self.Nlev,self.Nw))
+        return piBatm
 
     def setup_emission_caculation(self, mu_eff=0.5, rayleigh=False, integral=True,
             source=True, **kwargs):
@@ -381,7 +414,7 @@ class Atm(Atm_profile):
         (opacity, source, etc.)
         """
         self.opacity(rayleigh=rayleigh, **kwargs)
-        self.source_function(integral=integral, source=source)
+        self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
             self.tau,self.dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu_eff)
@@ -425,9 +458,9 @@ class Atm(Atm_profile):
             raise RuntimeError("""Cannot use rayleigh option with emission_spectrum.
             Probably meant to use emission_spectrum_2stream.
             """)
-        # tau and dtau include the 1/mu0 factor.
+        # self.tau and self.dtau include the 1/mu0 factor.
         expdtau=np.exp(-self.dtau)
-        expdtauminone=np.where(self.dtau<1.e-14,-self.dtau,expdtau-1.)
+        expdtauminone=np.where(self.dtau<1.e-13,-self.dtau,expdtau-1.)
         # careful: due to numerical limitations, 
         # the limited development of Exp(-dtau)-1 needs to be used for small values of dtau
         exptau=np.exp(-self.tau)
@@ -436,10 +469,10 @@ class Atm(Atm_profile):
             timesBatmBottom=(-expdtau-expdtauminone/self.dtau)*exptau[:-1]
             timesBatmBottom[-1]+=exptau[-1]
         else:
-            timesBatmTop=np.sum((1.+expdtauminone/self.dtau)*exptau[:-1]*self.weights,axis=2)
+            timesBatmTop=np.sum((1.+expdtauminone/self.dtau)*exptau[:-1]*self.weights,axis=-1)
             timesBatmBottom=np.sum((-expdtau-expdtauminone/self.dtau)*exptau[:-1] \
-                *self.weights,axis=2)
-            timesBatmBottom[-1]+=np.sum(exptau[-1]*self.weights,axis=1)
+                *self.weights,axis=-1)
+            timesBatmBottom[-1]+=np.sum(exptau[-1]*self.weights,axis=-1)
         IpTop=np.sum(self.piBatm[:-1]*timesBatmTop+self.piBatm[1:]*timesBatmBottom,axis=0)
 
         return Spectrum(IpTop,self.wns,self.wnedges)
@@ -473,7 +506,7 @@ class Atm(Atm_profile):
             tau=self.tau/mu0
             dtau=self.dtau/mu0
             expdtau=np.exp(-dtau)
-            expdtauminone=np.where(dtau<1.e-14,-dtau,expdtau-1.)
+            expdtauminone=np.where(dtau<1.e-13,-dtau,expdtau-1.)
             exptau=np.exp(-tau)
             if self.Ng is None:
                 timesBatmTop=(-expdtau-expdtauminone/dtau)*exptau[:-1]
@@ -481,10 +514,10 @@ class Atm(Atm_profile):
                 timesBatmBottom[-1]=timesBatmBottom[-1]+exptau[-1]
             else:
                 timesBatmTop=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1] \
-                    *self.weights,axis=2)
+                    *self.weights,axis=-1)
                 timesBatmBottom=np.sum((1.+expdtauminone/dtau)*exptau[:-1] \
-                    *self.weights,axis=2)
-                timesBatmBottom[-1]=timesBatmBottom[-1]+np.sum(exptau[-1]*self.weights,axis=1)
+                    *self.weights,axis=-1)
+                timesBatmBottom[-1]=timesBatmBottom[-1]+np.sum(exptau[-1]*self.weights,axis=-1)
             IpTop+=np.sum(self.piBatm[:-1]*timesBatmTop+self.piBatm[1:]*timesBatmBottom,axis=0) \
                 *mu_w[ii]
 
@@ -492,7 +525,7 @@ class Atm(Atm_profile):
 
     def emission_spectrum_2stream(self, integral=True, mu0=0.5,
             method='toon', dtau_min=1.e-10, mid_layer=False, rayleigh=False,
-            flux_top_dw=None, source=True, **kwargs):
+            flux_top_dw=None, source=True, compute_kernel=False, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
@@ -517,10 +550,12 @@ class Atm(Atm_profile):
             Spectrum object 
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
-        self.setup_emission_caculation(mu_eff=1., rayleigh=False, integral=integral,
+        self.setup_emission_caculation(mu_eff=1., rayleigh=rayleigh, integral=integral,
             source=source, **kwargs)
         # mu_eff=1. because the mu effect is taken into account in solve_2stream_nu
                  # we must compute the vertical optical depth here.
+        self.dtau=np.where(self.dtau<dtau_min,dtau_min,self.dtau)
+
         module_to_use=globals()[method]
         # globals()[method] converts the method string into a module name
         #  if the module has been loaded
@@ -528,41 +563,125 @@ class Atm(Atm_profile):
             solve_2stream_nu=module_to_use.solve_2stream_nu_xsec
         else:
             solve_2stream_nu=module_to_use.solve_2stream_nu_corrk
+
         if rayleigh:
             if self.Ng is None:
-                single_scat_albedo = self.kdata_scat / self.kdata
+                self.single_scat_albedo = self.kdata_scat / self.kdata
             else:
-                single_scat_albedo = self.kdata_scat[:,:,None] / self.kdata
+                self.single_scat_albedo = self.kdata_scat[:,:,None] / self.kdata
         else:
-            single_scat_albedo = np.zeros_like(self.dtau)
+            self.single_scat_albedo = np.zeros_like(self.dtau)
+        self.single_scat_albedo=np.clip(self.single_scat_albedo,None,0.9999999999999)
+        self.asym_param = np.zeros_like(self.dtau)
+
         if flux_top_dw is None:
-            flux_top_dw_nu = np.zeros((self.Nw))
+            self.flux_top_dw_nu = np.zeros((self.Nw))
         else:
             Tstar=5700.
-            flux_top_dw_nu = flux_top_dw*PI*Bnu_integral_num(
-                self.wnedges,Tstar)/(SIG_SB*Tstar**4*self.dwnedges)
-            self.flux_top_dw_nu=Spectrum(flux_top_dw_nu,self.wns,self.wnedges)
+            self.flux_top_dw_nu = Bnu_integral_num(self.wnedges,Tstar)
+            self.flux_top_dw_nu = self.flux_top_dw_nu * flux_top_dw \
+                / (np.sum(self.flux_top_dw_nu)*self.dwnedges)
+            #self.flux_top_dw_nu=Spectrum(flux_top_dw_nu,self.wns,self.wnedges)
 
-        asym_param = np.zeros_like(self.dtau)
-        self.dtau=np.where(self.dtau<dtau_min,dtau_min,self.dtau)
         if method == 'crisp':
-            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu, self.kernel_nu = \
+            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu, kernel_nu = \
                 solve_2stream_nu(self.piBatm, self.dtau,
-                single_scat_albedo, asym_param, flux_top_dw_nu, mu0 = mu0)
+                self.single_scat_albedo, self.asym_param, self.flux_top_dw_nu, mu0 = mu0)
+            if compute_kernel:
+                dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
+                if self.Ng is None:
+                    self.kernel=np.sum(kernel_nu*dB*self.dwnedges,axis=2)
+                else:
+                    self.kernel=np.sum(np.sum(kernel_nu*self.weights,axis=3) \
+                        *dB*self.dwnedges,axis=2)
+                self.kernel[:,:-1]=(self.kernel[:,:-1]-self.kernel[:,1:])
+                self.kernel*=self.grav/self.dp_lay
         else:
             self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
-                solve_2stream_nu(self.piBatm, self.dtau,
-                single_scat_albedo, asym_param, flux_top_dw_nu, mu0 = mu0, mid_layer=mid_layer)
+                solve_2stream_nu(self.piBatm, self.dtau, self.single_scat_albedo, self.asym_param,
+                    self.flux_top_dw_nu, mu0 = mu0, mid_layer=mid_layer)
+            if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, mid_layer=mid_layer,
+                        per_unit_mass=True, integral=True, **kwargs)
+
         if self.Ng is None:
             return Spectrum(self.flux_up_nu[0],self.wns,self.wnedges)
         else:
             return Spectrum(np.sum(self.flux_up_nu[0]*self.weights,axis=1),self.wns,self.wnedges)
 
-    def bolometric_fluxes(self, internal_flux=0.):
+    def compute_kernel(self, solve_2stream_nu, epsilon=0.01, mid_layer=False, mu0 = 0.5,
+            per_unit_mass=True, integral=True, **kwargs):
+        """Compute the Jacobian matrix d Heating[lev=i] / d T[lev=j]
+        """
+        net=self.spectral_integration(self.flux_net_nu)
+        self.kernel=np.empty((self.Nlev,self.Nlev))
+        #dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
+        tlev=self.tlev
+        dT = epsilon*tlev
+        self.tlev = tlev + dT
+        newpiBatm = self.source_function(integral=integral)
+
+        #newpiBatm=PI*Bnu_integral_array(self.wnedges,self.tlev+dT,self.Nw,self.Nlev) \
+        #            /self.dwnedges
+
+        for ilev in range(self.Nlev):
+            pibatm = np.copy(self.piBatm)
+            #dT = epsilon*self.tlev[ilev]
+            #pibatm[ilev] += dB[ilev]*dT
+            pibatm[ilev] = newpiBatm[ilev]
+            _, _, flux_net_tmp = \
+                solve_2stream_nu(pibatm, self.dtau, self.single_scat_albedo, self.asym_param,
+                    self.flux_top_dw_nu, mu0 = mu0, mid_layer=mid_layer)
+            net_tmp = self.spectral_integration(flux_net_tmp)
+            #self.kernel[ilev]=(net_tmp-net)/dT
+            self.kernel[ilev]=(net-net_tmp)/dT[ilev]
+        self.kernel[:,:-1]-=self.kernel[:,1:]
+        self.tlev=tlev
+        if per_unit_mass: self.kernel*=self.grav/self.dp_lay
+
+    def flux_divergence(self, internal_flux=0., per_unit_mass = True):
+        """Computes the divergence of the net flux in the layers
+        (used to compute heating rates).
+
+        :func:`emission_spectrum_2stream` needs to be ran first.
+
+        Parameters
+        ----------
+            internal_flux: float
+                flux coming from below in W/m^2
+            per_unit_mass: bool
+                If True, the heating rates are normalized by the
+                mass of each layer (result in W/kg).
+
+        Returns
+        -------
+            net: array
+                Net fluxes at level surfaces
+            H: array
+                Heating rate in each layer (Difference of the net fluxes). Positive means heating.
+                The last value is the net flux impinging on the surface + the internal flux.
+        """
+        if self.flux_net_nu is None:
+            raise RuntimeError('should have ran emission_spectrum_2stream.')
+        net=self.spectral_integration(self.flux_net_nu)
+        H=-np.copy(net)
+        H[:-1]-=H[1:]
+        H[-1]+=internal_flux
+        if per_unit_mass: H*=self.grav/self.dp_lay
+        return net, H
+
+    def bolometric_fluxes(self, internal_flux = 0., per_unit_mass = True):
         """Computes the bolometric fluxes at levels and the divergence of the net flux in the layers
         (used to compute heating rates).
 
         :func:`emission_spectrum_2stream` needs to be ran first.
+
+        Parameters
+        ----------
+            internal_flux: float
+                flux coming from below in W/m^2
+            per_unit_mass: bool
+                If True, the heating rates are normalized by the
+                mass of each layer (result in W/kg).
 
         Returns
         -------
@@ -576,59 +695,10 @@ class Atm(Atm_profile):
                 Heating rate in each layer (Difference of the net fluxes). Positive means heating.
                 The last value is the net flux impinging on the surface + the internal flux.
         """
-        if self.flux_net_nu is None:
-            raise RuntimeError('Should have ran emission_spectrum_2stream.')
-        if self.Ng is None:
-            up=np.sum(self.flux_up_nu*self.dwnedges,axis=1)
-            dw=np.sum(self.flux_down_nu*self.dwnedges,axis=1)
-            net=np.sum(self.flux_net_nu*self.dwnedges,axis=1)
-        else:
-            up=np.sum(np.sum(self.flux_up_nu*self.weights,axis=2)*self.dwnedges,axis=1)
-            dw=np.sum(np.sum(self.flux_down_nu*self.weights,axis=2)*self.dwnedges,axis=1)
-            net=np.sum(np.sum(self.flux_net_nu*self.weights,axis=2)*self.dwnedges,axis=1)
-        H=np.copy(net)
-        H[:-1]-=H[1:]
-        H=-H
-        H[-1]+=internal_flux
+        net, H = self.flux_divergence(internal_flux=internal_flux, per_unit_mass = per_unit_mass)
+        up=self.spectral_integration(self.flux_up_nu)
+        dw=self.spectral_integration(self.flux_down_nu)
         return up, dw, net, H
-
-    def flux_divergence(self, compute_kernel=False, internal_flux=0.):
-        """Computes the divergence of the net flux in the layers
-        (used to compute heating rates).
-
-        :func:`emission_spectrum_2stream` needs to be ran first.
-
-        Returns
-        -------
-            net: array
-                Net fluxes at level surfaces
-            H: array
-                Heating rate in each layer (Difference of the net fluxes). Positive means heating.
-                The last value is the net flux impinging on the surface + the internal flux.
-        """
-        if self.flux_net_nu is None:
-            raise RuntimeError('should have ran emission_spectrum_2stream.')
-        if self.Ng is None:
-            net=np.sum(self.flux_net_nu*self.dwnedges,axis=1)
-        else:
-            net=np.sum(np.sum(self.flux_net_nu*self.weights,axis=2)*self.dwnedges,axis=1)
-
-        H=np.copy(net)
-        H[:-1]-=H[1:]
-        H=-H
-        H[-1]+=internal_flux
-
-        if compute_kernel:
-            dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
-            if self.Ng is None:
-                kernel=np.sum(self.kernel_nu*dB*self.dwnedges,axis=2)
-            else:
-                kernel=np.sum(np.sum(self.kernel_nu*self.weights,axis=3)*dB*self.dwnedges,axis=2)
-
-        if compute_kernel:
-            return net, H, kernel
-        else:
-            return net, H
 
     def exp_minus_tau(self):
         """Sums Exp(-tau) over gauss points
@@ -839,322 +909,95 @@ class Atm(Atm_profile):
         IpTop=np.sum(timesBatmTop,axis=0)+surf_contrib
         return Spectrum(IpTop, self.wns, self.wnedges)
 
+@numba.jit(nopython=True,fastmath=True)
+def convadj(timestep, Nlev, tlev, exner, dp_lay, verbose = False):
+    r"""Computes the heating rates needed to adjust unstable regions 
+    of a given atmosphere to a convectively neutral T profile on
+    a given timestep.
 
-# def convadj(nlay, timestep, pplev, tlev, play, rcp)
-#         """
-# #==================================================================
-# #     
-# #     Purpose
-# #     -------
-# #     Calculates dry convective adjustment. If one tracer is CO2,
-# #     we take into account the molecular mass variation (e.g. when
-# #     CO2 condenses) to trigger convection (F. Forget 01/2005)
-# #
-# #     Authors
-# #     -------
-# #     Original author unknown.
-# #     Modif. 2005 by F. Forget.
-# #     
-# #==================================================================
-# 
-# #     ------------
-# #     Declarations
-# #     ------------
-# 
-# 
-# #     Arguments
-# #     ---------
-# 
-#       INTEGER ngrid,nlay
-#       REAL ptimestep
-#       REAL ph(ngrid,nlay),pdhfi(ngrid,nlay),pdhadj(ngrid,nlay)
-#       REAL pplay(ngrid,nlay),pplev(ngrid,nlay+1),ppopsk(ngrid,nlay)
-#       REAL pu(ngrid,nlay),pdufi(ngrid,nlay),pduadj(ngrid,nlay)
-#       REAL pv(ngrid,nlay),pdvfi(ngrid,nlay),pdvadj(ngrid,nlay)
-# 
-# #     Tracers
-#       integer nq
-#       real pq(ngrid,nlay,nq), pdqfi(ngrid,nlay,nq)
-#       real pdqadj(ngrid,nlay,nq)
-# 
-# 
-# #     Local
-# #     -----
-# 
-#       INTEGER ig,i,l,l1,l2,jj
-#       INTEGER jcnt, jadrs(ngrid)
-# 
-#       REAL sig(nlay+1),sdsig(nlay),dsig(nlay)
-#       REAL zu(ngrid,nlay),zv(ngrid,nlay)
-#       REAL zh(ngrid,nlay)
-#       REAL zu2(ngrid,nlay),zv2(ngrid,nlay)
-#       REAL zh2(ngrid,nlay), zhc(ngrid,nlay)
-#       REAL zhm,zsm,zdsm,zum,zvm,zalpha,zhmc
-# 
-# #     Tracers
-#       INTEGER iq,ico2
-#       save ico2
-# #$OMP THREADPRIVATE(ico2)
-#       REAL zq(ngrid,nlay,nq), zq2(ngrid,nlay,nq)
-#       REAL zqm(nq),zqco2m
-#       real m_co2, m_noco2, A , B
-#       save A, B
-# #$OMP THREADPRIVATE(A,B)
-# 
-#       real mtot1, mtot2 , mm1, mm2
-#        integer l1ref, l2ref
-#       LOGICAL vtest(ngrid),down,firstcall
-#       save firstcall
-#       data firstcall/.true./
-# #$OMP THREADPRIVATE(firstcall)
-# 
-# #     for conservation test
-#       real masse,cadjncons
-# 
-#         """
-# #     -----------------------------
-# #     Detection of unstable columns
-# #     -----------------------------
-# #     If ph(above) < ph(below) we set vtest=.true.
-# 
-#     conv=np.zeros(nlay, dtype=int)
-#     sigma_lev=plev/plev[-1]
-#     inv_exner=(1./sigma)**rcp
-#     theta_lev=inv_exner*tlev
-# #     Find out which grid points are convectively unstable
-#       DO l=2,nlay
-#         DO ig=1,ngrid
-#     conv[:-1]=np.where(theta_lev[:-1] < theta_lev[1:]), 1, 0)
-# 
-# 
-# #     ---------------------------------------------------------------
-# #     Adjustment of the "jcnt" unstable profiles indicated by "jadrs"
-# #     ---------------------------------------------------------------
-# 
-# #     Calculate sigma in this column
-#         
-#           ENDDO
-#          DO l=1,nlay
-#             dsig(l)=sig(l)-sig(l+1)
-#             sdsig(l)=ppopsk(i,l)*dsig(l)
-#          ENDDO
-#           l2 = 1
-# 
-# #     Test loop upwards on l2
-# 
-#           DO
-#             l2 = l2 + 1
-#             IF (l2 .GT. nlay) EXIT
-#             IF (zhc(i, l2).LT.zhc(i, l2-1)) THEN
-#  
-# #     l2 is the highest level of the unstable column
-#  
-#               l1 = l2 - 1
-#               l  = l1
-#               zsm = sdsig(l2)
-#               zdsm = dsig(l2)
-#               zhm = zh2(i, l2)
-#               if(ico2.ne.0) zqco2m = zq2(i,l2,ico2)
-# 
-# #     Test loop downwards
-# 
-#               DO
-#                 zsm = zsm + sdsig(l)
-#                 zdsm = zdsm + dsig(l)
-#                 zhm = zhm + sdsig(l) * (zh2(i, l) - zhm) / zsm
-#                 if(ico2.ne.0) then
-#                   zqco2m = 
-#      &            zqco2m + dsig(l) * (zq2(i,l,ico2) - zqco2m) / zdsm
-#                   zhmc = zhm*(A*zqco2m+B)
-#                 else 
-#                   zhmc = zhm
-#                 end if
-#  
-# #     do we have to extend the column downwards?
-#  
-#                 down = .false.
-#                 IF (l1 .ne. 1) then    #--  and then
-#                   IF (zhmc.LT.zhc(i, l1-1)) then
-#                     down = .true.
-#                   END IF
-#                 END IF
-#  
-#                 # this could be a problem...
-# 
-#                 if (down) then
-#  
-#                   l1 = l1 - 1
-#                   l  = l1
-#  
-#                 else
-#  
-# #     can we extend the column upwards?
-#  
-#                   if (l2 .eq. nlay) exit
-#  
-#                   if (zhc(i, l2+1) .ge. zhmc) exit
-# 
-#                   l2 = l2 + 1
-#                   l  = l2
-# 
-#                 end if
-# 
-#               enddo
-# 
-# #     New constant profile (average value)
-# 
-# 
-#               zalpha=0.
-#               zum=0.
-#               zvm=0.
-#               do iq=1,nq
-#                 zqm(iq) = 0.
-#               end do
-#               DO l = l1, l2
-#                 if(ico2.ne.0) then
-#                   zalpha=zalpha+
-#      &            ABS(zhc(i,l)/(A+B*zqco2m) -zhm)*dsig(l)
-#                 else
-#                   zalpha=zalpha+ABS(zh2(i,l)-zhm)*dsig(l)
-#                 endif
-#                 zh2(i, l) = zhm
-# #     modifs by RDW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#                 zum=zum+dsig(l)*zu2(i,l)
-#                 zvm=zvm+dsig(l)*zv2(i,l)
-# #                zum=zum+dsig(l)*zu(i,l)
-# #                zvm=zvm+dsig(l)*zv(i,l)
-#                 do iq=1,nq
-#                    zqm(iq) = zqm(iq)+dsig(l)*zq2(i,l,iq)
-# #                   zqm(iq) = zqm(iq)+dsig(l)*zq(i,l,iq)
-# #!#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# 
-# #     to conserve tracers/ KE, we must calculate zum, zvm and zqm using 
-# #     the up-to-date column values. If we do not do this, there are cases 
-# #     where convection stops at one level and starts at the next where we
-# #     can break conservation of stuff (particularly tracers) significantly.
-# 
-#                 end do
-#               ENDDO
-#               zalpha=zalpha/(zhm*(sig(l1)-sig(l2+1)))
-#               zum=zum/(sig(l1)-sig(l2+1))
-#               zvm=zvm/(sig(l1)-sig(l2+1))
-#               do iq=1,nq
-#                  zqm(iq) = zqm(iq)/(sig(l1)-sig(l2+1))
-#               end do
-# 
-#               IF(zalpha.GT.1.) THEN
-#                  zalpha=1.
-#               ELSE
-# #                IF(zalpha.LT.0.) STOP
-#                  IF(zalpha.LT.1.e-4) zalpha=1.e-4
-#               ENDIF
-# 
-#               DO l=l1,l2
-#                  zu2(i,l)=zu2(i,l)+zalpha*(zum-zu2(i,l))
-#                  zv2(i,l)=zv2(i,l)+zalpha*(zvm-zv2(i,l))
-#                  do iq=1,nq
-# #                  zq2(i,l,iq)=zq2(i,l,iq)+zalpha*(zqm(iq)-zq2(i,l,iq)) 
-#                    zq2(i,l,iq)=zqm(iq)
-#                  end do
-#               ENDDO
-#               if (ico2.ne.0) then
-#                 DO l=l1, l2
-#                   zhc(i,l) = zh2(i,l)*(A*zq2(i,l,ico2)+B)
-#                 ENDDO
-#               end if
-# 
-# 
-#               l2 = l2 + 1
-# 
-#             END IF   # End of l1 to l2 instability treatment
-#                      # We now continue to test from l2 upwards
-# 
-#           ENDDO   # End of upwards loop on l2
-# 
-# 
-# #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# #     check conservation
-#          cadjncons=0.0
-#          if(water)then
-#          do l = 1, nlay
-#             masse = (pplev(i,l) - pplev(i,l+1))/g
-#             iq    = igcm_h2o_vap
-#             cadjncons = cadjncons + 
-#      &           masse*(zq2(i,l,iq)-zq(i,l,iq))/ptimestep 
-#          end do
-#          endif
-# 
-#          if(cadjncons.lt.-1.e-6)then
-#             print*,'convadj has just crashed...'
-#             print*,'i  = ',i
-#             print*,'l1 = ',l1
-#             print*,'l2 = ',l2
-#             print*,'cadjncons        = ',cadjncons
-#          do l = 1, nlay
-#             print*,'dsig         = ',dsig(l)
-#          end do         
-#          do l = 1, nlay
-#             print*,'dsig         = ',dsig(l)
-#          end do
-#          do l = 1, nlay
-#             print*,'sig         = ',sig(l)
-#          end do
-#          do l = 1, nlay
-#             print*,'pplay(ig,:)         = ',pplay(i,l)
-#          end do
-#          do l = 1, nlay+1
-#             print*,'pplev(ig,:)         = ',pplev(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'ph(ig,:)         = ',ph(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'ph(ig,:)         = ',ph(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'ph(ig,:)         = ',ph(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'zh(ig,:)         = ',zh(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'zh2(ig,:)        = ',zh2(i,l)
-#          end do
-#          do l = 1, nlay
-#             print*,'zq(ig,:,vap)     = ',zq(i,l,igcm_h2o_vap)
-#          end do
-#          do l = 1, nlay
-#             print*,'zq2(ig,:,vap)    = ',zq2(i,l,igcm_h2o_vap)
-#          end do
-#             print*,'zqm(vap)         = ',zqm(igcm_h2o_vap)
-#             print*,'jadrs=',jadrs
-# 
-#             call abort
-#          endif
-# #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# 
-# 
-#       ENDDO
-# 
-#       DO l=1,nlay
-#         DO ig=1,ngrid
-#           pdhadj(ig,l)=(zh2(ig,l)-zh(ig,l))/ptimestep
-#           pduadj(ig,l)=(zu2(ig,l)-zu(ig,l))/ptimestep
-#           pdvadj(ig,l)=(zv2(ig,l)-zv(ig,l))/ptimestep
-#         ENDDO
-#       ENDDO
-# 
-#       if(tracer) then 
-#         do iq=1, nq
-#           do  l=1,nlay
-#             DO ig=1,ngrid
-#               pdqadj(ig,l,iq)=(zq2(ig,l,iq)-zq(ig,l,iq))/ptimestep 
-#             end do 
-#           end do 
-#         end do 
-#       end if
-# 
-# 
-# 
-#     return
-#
+    .. important::
+        The *layers* here are not the same as the *layers* in the radiative transfer!
+
+        In the radiative transfer, a layer is the volume between two pressure level boundaries
+        (`plev`).
+
+        Here, a layer is centered on a pressure level (`plev`) with its temperature `tlev`.
+        Therefore, `dp_lay[0]=play[0]-plev[0]`, `dp_lay[i]=play[i]-play[i-1]`, and
+        `dp_lay[-1]=psurf-play[-1]`.
+    
+    Parameters
+    ----------
+        timestep: float
+            Duration of the adjustment in seconds.
+        Nlev: int
+            Number of atmospheric layers
+        tlev: array
+            Temperatures of the atmospheric layers
+        exner: array
+            Exner function computed at the layer centers ((p/psurf)**rcp)
+
+            .. math::
+              \Pi=(p / p_{s})^{R/c_p}
+
+        dp_lay: array
+            Pressure difference between the bottom and top of each layer
+
+    Returns
+    -------
+        array
+            Heating rate in each atmospheric layer (K/s).  
+    """
+    epsilon=-1.e-5
+    theta_lev=tlev/exner
+    new_theta_lev=np.copy(theta_lev)
+    dsig=dp_lay
+    sdsig=dsig*exner
+    H_conv=np.zeros(Nlev)
+    n_iter=0
+    while True:
+        conv=np.nonzero(new_theta_lev[:-1]-new_theta_lev[1:]<epsilon)[0]
+        # find convective layers
+        N_conv=conv.size
+        if N_conv==0: # no more convective regions, can exit
+            return H_conv
+        i_conv=0
+        i_top=conv[i_conv] #upper unstable layer
+        while i_conv<N_conv-1: #search from the top of the 1st unstable layer for its bottom
+            if conv[i_conv+1]==conv[i_conv]+1:
+                i_conv+=1
+                continue
+            else:
+                break
+        i_bot=conv[i_conv]+1
+        mass_conv=0.
+        intexner=0.
+        theta_mean=0.
+        for ii in range(i_top,i_bot+1): # compute new mean potential temperature
+            intexner+=sdsig[ii]
+            mass_conv+=dsig[ii]
+            theta_mean+=sdsig[ii] * (theta_lev[ii] - theta_mean) / intexner
+        while i_top>0:#look for newly unstable layers above
+            if theta_lev[i_top-1]<theta_mean:
+                i_top-=1
+                intexner+=sdsig[i_top]
+                mass_conv+=dsig[i_top]
+                theta_mean+=sdsig[i_top] * (theta_lev[i_top] - theta_mean) / intexner
+            else:
+                break
+        while i_bot<Nlev-1: #look for newly unstable layers below
+            if theta_lev[i_bot+1]>theta_mean:
+                i_bot+=1
+                intexner+=sdsig[i_bot]
+                mass_conv+=dsig[i_bot]
+                theta_mean+=sdsig[i_bot] * (theta_lev[i_bot] - theta_mean) / intexner
+            else:
+                break
+        # compute heating and adjust before looking for a new potential unstable layer
+        H_conv[i_top:i_bot+1]=(theta_mean-new_theta_lev[i_top:i_bot+1]) \
+            *exner[i_top:i_bot+1]/timestep
+        new_theta_lev[i_top:i_bot+1]=theta_mean
+        n_iter+=1
+        if n_iter>Nlev+1:
+            if verbose : print('oops, went crazy in convadj')
+            break
+    return H_conv
