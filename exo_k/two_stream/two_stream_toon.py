@@ -23,7 +23,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 omega0_nu[:,iW], g_asym_nu[:,iW],
                 mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
                 alb_surf=alb_surf, mid_layer=mid_layer)
-    return flux_up, flux_dw, flux_up-flux_dw
+    return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
@@ -42,7 +42,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                     omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
                     mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
                     alb_surf=alb_surf, mid_layer=mid_layer)
-    return flux_up, flux_dw, flux_up-flux_dw
+    return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym,
@@ -128,7 +128,7 @@ def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
     D[0]=-e_2[0]
     E[0]=flux_top_dw-c_dw_top[0]
     B[0]=e_1[0]
-    #even 
+    #even in Toon numerotation. (remember python arrays start at 0.)
     A[1:-1:2]=e_1[:-1]*e_2[1:]-e_3[:-1]*e_4[1:]
     B[1:-1:2]=e_2[:-1]*e_2[1:]-e_4[:-1]*e_4[1:]
     D[1:-1:2]=e_1[1:]*e_4[1:]-e_2[1:]*e_3[1:]
@@ -152,9 +152,9 @@ def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
         c_up_mid, c_dw_mid = c_planck_mid(source, dtau, gam_1, gam_2, mu1)
         #print('mid:',np.amax(np.abs((c_up_mid-c_up_top)/c_up_top)))
         #print('bot:',np.amax(np.abs((c_up_bot-c_up_top)/c_up_top)))
-        mid_factor = mid_factor_toon(dtau, gam_1, gam_2)
-        flux_net[1:] = Y[1::2]*mid_factor+c_up_mid-c_dw_mid
-        J4pimu[1:]   = Y[::2]*mid_factor+c_up_mid+c_dw_mid
+        mid_factor1, mid_factor2 = mid_factor_toon(dtau, gam_1, gam_2)
+        flux_net[1:] = Y[1::2]*mid_factor2+c_up_mid-c_dw_mid
+        J4pimu[1:]   = Y[::2]*mid_factor1+c_up_mid+c_dw_mid
         #flux_net[-1] = Y[-2]*(e_1[-1]-e_3[-1])+Y[-1]*(e_2[-1]-e_4[-1])+c_up_bot[-1]-c_dw_bot[-1]
         #J4pimu[-1]   = Y[-2]*(e_1[-1]+e_3[-1])+Y[-1]*(e_2[-1]+e_4[-1])+c_up_bot[-1]+c_dw_bot[-1]
     else:
@@ -233,8 +233,9 @@ def mid_factor_toon(dtau, gam_1, gam_2):
     """
     lamb,GAMMA=lambda_GAMMA(gam_1, gam_2)
     expdtaumid=np.exp(-lamb*dtau*0.5)
-    mid_fac=2.*(1.-GAMMA)*expdtaumid
-    return mid_fac
+    mid_fac1=2.*(1.+GAMMA)*expdtaumid
+    mid_fac2=2.*(1.-GAMMA)*expdtaumid
+    return mid_fac1, mid_fac2
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def DTRIDGL(L,AF,BF,CF,DF):
