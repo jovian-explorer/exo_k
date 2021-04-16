@@ -438,7 +438,7 @@ class Ktable5d(Data_table):
                 bounds_error=True)
         else:
             self._finterp_kdata=RegularGridInterpolator( \
-                (self.logpgrid,self.tgrid,np.log(self.xgrid)), self.kdata, \
+                (self.logpgrid, self.tgrid, self.xgrid), self.kdata, \
                 bounds_error=True)
 
     def set_kdata(self, new_kdata):
@@ -483,11 +483,11 @@ class Ktable5d(Data_table):
         #clipping data
         if not logp_interp:
             raise RuntimeError('Linear p interpolation not yet supported for Ktable5d.')
+        if log_interp != self._local_log_interp:
+            self.setup_interpolation(log_interp=log_interp)
         logp_array=np.clip(logp_array, self.logpgrid[0], self.logpgrid[-1])
         t_array=np.clip(t_array, self.tgrid[0], self.tgrid[-1])
         x_array=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
-        coord_to_interp=np.array([logp_array,t_array,np.log(x_array)]).transpose()
-        tmp_res=self._finterp_kdata(coord_to_interp)
         if wngrid_limit is None:
             wngrid_filter = slice(None)
         else:
@@ -495,8 +495,12 @@ class Ktable5d(Data_table):
             wngrid_filter = np.where((self.wnedges > wngrid_limit.min()) & (
                 self.wnedges <= wngrid_limit.max()))[0][:-1]
         if self._local_log_interp:
+            coord_to_interp=np.array([logp_array,t_array,np.log(x_array)]).transpose()
+            tmp_res=self._finterp_kdata(coord_to_interp)
             return np.exp(tmp_res[:,wngrid_filter])
         else:
+            coord_to_interp=np.array([logp_array,t_array,x_array]).transpose()
+            tmp_res=self._finterp_kdata(coord_to_interp)
             return tmp_res[:,wngrid_filter]
 
 
@@ -529,11 +533,13 @@ class Ktable5d(Data_table):
             # way simpler to write!
         else:
             x_array_tmp=np.clip(x_array, self.xgrid[0], self.xgrid[-1])
-        coord=np.array(np.meshgrid(
-            logp_array_tmp, t_array_tmp, np.log(x_array_tmp))).transpose((2,1,3,0))
         if self._local_log_interp:
+            coord=np.array(np.meshgrid(
+                logp_array_tmp, t_array_tmp, np.log(x_array_tmp))).transpose((2,1,3,0))
             tmp_res=np.exp(self._finterp_kdata(coord))
         else:
+            coord=np.array(np.meshgrid(
+                logp_array_tmp, t_array_tmp, x_array_tmp)).transpose((2,1,3,0))
             tmp_res=self._finterp_kdata(coord)
         self.logpgrid= logp_array
         self.pgrid   = 10**self.logpgrid
