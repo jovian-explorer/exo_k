@@ -397,12 +397,6 @@ class Xtable(Data_table):
         res.copy_attr(self, cp_kdata=cp_kdata)
         return res
 
-    @property
-    def shape(self):
-        """Returns the shape of self.kdata
-        """
-        return np.array([self.Np,self.Nt,self.Nw])
-
     def __repr__(self):
         """Method to output header
         """

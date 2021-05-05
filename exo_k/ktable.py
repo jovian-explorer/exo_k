@@ -130,12 +130,6 @@ class Ktable(Ktable_io):
             kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
             remove_zeros=remove_zeros)
 
-    @property
-    def shape(self):
-        """Returns the shape of self.kdata
-        """
-        return np.array([self.Np,self.Nt,self.Nw,self.Ng])
-
     def xtable_to_ktable(self, xtable=None, wnedges=None, weights=None, ggrid=None,
         quad='legendre', order=20, g_split=0.9, mid_dw=True, write=0, remove_zeros=False):
         """Fills the :class:`~exo_k.ktable.Ktable` object with a k-coeff table computed

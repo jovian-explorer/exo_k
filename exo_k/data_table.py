@@ -475,6 +475,27 @@ class Data_table(Spectral_object):
         """
         return self.kdata[key]
 
+    def set_kdata(self, new_kdata):
+        """Changes kdata (inplace). this is preferred to directly accessing kdata because this
+        method checks that the array has the right dimensions
+
+        Parameters
+        ----------
+            new_kdata: array
+                New array of kdata.
+        """
+        if not isinstance(new_kdata,np.ndarray):
+            new_kdata=np.array(new_kdata)
+        sh=np.array(new_kdata.shape)
+        if sh.size != self.shape.size:
+            raise RuntimeError('new_kdata does not have the right number of dimensions')
+        if np.all(sh == self.shape):
+            self.kdata=new_kdata
+        else:
+            print('Expected shape    : ', self.shape)
+            print('shape of new_kdata: ', sh)
+            raise RuntimeError('new_kdata does not have the right shape')
+
     def clip_spectral_range(self, wn_range=None, wl_range=None):
         """Limits the data to the provided spectral range (inplace):
 
@@ -599,6 +620,13 @@ class Data_table(Spectral_object):
         res=self.copy()
         res.bin_down(wnedges=wnedges, **kwargs)
         return res
+
+    @property
+    def shape(self):
+        """Returns the shape that self.kdata should have to be compatible with
+        the parameter grid.
+        """
+        return np.array(list(filter(None, [self.Np,self.Nt,self.Nx,self.Nw,self.Ng])))
 
     def change_molecule_name(self, mol_name):
         """Changes name of the molecule (self.mol attribute).

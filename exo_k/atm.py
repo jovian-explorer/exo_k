@@ -31,7 +31,8 @@ class Atm_profile(object):
     """
     
     def __init__(self, composition={}, psurf=None, ptop=None, logplev=None, tlev=None,
-            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlev=20):
+            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlev=20,
+            **kwargs):
         """Initializes atmospheric profiles
 
         Parameters

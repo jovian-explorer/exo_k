@@ -80,12 +80,6 @@ class Ktable5d(Data_table):
         if self.kdata is not None:
             self.setup_interpolation()
 
-    @property
-    def shape(self):
-        """Returns the shape of self.kdata
-        """
-        return np.array([self.Np,self.Nt,self.Nx,self.Nw,self.Ng])
-
     def read_hdf5(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
@@ -450,7 +444,7 @@ class Ktable5d(Data_table):
             new_kdata: array
                 New array of kdata.
         """
-        self.kdata=new_kdata
+        super().set_kdata(new_kdata)
         self.setup_interpolation()
 
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array= None,
