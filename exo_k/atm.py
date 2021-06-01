@@ -117,6 +117,12 @@ class Atm_profile(object):
     def compute_pressure_levels(self):
         """Computes various pressure related quantities
         """
+        if self.logplev[0] >= self.logplev[-1]:
+            print("""
+            Atmospheres are modelled from the top down.
+            All arrays should be ordered accordingly
+            (first values correspond to top of atmosphere)""")
+            raise RuntimeError('Pressure grid is in decreasing order!')
         self.plev=10**self.logplev
         self.psurf=self.plev[-1]
         self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
