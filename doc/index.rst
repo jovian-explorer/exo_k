@@ -28,8 +28,9 @@ The API reference section also lists systematically all the classes and methods 
 and available options for each of them. This documentation is
 searchable with the search bar in the top left corner. 
 
-If you find this library useful in your reasearch, please acknowledge it by citing
-`Leconte (2021) <https://ui.adsabs.harvard.edu/abs/2021A%26A...645A..20L/abstract>`_.
+If you find this library useful in your reasearch, please acknowledge it by citing `Leconte (2021) <https://ui.adsabs.harvard.edu/abs/2021A%26A...645A..20L/abstract>`_:
+
+  * Spectral binning of precomputed correlated-k coefficients. **Astronomy and Astrophysics** 645. Leconte, J. 2021. doi:10.1051/0004-6361/202039040 
 
 Enjoy!
 
@@ -37,6 +38,10 @@ Enjoy!
 
 Recent releases
 ===============
+
+v1.0.2 (June 2021): Adds a few missing dependencies. Enables computation of thermal
+emission spectra with scattering through the two-stream method. 
+Enables creating Xtables for a mix of gases (CIA can be added as well).
 
 v1.0.1 (Jan 2021): Solves a binary/string conversion issue introduced by version 3 of h5py.
 Enables linear interpolation in pressure (default is log). Enables creation of
