@@ -217,7 +217,35 @@ class Cia_table(Spectral_object):
         f.create_dataset("abs_coeff", data=self.abs_coeff,compression="gzip")
         f["abs_coeff"].attrs["units"] = self.abs_coeff_unit
         f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
-        f.close()    
+        f.close() 
+
+    def write_cia(self, filename):
+        """Writes simplified .cia files.
+
+        To be consistent with Hitran CIA files, data is converted back to cm^5
+        before writing.
+
+        Parameters
+        ----------
+            filename: str
+                Name of the file to be written.
+        """
+        if not filename.lower().endswith(('.cia')):
+            filename=filename+'.cia'
+        _,conversion_factor=unit_convert( \
+            'abs_coeff_unit',unit_file=self.abs_coeff_unit,
+            unit_in=self.abs_coeff_unit,unit_out='cm^5')
+        to_write=conversion_factor*self.abs_coeff
+        with open(filename, "w") as f:
+            for i_t, t in enumerate(self.tgrid):
+                header="""       {m1}-{m2}   {w1}  {w2}  {Nw}  {T}\n""".format(
+                    m1=self.mol1, m2=self.mol2, w1=self.wns[0],
+                    w2=self.wns[-1], Nw=self.Nw, T=t)
+                f.write(header) 
+                for i_w, wn in enumerate(self.wns):
+                    line=str(wn)+' '+str(to_write[i_t,i_w])+'\n'
+                    f.write(line) 
+   
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False, **kwargs):
         """Method to re sample a cia table to a new grid of wavenumbers (inplace).
