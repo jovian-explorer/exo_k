@@ -290,13 +290,27 @@ class Atm_profile(object):
             dl[:-1]-=dl[1:]
             self.tangent_path.append(2.*dl)
 
+    def __repr__(self):
+        """Method to output header
+        """
+        output="""
+    gravity (m/s^2) : {grav}
+    Planet Radius(m): {rad}
+    Ptop (Pa)       : {ptop}
+    Psurf (Pa)      : {psurf}
+    composition     :
+        {comp}""".format(grav=self.grav, rad=self.Rp, comp=self.gas_mix,
+            ptop=self.plev[0], psurf=self.plev[-1])
+        return output
+
+
 
 class Atm(Atm_profile):
     """Class based on Atm_profile that handles radiative trasnfer calculations.
 
     Radiative data are accessed through the :any:`gas_mix.Gas_mix` class.
     """
-    
+
     def __init__(self, k_database=None, cia_database=None,
         wn_range=None, wl_range=None, **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
@@ -862,6 +876,21 @@ class Atm(Atm_profile):
         heat_rate=np.sum(heat_rate,axis=1)
         heat_rate=heat_rate*N_A*self.rcp/(self.dcol_density*RGP)
         return heat_rate
+
+    def __repr__(self):
+        """Method to output header
+        """
+        output=super().__repr__()
+        output+="""
+    k_database      :
+        {kdatab}
+    cia_database    :
+        {cdatab}""".format(kdatab=self.kdatabase, cdatab=self.gas_mix.cia_database)
+        if self.gas_mix._wn_range is not None:
+            output+='    wn range        : '+ self.gas_mix._wn_range +'\n'
+
+        return output
+
 
 ############### unvalidated functions #########################
 
