@@ -101,7 +101,7 @@ https://www.lmd.jussieu.fr/~lmdz/planets/LMDZ.GENERIC/datagcm/corrk_data/
 High-resolution cross sections from the petitRADTRANS database
 --------------------------------------------------------------
 
-PetitRADTRANS (`Molliere et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019A%26A...627A..67M/abstract>`_)
+PetitRADTRANS (`Molliere et al. 2019 <https://ui.adsabs.harvard.edu/abs/2019A%26A...627A..67M/abstract>`_)
 is a 1D model calculating transmission and emission spectra of exoplanets.
 
 A full documentation can be found there:
@@ -119,6 +119,14 @@ Collision Induced Absorption (CIA)
 
 HITRAN has published a quite extensive list of CIA tables that can be found
 `here <https://hitran.org/cia/>`_. They can be read directly by `exo_k`
+
+.. important::
+  In the 2018 release of Hitran, some CIA files can contain data for multiple
+  wavenumber range but for different temperatures in each range.
+  This is not yet supported so only the first wavenumber range is used.
+  For H2-H2 2018 cia files, one should manually replace all the `n-H2 -- n-H2` in 
+  `H2-H2` for the format to be readable. 
+
 
 Other more specific sets of CIA absorptions that have been used with LMDG
 can be found `there <https://www.lmd.jussieu.fr/~lmdz/planets/LMDZ.GENERIC/datagcm/continuum_data/>`_.

@@ -16,6 +16,13 @@ from .util.spectral_object import Spectral_object
 
 class Cia_table(Spectral_object):
     """A class to handle CIA opacity data tables.
+
+    .. important::
+        In the 2018 release of Hitran, some CIA files can contain data for multiple
+        wavenumber range but for different temperatures in each range.
+        This is not yet supported so only the first wavenumber range is used.
+        For H2-H2 cia files, one should manually replace all the `n-H2 -- n-H2` in 
+        `H2-H2` for the format to be readable. 
     """
 
     def __init__(self, *filename_filters, filename=None, molecule_pair=None, search_path=None,
@@ -74,7 +81,7 @@ class Cia_table(Spectral_object):
             else:
                 raise RuntimeError('Cia file extension not known.')
         if self.abs_coeff is not None:
-            if self._settings._convert_to_mks or mks: self.convert_to_mks()
+            #if self._settings._convert_to_mks or mks: self.convert_to_mks()
             if remove_zeros : self.remove_zeros()
 
     def _init_empty(self):
@@ -112,27 +119,46 @@ class Cia_table(Spectral_object):
                     Nw, Temp = self._read_header(file)
                 except EndOfFile:
                     break
-                tmp_tgrid.append(Temp)
-                tmp_abs_coeff.append([])
-                tmp_wns=[]
+                except:
+                    print("""
+                    The .cia format your are using must not be supported.
+                    This can happen with the 2018 release of the hitran CIA coefficients.
+                    In particular, for some couple of molecules, the name is written with
+                    spaces but exo_k only recognizes formats without spaces for now
+                    (for example: \'n-H2 -- n-H2\' should be \'H2-H2\').
+                    You can try replacing these in the files or contact me.
+                    """)
+                    raise RuntimeError('Bad .cia file format.')
+                tmp_abs_coeff2 = list()
                 if First: 
+                    tmp_wns=[]
                     for _ in range(Nw): #as iterator not used, can be replaced by _
                         line=file.readline()
                         tmp=line.split()
                         tmp_wns.append(float(tmp[0]))
-                        tmp_abs_coeff[-1].append(float(tmp[1]))
+                        tmp_abs_coeff2.append(float(tmp[1]))
                     self.wns=np.array(tmp_wns)
+                    self.Nw=self.wns.size
+                    First = False
                 else:
+                    if Nw != self.Nw:
+                        print('i am here')
+                        break # in 2018 format, there can be data for several
+                              # wavenumber range in the same file
+                              # but not for the same temperatures.
+                              # We take only the first set for now.
+                        print('I did not break')
                     for _ in range(Nw):
                         line=file.readline()
                         tmp=line.split()
-                        tmp_abs_coeff[-1].append(float(tmp[1]))
+                        tmp_abs_coeff2.append(float(tmp[1]))
+                tmp_abs_coeff.append(tmp_abs_coeff2)
+                tmp_tgrid.append(Temp)
         self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
         self.tgrid=np.array(tmp_tgrid)
         self.abs_coeff=np.array(tmp_abs_coeff)
         self.abs_coeff_unit=old_cia_unit
         self.Nt=self.tgrid.size
-        self.Nw=self.wns.size
 
 
     def _read_header(self, file):
@@ -373,6 +399,8 @@ class Cia_table(Spectral_object):
         """Converts units to MKS
         """
         message=None
+        print(self.abs_coeff_unit)
+        print(self.abs_coeff)
         if self.abs_coeff_unit=='cm^5':
             message='Conversion from cm^5 to m^5'
             self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
@@ -387,7 +415,7 @@ class Cia_table(Spectral_object):
             self.abs_coeff=self.abs_coeff*(KBOLTZ*273.15/101325.0)**2
             #conversion from m^-1/amagat^2 to m^5
         else:
-            pass
+            return
         if verbose and message is not None:
             print(message)
         self.abs_coeff_unit='m^5'
