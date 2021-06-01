@@ -17,6 +17,8 @@ install_requires = ['numpy',
                     'numba>=0.49',
                     'astropy',
                     'h5py',
+                    'matplotlib',
+                    'panda'
                     ]
 
 console_scripts = ['']
@@ -24,8 +26,9 @@ console_scripts = ['']
 entry_points = {'console_scripts': console_scripts, }
 
 classifiers = [
-    'Development Status :: 4 - Beta',
+    'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
+    'Framework :: Jupyter',
     'Intended Audience :: Developers',
     'Intended Audience :: Education',
     'Intended Audience :: Science/Research',
@@ -39,6 +42,7 @@ classifiers = [
     'Topic :: Scientific/Engineering',
     'Topic :: Scientific/Engineering :: Astronomy',
     'Topic :: Scientific/Engineering :: Atmospheric Science',
+    'Topic :: Scientific/Engineering :: Physics',
     'Topic :: Software Development :: Libraries',
 ]
 
@@ -68,6 +72,5 @@ setup(name='exo_k',
       provides=provides,
       requires=requires,
       install_requires=install_requires,
-      extras_require={
-        'Plot':  ["matplotlib"], },
+      extras_require={},
       )
