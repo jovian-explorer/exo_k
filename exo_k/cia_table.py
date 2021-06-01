@@ -81,7 +81,7 @@ class Cia_table(Spectral_object):
             else:
                 raise RuntimeError('Cia file extension not known.')
         if self.abs_coeff is not None:
-            #if self._settings._convert_to_mks or mks: self.convert_to_mks()
+            if self._settings._convert_to_mks or mks: self.convert_to_mks()
             if remove_zeros : self.remove_zeros()
 
     def _init_empty(self):
@@ -142,12 +142,10 @@ class Cia_table(Spectral_object):
                     First = False
                 else:
                     if Nw != self.Nw:
-                        print('i am here')
                         break # in 2018 format, there can be data for several
                               # wavenumber range in the same file
                               # but not for the same temperatures.
                               # We take only the first set for now.
-                        print('I did not break')
                     for _ in range(Nw):
                         line=file.readline()
                         tmp=line.split()
@@ -399,8 +397,6 @@ class Cia_table(Spectral_object):
         """Converts units to MKS
         """
         message=None
-        print(self.abs_coeff_unit)
-        print(self.abs_coeff)
         if self.abs_coeff_unit=='cm^5':
             message='Conversion from cm^5 to m^5'
             self.convert_abs_coeff_unit(abs_coeff_unit='m^5')
