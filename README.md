@@ -16,6 +16,9 @@ It enables you to:
 * Create your own tables from high-resolution spectra (for example from K-spectrum, Helios-K, etc.).
 * Use your data in an integrated radiative transfer framework to simulate planetary atmospheres.
   
+For a complete online documentation, checkout:
+http://perso.astrophy.u-bordeaux.fr/~jleconte/exo_k-doc/index.html
+
 In this repository, you'll find a [tutorial jupyter notebook](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb) that will show you how to do all that
 with concrete examples that you can run on your own machine. Many important concepts and options are
 presented along the way.
@@ -24,16 +27,25 @@ Enjoy!
 
 J. Leconte
 
-# Recent releases
+# Acknowledgements
 
-v1.0.1 (Jan 2021): Solves a binary/string conversion issue on some platforms.
-Enables linear interpolation in pressure (default is log). Enables creation of
-empty tables to filled later and spectral extension of existing tables. 
+If you use this library in your research, please acknowledge it by citing
+[Leconte (2021)](https://ui.adsabs.harvard.edu/abs/2021A%26A...645A..20L/abstract):
 
-v1.0.0 (Dec 2020): Finally our first official version. Creation of a
-'examples' notebook with fully worked out use cases for the `Exo_k`. 
+  * Spectral binning of precomputed correlated-k coefficients. **Astronomy and Astrophysics** 645. Leconte, J. 2021. doi:10.1051/0004-6361/202039040
 
-v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables.
+This project has received funding from the European Research Council (ERC)
+under the European Union's Horizon 2020 research and innovation programme
+(grant agreement n° 679030/WHIPLASH).
+
+The framework for this documentation has been developped by Aurelien Falco using Sphinx. 
+
+# last release (see past releases below)
+
+v1.0.2 (June 2021): Adds a few missing dependencies. Enables computation of thermal
+emission spectra with scattering through the two-stream method (full documentation pending). 
+Enables creating Xtables for a mix of gases (CIA can be added as well). Solves some issues
+with the 2018 Hitran CIA format.
 
 # Installation
 
@@ -46,6 +58,7 @@ Or by running the [setup.py](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-pub
 ```
 python setup.py install
 ```
+
 # Usage
 
 To learn how to use `exo_k`, you can follow the [tutorial jupyter notebook](https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb).
@@ -59,24 +72,14 @@ Have fun!
 * Documentation: http://perso.astrophy.u-bordeaux.fr/~jleconte/exo_k-doc/index.html
 * Contact: jeremy.leconte at u-bordeaux.fr
 
-# Acknowledgements
 
-This project has received funding from the European Research Council (ERC)
-under the European Union's Horizon 2020 research and innovation programme
-(grant agreement n° 679030/WHIPLASH).
+# past releases
 
-The framework for this documentation has been developped by Aurelien Falco using Sphinx. 
+v1.0.1 (Jan 2021): Solves a binary/string conversion issue introduced by version 3 of h5py.
+Enables linear interpolation in pressure (default is log). Enables creation of
+empty tables to be filled later and extension of the spectral range of existing tables. 
 
-# Building the documentation
+v1.0.0 (Dec 2020): Finally our first official version. Creation of a
+'examples' notebook with fully worked out use cases for the `Exo_k`. 
 
-To generate the documentation, you will need to install the following packages:
-```
-pip install nbsphinx sphinx-autoapi sphinx_rtd_theme
-conda install sphinx # installs more (required) dependencies than pip
-```
-You can then generate the documentation by running:
-```
-python setup.py doc
-```
-(or by simply running `make` in the `doc/` folder). The documentation will be generated in the doc/html folder (you can open the doc/html/index.html file to check it out).
-
+v0.0.5 (Oct 2020): Ensures compatibility with latest Exomol correlated-k and cross-section tables.

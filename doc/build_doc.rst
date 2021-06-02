@@ -3,9 +3,9 @@ Building the documentation
 
 If you are reading this, you probably do not need to build the documentation. 
 
-But you might want to build a local version anyway. As we also made the choice not to
-keep previous versions of the documentation online, you may want to recompile the doc
-for your local version of the code.
+But, as we made the choice not to store previous versions of the documentation online,
+you may want to build a local version of the documentation
+for the version of the code you are currently using.
 The documentation relies on `sphinx`. The necessary packages can be installed using::
 
     pip install nbsphinx sphinx-autoapi sphinx_rtd_theme
