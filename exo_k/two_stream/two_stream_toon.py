@@ -10,7 +10,7 @@ import numba
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
+                flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -22,12 +22,12 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
                 omega0_nu[:,iW], g_asym_nu[:,iW],
                 mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
-                alb_surf=alb_surf, mid_layer=mid_layer)
+                alb_surf=alb_surf, flux_at_level=flux_at_level)
     return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
+                flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -41,12 +41,12 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
                     omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
                     mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
-                    alb_surf=alb_surf, mid_layer=mid_layer)
+                    alb_surf=alb_surf, flux_at_level=flux_at_level)
     return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym,
-                mu0=0.5, flux_top_dw=0., alb_surf=0., mid_layer=False):
+                mu0=0.5, flux_top_dw=0., alb_surf=0., flux_at_level=False):
     """After Toon et al. (JGR, 1989). Equation number refer to this article.
     
     emis_surf=1.-alb_surf
@@ -72,10 +72,10 @@ def solve_2stream(source, dtau, omega0, g_asym,
             Incoming difuse flux at the upper boundary
         alb_surf: float
             Surface albedo. Emissivity is assumed to be 1.-alb_surf
-        mid_layer: bool, optional
-            if mid_layer is False, fluxes are calculated at the level surfaces.
-            If True, fluxes are computed at the midle of the layers, except for the
-            top of atmosphere flux, which is still computed at the top of the uppermost layer
+        flux_at_level: bool, optional
+            if flux_at_level is True, fluxes are calculated at the level surfaces.
+            If False, fluxes are computed at the middle of the layers.
+            The top of atmosphere flux is always computed at the top of the uppermost layer
             (1st level).
 
 
@@ -83,7 +83,7 @@ def solve_2stream(source, dtau, omega0, g_asym,
     Nlay=dtau.size
     gam_1, gam_2=_gammas_toon(omega0, g_asym, mu0=mu0)
     flux_net, J4pimu=matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu0,
-                flux_top_dw, alb_surf, mid_layer)
+                flux_top_dw, alb_surf, flux_at_level)
     return 0.5*(J4pimu+flux_net), 0.5*(J4pimu-flux_net), flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
@@ -110,7 +110,7 @@ def _gammas_toon(omega0, g_asym, mu0=0.5):
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
-        flux_top_dw, alb_surf, mid_layer):
+        flux_top_dw, alb_surf, flux_at_level):
     """
     Returns
     -------
@@ -148,7 +148,7 @@ def matrix_toon_tridiag(Nlay, source, dtau, gam_1, gam_2, mu1,
     Y=DTRIDGL(2*Nlay,A,B,D,E)
     flux_net = np.empty((Nlay+1))
     J4pimu   = np.empty((Nlay+1))
-    if mid_layer:
+    if flux_at_level:
         c_up_mid, c_dw_mid = c_planck_mid(source, dtau, gam_1, gam_2, mu1)
         #print('mid:',np.amax(np.abs((c_up_mid-c_up_top)/c_up_top)))
         #print('bot:',np.amax(np.abs((c_up_bot-c_up_top)/c_up_top)))

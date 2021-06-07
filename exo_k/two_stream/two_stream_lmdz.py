@@ -8,7 +8,7 @@ import numpy as np
 import numba
 
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-        flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
+        flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
     """Deals with the spectral axis
     """
       
@@ -38,7 +38,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
         FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW],
                 omega0_nu[:,NW], g_asym_nu[:,NW], mu0=mu0,
                 flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf,
-                mid_layer=mid_layer)
+                flux_at_level=flux_at_level)
         FLUXUPI_nu[:,NW] = FMUPI
         FLUXDWI_nu[:,NW] = FMDI
         FNETI_nu[:,NW] = FNETI
@@ -47,7 +47,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-        flux_top_dw_nu, mu0=0.5, alb_surf=0., mid_layer=False):
+        flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
     """Deals with the spectral axis
     """
       
@@ -78,7 +78,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW,iG],
                     omega0_nu[:,NW,iG], g_asym_nu[:,NW,iG], mu0=mu0,
                     flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf,
-                    mid_layer=mid_layer)
+                    flux_at_level=flux_at_level)
             FLUXUPI_nu[:,NW,iG] = FMUPI
             FLUXDWI_nu[:,NW,iG] = FMDI
             FNETI_nu[:,NW,iG] = FNETI
@@ -87,7 +87,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0., 
-                      alb_surf=0., mid_layer=False):
+                      alb_surf=0., flux_at_level=False):
     """Based on gfluxi in LMDZ code      
 ##-----------------------------------------------------------------------
 ##  THIS SUBROUTINE TAKES THE OPTICAL CONSTANTS AND BOUNDARY CONDITIONS
@@ -199,7 +199,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0.,
     FMIDP[0] = XK1[0] + GAMA[L]*XK2[0] + CPMID
     FMIDM[0] = XK1[0]*GAMA[L] + XK2[0] + CMMID
       
-    if mid_layer:
+    if flux_at_level:
         for L in range(Nlay):
             DTAUK = dtau[L]/2.
             EP    = np.exp(min(LAMDA[L]*DTAUK,TAUMAX)) # CLIPPED EXPONENTIAL 

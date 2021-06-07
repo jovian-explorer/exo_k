@@ -2,8 +2,11 @@
 """
 @author: jeremy leconte
 
-Contains classes for atmospheric profiles and their radiative properties.
-That's where forward models are computed. 
+This module contain classes to handle atmosphes
+and their radiative properties.
+
+This alows us to compute the transmission and emission spectra
+of those atmospheres.
 """
 import numpy as np
 import numba
@@ -30,8 +33,12 @@ class Atm_profile(object):
 
     """
     
-    def __init__(self, composition={}, psurf=None, ptop=None, logplev=None, tlev=None,
-            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlev=20,
+    def __init__(self, composition={}, psurf=None, ptop=None, logplay=None, tlay=None,
+            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlay=20,
+            logplev=None, 
+            ## old parameters that should be None. THey are left here to catch
+            ## exceptions and warn the user that their use is obsolete
+            Nlev=None, tlev=None,
             **kwargs):
         """Initializes atmospheric profiles
 
@@ -51,10 +58,10 @@ class Atm_profile(object):
                 from composition.
         
         There are two ways to define the profile.
-        Either define:
+        You can define:
 
-        * Nlev: int
-          Number of level interfaces (Number of layers is Nlev-1)
+        * Nlay: int
+          Number of layers
         * psurf, Tsurf: float
           Surface pressure (Pa) and temperature 
         * ptop: float
@@ -62,74 +69,106 @@ class Atm_profile(object):
         * Tstrat: float
           Stratospheric temperature        
 
-        or:
+        This way you will have an adiabatic atmosphere with Tsurf at the ground that
+        becomes isothermal wherever T=<Tstrat.
+        You can also specify:
 
-        * logplev: array
-        * tlev: array (same size)
-          These will become the pressures (Pa) and temperatures at the level interfaces.
+        * logplay or play: array
+        * tlay: array (same size)
+          These will become the pressures (Pa; the log10 if you give
+          logplay) and temperatures of the layers.
           This will be used to define the surface and top pressures.
-          Nlev becomes the size of the arrays. 
+          Nlay becomes the size of the arrays. 
 
         .. warning::
             Layers are counted from the top down (increasing pressure order).
             All methods follow the same convention.
         """
+        if (Nlev is not None) or (tlev is not None):
+            print("""
+                since version 1.1.0, Nlev, tlev, and plev have been renamed
+                Nlay, tlay, and logplay for consistency with other codes.
+                Just change the name of the variables in the method call
+                and you should be just fine!
+                """)
+            raise RuntimeError('Unknown keyword argument in __init__')
         self.gas_mix=Gas_mix(composition)
         self.rcp=rcp
-        if logplev is None:
-            self.Nlev=Nlev
-            self.Nlay=Nlev-1
-            self.logplev=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlev)
+        self.logplev=None
+        if logplay is None:
+            self.Nlay=Nlay
+            self.Nlev=Nlay+1
+            self.logplay=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlay)
             self.compute_pressure_levels()
             self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat)
         else:
-            self.set_logPT_profile(logplev, tlev)
+            self.set_logPT_profile(logplay, tlay, logplev=logplev)
         self.set_Rp(Rp)        
         self.set_grav(grav)
         self.set_Mgas(Mgas)
 
-    def set_logPT_profile(self, log_plev, tlev):
+    def set_logPT_profile(self, logplay, tlay, logplev=None):
         """Set the logP-T profile of the atmosphere with a new one
 
         Parameters
         ----------
-            log_plev: numpy array
-                Log pressure (in Pa) at the level surfaces
-            tlev: numpy array (same size)
-                temperature at the level surfaces.
+            logplay: array
+                Log pressure (in Pa) of the layer
+            tlay: array (same size)
+                temperature of the layers.
+        
+        Other Parameters
+        ----------------
+            logplev: array (size Nlay+1)
+                If provided, allows the user to choose the location
+                of the level surfaces separating the layers.
         """
-        self.logplev=np.array(log_plev, dtype=float)
-        self.Nlev=log_plev.size
-        self.Nlay=self.Nlev-1
+        self.logplay=np.array(logplay, dtype=float)
+        self.Nlay=self.logplay.size
+        self.Nlev=self.Nlay+1
+        if logplev is not None:
+            if logplev.size == self.Nlev:
+                self.logplev=np.array(logplev, dtype=float)
+            else:
+                raise RuntimeError('logplev does not have the size Nlay+1')
         self.compute_pressure_levels()
-        self.set_T_profile(tlev)
+        self.set_T_profile(tlay)
 
-    def set_T_profile(self, tlev):
+    def set_T_profile(self, tlay):
         """Reset the temperature profile without changing the pressure levels
         """
-        tlev=np.array(tlev, dtype=float)
-        if tlev.shape != self.logplev.shape:
-            raise RuntimeError('tlev and log_plev should have the same size.')
-        self.tlev=tlev
-        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
+        tlay=np.array(tlay, dtype=float)
+        if tlay.shape != self.logplay.shape:
+            raise RuntimeError('tlay and logplay should have the same size.')
+        self.tlay=tlay
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
 
     def compute_pressure_levels(self):
         """Computes various pressure related quantities
         """
-        if self.logplev[0] >= self.logplev[-1]:
+        if self.logplay[0] >= self.logplay[-1]:
             print("""
             Atmospheres are modelled from the top down.
             All arrays should be ordered accordingly
             (first values correspond to top of atmosphere)""")
             raise RuntimeError('Pressure grid is in decreasing order!')
-        self.plev=10**self.logplev
-        self.psurf=self.plev[-1]
-        self.logplay=(self.logplev[:-1]+self.logplev[1:])*0.5
         self.play=10**self.logplay
-        self.dp_lay=np.concatenate([[self.plev[0]],self.play,[self.psurf]])
-        self.dp_lay=np.diff(self.dp_lay)
-        self.exner=(self.plev/self.psurf)**self.rcp
+        if self.logplev is None:
+            self.plev=np.zeros(self.Nlev)
+            self.plev[1:-1]=(self.play[:-1]+self.play[1:])*0.5
+            # we choose to use mid point so that there is equal mass in the bottom half
+            # of any top layer and the top half of the layer below. 
+            self.plev[0]=self.play[0]
+            self.plev[-1]=self.play[-1]
+            ## WARNING: Top and bottom pressure levels are set equal to the
+            #  pressure in the top and bottom layers. If you change that,
+            #  some assumptions here and there is the code may break down!!!
+            self.logplev=np.log10(self.plev)
+        else:
+            self.plev=10**self.logplev
+        self.psurf=self.plev[-1]
+        self.dp_lay=np.diff(self.plev) ### probably redundant with dmass
+        self.exner=(self.play/self.psurf)**self.rcp
 
     def set_adiab_profile(self, Tsurf=None, Tstrat=None):
         """Initializes the logP-T atmospheric profile with an adiabat with index R/cp=rcp
@@ -143,9 +182,8 @@ class Atm_profile(object):
                 an isothermal atmosphere with T=Tsurf is returned.
         """
         if Tstrat is None: Tstrat=Tsurf
-        self.tlev=Tsurf*self.exner
-        self.tlev=np.where(self.tlev<Tstrat,Tstrat,self.tlev)
-        self.tlay=(self.tlev[:-1]+self.tlev[1:])*0.5
+        self.tlay=Tsurf*self.exner
+        self.tlay=np.where(self.tlay<Tstrat,Tstrat,self.tlay)
         self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
 
     def set_grav(self, grav=None):
@@ -169,10 +207,6 @@ class Atm_profile(object):
                 A 'background' value means that the gas will be used to fill up to vmr=1
                 If they do not add up to 1 and there is no background gas_mix,
                 the rest of the gas_mix is considered transparent.
-    
-            compute_col_dens: boolean, optional
-                If True, the column density per layer of the atmosphere is recomputed.
-                This si mostly to save time when we know this will be done later on.
         """
         self.gas_mix.set_composition(composition_dict)
         self.set_Mgas()
@@ -190,6 +224,7 @@ class Atm_profile(object):
             self.Mgas=Mgas
         else:
             self.Mgas=self.gas_mix.molar_mass()
+        self.Mgas=self.Mgas*np.ones(self.Nlay, dtype=np.float)
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -215,7 +250,7 @@ class Atm_profile(object):
         if isinstance(Rp,u.quantity.Quantity):
             self.Rp=Rp.to(u.m).value
         else:
-            self.Rp=Rp*RJUP
+            self.Rp=Rp
 
     def set_Rstar(self, Rstar):
         """Sets the radius of the star
@@ -231,7 +266,7 @@ class Atm_profile(object):
         if isinstance(Rstar,u.quantity.Quantity):
             self.Rstar=Rstar.to(u.m).value
         else:
-            self.Rstar=Rstar*RSOL
+            self.Rstar=Rstar
 
     def compute_density(self):
         """Computes the number density (m^-3) profile of the atmosphere
@@ -239,40 +274,48 @@ class Atm_profile(object):
         self.density=self.play/(KBOLTZ*self.tlay)
 
     def compute_layer_col_density(self):
-        """Computes the column number density (molecules/m^-2) per layer of the atmosphere
+        """Computes the column number density (molecules/m^-2) per
+        radiative layer of the atmosphere.
+
+        There are Nlay-1 radiative layers as they go from the midle of a layer to the next.
+
+        dcol_density_radlay_up (size Nlay-1) is the column density in the upper half of each layer
+        dcol_density_radlay_dw (size Nlay-1) is the column density in the lower half of each layer
+
         """
-        self.dmass=(self.plev[1:]-self.plev[:-1])/self.grav
-        # grav term above should include the altitude effect. 
-        #self.dmass[0]=self.plev[1]/self.grav
-        # above is just a test extending the atm up to p=0
-        if self.Rp is not None:
+        factor=N_A/(self.grav * self.Mgas)
+        self.dcol_density_radlay_up=(self.plev[1:-1]-self.play[:-1])*factor[:-1]
+        self.dcol_density_radlay_dw=(self.play[1:]-self.plev[1:-1])*factor[1:]
+
+        if self.Rp is not None: #includes the altitude effect if radius is known
             self.compute_altitudes()
-            self.dmass=self.dmass*(1.+self.zlay/self.Rp)**2
-        self.dcol_density=self.dmass*N_A/(self.Mgas)
+            self.dcol_density_radlay_up*=(1.+self.zlay[:-1]/self.Rp)**2
+            self.dcol_density_radlay_dw*=(1.+self.zlay[1:]/self.Rp)**2
 
     def compute_altitudes(self):
         """Compute altitudes of the level surfaces (zlev) and mid layers (zlay).
         """
         H=RGP*self.tlay/(self.grav*self.Mgas)
         dlnP=np.diff(self.logplev)*np.log(10.)
+        self.zlev=np.zeros_like(self.logplev)
         if self.Rp is None:
             self.dz=H*dlnP
-            self.zlay=np.cumsum(self.dz[::-1])
-            self.zlev=np.concatenate(([0.],self.zlay))[::-1]
-            self.zlay-=0.5*self.dz[::-1]
-            self.zlay=self.zlay[::-1]
+            self.zlev[:-1]=np.cumsum(self.dz[::-1])[::-1]
+            self.zlay=0.5*(self.zlev[1:]+self.zlev[:-1])
+            ## assumes layer centers at the middle of the two levels
+            ## which is not completely consistent with play, but should be
+            ## a minor error.
         else:
-            self.zlev=np.zeros_like(self.tlev)
             for i in range(H.size)[::-1]:
                 z1=self.zlev[i+1]
                 H1=H[i]
                 dlnp=dlnP[i]
                 self.zlev[i]=z1+( (H1 * (self.Rp + z1)**2 * dlnp) \
                     / (self.Rp**2 + H1 * self.Rp * dlnp + H1 * z1 * dlnp) )
-            self.zlay=(self.zlev[:-1]+self.zlev[1:])*0.5
-            # the last line is not completely consistent. The integration
-            # should be done between layer bottom and mid layer assuming
-            # an average T between Tlay and Tlev.
+        self.zlay=0.5*(self.zlev[1:]+self.zlev[:-1])
+        ## assumes layer centers at the middle of the two levels
+        ## which is not completely consistent with play, but should be
+        ## a minor error.
         
     def compute_area(self):
         """Computes the area of the annulus covered by each layer in a transit setup. 
@@ -304,9 +347,10 @@ class Atm_profile(object):
     Planet Radius(m): {rad}
     Ptop (Pa)       : {ptop}
     Psurf (Pa)      : {psurf}
+    Tsurf (K)       : {tsurf}
     composition     :
         {comp}""".format(grav=self.grav, rad=self.Rp, comp=self.gas_mix,
-            ptop=self.plev[0], psurf=self.plev[-1])
+            ptop=self.plev[0], psurf=self.psurf, tsurf=self.tlay[-1])
         return output
 
 
@@ -328,7 +372,7 @@ class Atm(Atm_profile):
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
         self.flux_net_nu=None
         self.kernel=None
-        self.tlev_kernel=self.tlev
+        self.tlay_kernel=self.tlay
 
     def set_k_database(self, k_database=None):
         """Change the radiative database used by the
@@ -417,16 +461,16 @@ class Atm(Atm_profile):
         if source:
             if integral:
                 #JL2020 What is below is slightly faster for very large resolutions
-                #piBatm=np.empty((self.Nlev,self.Nw))
-                #for ii in range(self.Nlev):
-                #    piBatm[ii]=PI*Bnu_integral_num(self.wnedges,self.tlev[ii])/dw
+                #piBatm=np.empty((self.Nlay,self.Nw))
+                #for ii in range(self.Nlay):
+                #    piBatm[ii]=PI*Bnu_integral_num(self.wnedges,self.tlay[ii])/dw
                 #JL2020 What is below is much faster for moderate to low resolutions
-                piBatm=PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
+                piBatm=PI*Bnu_integral_array(self.wnedges,self.tlay,self.Nw,self.Nlay) \
                     /self.dwnedges
             else:
-                piBatm=PI*Bnu(self.wns[None,:],self.tlev[:,None])
+                piBatm=PI*Bnu(self.wns[None,:],self.tlay[:,None])
         else:
-            piBatm=np.zeros((self.Nlev,self.Nw))
+            piBatm=np.zeros((self.Nlay,self.Nw))
         return piBatm
 
     def setup_emission_caculation(self, mu_eff=0.5, rayleigh=False, integral=True,
@@ -438,9 +482,11 @@ class Atm(Atm_profile):
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
-            self.tau,self.dtau=rad_prop_xsec(self.dcol_density,self.kdata,mu_eff)
+            self.tau, self.dtau=rad_prop_xsec(self.dcol_density_radlay_up,
+                self.dcol_density_radlay_dw, self.kdata, mu_eff)
         else:
-            self.tau,self.dtau=rad_prop_corrk(self.dcol_density,self.kdata,mu_eff)
+            self.tau, self.dtau=rad_prop_corrk(self.dcol_density_radlay_up,
+                self.dcol_density_radlay_dw, self.kdata, mu_eff)
             self.weights=self.kdatabase.weights
 
     def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None, **kwargs):
@@ -476,8 +522,9 @@ class Atm(Atm_profile):
         try:
             self.setup_emission_caculation(mu_eff=mu0, rayleigh=False, integral=integral, **kwargs)
         except TypeError:
-            raise RuntimeError("""Cannot use rayleigh option with emission_spectrum.
-            Probably meant to use emission_spectrum_2stream.
+            raise RuntimeError("""
+            Cannot use rayleigh option with emission_spectrum.
+            If you meant to include scattering, you should use emission_spectrum_2stream.
             """)
         # self.tau and self.dtau include the 1/mu0 factor.
         expdtau=np.exp(-self.dtau)
@@ -545,7 +592,7 @@ class Atm(Atm_profile):
         return Spectrum(IpTop,self.wns,self.wnedges)
 
     def emission_spectrum_2stream(self, integral=True, mu0=0.5,
-            method='toon', dtau_min=1.e-10, mid_layer=False, rayleigh=False,
+            method='toon', dtau_min=1.e-10, flux_at_level=False, rayleigh=False,
             flux_top_dw=None, source=True, compute_kernel=False, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
@@ -609,7 +656,7 @@ class Atm(Atm_profile):
                 solve_2stream_nu(self.piBatm, self.dtau,
                 self.single_scat_albedo, self.asym_param, self.flux_top_dw_nu, mu0 = mu0)
             if compute_kernel:
-                dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
+                dB = PI * dBnudT_array(self.wns, self.tlay, self.Nw, self.Nlay)
                 if self.Ng is None:
                     self.kernel=np.sum(kernel_nu*dB*self.dwnedges,axis=2)
                 else:
@@ -620,8 +667,8 @@ class Atm(Atm_profile):
         else:
             self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
                 solve_2stream_nu(self.piBatm, self.dtau, self.single_scat_albedo, self.asym_param,
-                    self.flux_top_dw_nu, mu0 = mu0, mid_layer=mid_layer)
-            if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, mid_layer=mid_layer,
+                    self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
+            if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, flux_at_level=flux_at_level,
                         per_unit_mass=True, integral=True, **kwargs)
 
         if self.Ng is None:
@@ -629,34 +676,34 @@ class Atm(Atm_profile):
         else:
             return Spectrum(np.sum(self.flux_up_nu[0]*self.weights,axis=1),self.wns,self.wnedges)
 
-    def compute_kernel(self, solve_2stream_nu, epsilon=0.01, mid_layer=False, mu0 = 0.5,
+    def compute_kernel(self, solve_2stream_nu, epsilon=0.01, flux_at_level=False, mu0 = 0.5,
             per_unit_mass=True, integral=True, **kwargs):
-        """Compute the Jacobian matrix d Heating[lev=i] / d T[lev=j]
+        """Compute the Jacobian matrix d Heating[lay=i] / d T[lay=j]
         """
         net=self.spectral_integration(self.flux_net_nu)
-        self.kernel=np.empty((self.Nlev,self.Nlev))
-        #dB = PI * dBnudT_array(self.wns, self.tlev, self.Nw, self.Nlev)
-        tlev=self.tlev
-        dT = epsilon*tlev
-        self.tlev = tlev + dT
+        self.kernel=np.empty((self.Nlay,self.Nlay))
+        #dB = PI * dBnudT_array(self.wns, self.tlay, self.Nw, self.Nlay)
+        tlay=self.tlay
+        dT = epsilon*tlay
+        self.tlay = tlay + dT
         newpiBatm = self.source_function(integral=integral)
 
-        #newpiBatm=PI*Bnu_integral_array(self.wnedges,self.tlev+dT,self.Nw,self.Nlev) \
+        #newpiBatm=PI*Bnu_integral_array(self.wnedges,self.tlay+dT,self.Nw,self.Nlay) \
         #            /self.dwnedges
 
-        for ilev in range(self.Nlev):
+        for ilay in range(self.Nlay):
             pibatm = np.copy(self.piBatm)
-            #dT = epsilon*self.tlev[ilev]
-            #pibatm[ilev] += dB[ilev]*dT
-            pibatm[ilev] = newpiBatm[ilev]
+            #dT = epsilon*self.tlay[ilay]
+            #pibatm[ilay] += dB[ilay]*dT
+            pibatm[ilay] = newpiBatm[ilay]
             _, _, flux_net_tmp = \
                 solve_2stream_nu(pibatm, self.dtau, self.single_scat_albedo, self.asym_param,
-                    self.flux_top_dw_nu, mu0 = mu0, mid_layer=mid_layer)
+                    self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
             net_tmp = self.spectral_integration(flux_net_tmp)
-            #self.kernel[ilev]=(net_tmp-net)/dT
-            self.kernel[ilev]=(net-net_tmp)/dT[ilev]
+            #self.kernel[ilay]=(net_tmp-net)/dT
+            self.kernel[ilay]=(net-net_tmp)/dT[ilay]
         self.kernel[:,:-1]-=self.kernel[:,1:]
-        self.tlev=tlev
+        self.tlay=tlay
         if per_unit_mass: self.kernel*=self.grav/self.dp_lay
 
     def flux_divergence(self, internal_flux=0., per_unit_mass = True):
@@ -728,7 +775,7 @@ class Atm(Atm_profile):
         return np.sum(np.exp(-self.tau[1:])*weights,axis=2)
 
     def exp_minus_tau_g(self, g_index):
-        """Sums Exp(-tau) over gauss points
+        """Sums Exp(-tau) over gauss point
         """
         return np.exp(-self.tau[1:,:,g_index])
 
@@ -748,9 +795,9 @@ class Atm(Atm_profile):
                 Spectral flux at the surface (in W/m^2/cm^-1)
         """
         if integral:
-            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[-1])/np.diff(self.wnedges)
+            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[-1])/np.diff(self.wnedges)
         else:
-            piBatm=PI*Bnu(self.wns[:],self.tlev[-1])
+            piBatm=PI*Bnu(self.wns[:],self.tlay[-1])
         return Spectrum(piBatm,self.wns,self.wnedges)
 
     def top_bb(self, integral=True):
@@ -769,9 +816,9 @@ class Atm(Atm_profile):
                 Spectral flux of a bb at the temperature at the top of atmosphere (in W/m^2/cm^-1)
         """
         if integral:
-            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlev[0])/np.diff(self.wnedges)
+            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[0])/np.diff(self.wnedges)
         else:
-            piBatm=PI*Bnu(self.wns[:],self.tlev[0])
+            piBatm=PI*Bnu(self.wns[:],self.tlay[0])
         return Spectrum(piBatm,self.wns,self.wnedges)
 
     def transmittance_profile(self, **kwargs):
@@ -843,46 +890,6 @@ class Atm(Atm_profile):
         else:
             return res+(PI*self.Rp**2)
 
-    def heating_rate(self, Fin=1., Tstar=5570., szangle=60., **kwargs):
-        """Computes the heating rate in the atmosphere
-
-        Parameters
-        ----------
-            Fin: float
-                Bolometric stellar flux at the top of atmopshere (W/m^2).
-            Tstar: float
-                Stellar temperature
-            szangle: float
-                Solar zenith angle
-
-        Returns
-        -------
-            array
-                Heating rate in each atmospheric layer (K/s).  
-        """
-        mu0=np.cos(szangle*PI/180.)
-        self.opacity(rayleigh=False, **kwargs)
-        Fstar=Fin*PI*Bnu_integral_array(self.wnedges,List([Tstar]),self.Nw,1)/(SIG_SB*Tstar**4)
-        self.compute_layer_col_density()
-        if self.Ng is None:
-            self.tau, _ =rad_prop_xsec(self.dcol_density,self.kdata,mu0)
-            #the second returned variable is ignored
-        else:
-            self.tau, _ =rad_prop_corrk(self.dcol_density,self.kdata,mu0)
-            self.weights=self.kdatabase.weights
-        exptau=np.exp(-self.tau)
-        if self.Ng is None:
-            tmp_heat_rate=Fstar[0,:]*exptau
-            tmp_heat_rate[:-1]-=tmp_heat_rate[1:]
-            heat_rate=tmp_heat_rate[:-1]
-        else:
-            tmp_heat_rate=Fstar[0,:,None]*exptau
-            tmp_heat_rate[:-1]-=tmp_heat_rate[1:]
-            heat_rate=np.sum(tmp_heat_rate[:-1]*self.weights,axis=2)
-        heat_rate=np.sum(heat_rate,axis=1)
-        heat_rate=heat_rate*N_A*self.rcp/(self.dcol_density*RGP)
-        return heat_rate
-
     def __repr__(self):
         """Method to output header
         """
@@ -898,55 +905,8 @@ class Atm(Atm_profile):
         return output
 
 
-############### unvalidated functions #########################
-
-    def emission_spectrum_exp_integral(self, integral=True, **kwargs):
-        """Computes the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
-
-        .. warning::
-            This method uses a formulation with exponential integrals that
-            is not yet perceived as accurate enough by the author. It is left for testing only. 
-
-        Parameters
-        ----------
-            integral: boolean, optional
-                * If true, the black body is integrated within each wavenumber bin.
-                * If not, only the central value is used.
-                  False is faster and should be ok for small bins,
-                  but True is the correct version. 
-
-        Returns
-        -------
-            Spectrum object 
-                A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
-        """
-        #if self.dtau is None:
-        #    self.rad_prop(**kwargs)
-        self.opacity(rayleigh=False, **kwargs)
-        if integral:
-            piBatm=2*PI*Bnu_integral_array(self.wnedges,self.tlev,self.Nw,self.Nlev) \
-                /np.diff(self.wnedges)
-        else:
-            piBatm=2*PI*Bnu(self.wns[None,:],self.tlev[:,None])
-        mu_zenith=1.
-        self.compute_layer_col_density()
-        if self.Ng is None:
-            self.tau,self.dtau=rad_prop_xsec(self.dcol_density, self.kdata, mu_zenith)
-        else:
-            self.tau,self.dtau=rad_prop_corrk(self.dcol_density, self.kdata, mu_zenith)
-            self.weights=self.kdatabase.weights
-        factor=expn(2, self.tau[1:])*self.dtau
-        if self.Ng is None:
-            timesBatmTop=factor*piBatm[:-1]
-            surf_contrib=piBatm[-1]*expn(3, self.tau[-1])
-        else:
-            timesBatmTop=piBatm[:-1]*np.sum(factor*self.weights,axis=2)
-            surf_contrib=piBatm[-1]*np.sum(expn(3, self.tau[-1])*self.weights,axis=1)
-        IpTop=np.sum(timesBatmTop,axis=0)+surf_contrib
-        return Spectrum(IpTop, self.wns, self.wnedges)
-
 @numba.jit(nopython=True,fastmath=True)
-def convadj(timestep, Nlev, tlev, exner, dp_lay, verbose = False):
+def convadj(timestep, Nlay, tlay, exner, dp_lay, verbose = False):
     r"""Computes the heating rates needed to adjust unstable regions 
     of a given atmosphere to a convectively neutral T profile on
     a given timestep.
@@ -965,9 +925,9 @@ def convadj(timestep, Nlev, tlev, exner, dp_lay, verbose = False):
     ----------
         timestep: float
             Duration of the adjustment in seconds.
-        Nlev: int
+        Nlay: int
             Number of atmospheric layers
-        tlev: array
+        tlay: array
             Temperatures of the atmospheric layers
         exner: array
             Exner function computed at the layer centers ((p/psurf)**rcp)
@@ -984,14 +944,14 @@ def convadj(timestep, Nlev, tlev, exner, dp_lay, verbose = False):
             Heating rate in each atmospheric layer (K/s).  
     """
     epsilon=-1.e-5
-    theta_lev=tlev/exner
-    new_theta_lev=np.copy(theta_lev)
+    theta_lay=tlay/exner
+    new_theta_lay=np.copy(theta_lay)
     dsig=dp_lay
     sdsig=dsig*exner
-    H_conv=np.zeros(Nlev)
+    H_conv=np.zeros(Nlay)
     n_iter=0
     while True:
-        conv=np.nonzero(new_theta_lev[:-1]-new_theta_lev[1:]<epsilon)[0]
+        conv=np.nonzero(new_theta_lay[:-1]-new_theta_lay[1:]<epsilon)[0]
         # find convective layers
         N_conv=conv.size
         if N_conv==0: # no more convective regions, can exit
@@ -1011,29 +971,29 @@ def convadj(timestep, Nlev, tlev, exner, dp_lay, verbose = False):
         for ii in range(i_top,i_bot+1): # compute new mean potential temperature
             intexner+=sdsig[ii]
             mass_conv+=dsig[ii]
-            theta_mean+=sdsig[ii] * (theta_lev[ii] - theta_mean) / intexner
+            theta_mean+=sdsig[ii] * (theta_lay[ii] - theta_mean) / intexner
         while i_top>0:#look for newly unstable layers above
-            if theta_lev[i_top-1]<theta_mean:
+            if theta_lay[i_top-1]<theta_mean:
                 i_top-=1
                 intexner+=sdsig[i_top]
                 mass_conv+=dsig[i_top]
-                theta_mean+=sdsig[i_top] * (theta_lev[i_top] - theta_mean) / intexner
+                theta_mean+=sdsig[i_top] * (theta_lay[i_top] - theta_mean) / intexner
             else:
                 break
-        while i_bot<Nlev-1: #look for newly unstable layers below
-            if theta_lev[i_bot+1]>theta_mean:
+        while i_bot<Nlay-1: #look for newly unstable layers below
+            if theta_lay[i_bot+1]>theta_mean:
                 i_bot+=1
                 intexner+=sdsig[i_bot]
                 mass_conv+=dsig[i_bot]
-                theta_mean+=sdsig[i_bot] * (theta_lev[i_bot] - theta_mean) / intexner
+                theta_mean+=sdsig[i_bot] * (theta_lay[i_bot] - theta_mean) / intexner
             else:
                 break
         # compute heating and adjust before looking for a new potential unstable layer
-        H_conv[i_top:i_bot+1]=(theta_mean-new_theta_lev[i_top:i_bot+1]) \
+        H_conv[i_top:i_bot+1]=(theta_mean-new_theta_lay[i_top:i_bot+1]) \
             *exner[i_top:i_bot+1]/timestep
-        new_theta_lev[i_top:i_bot+1]=theta_mean
+        new_theta_lay[i_top:i_bot+1]=theta_mean
         n_iter+=1
-        if n_iter>Nlev+1:
+        if n_iter>Nlay+1:
             if verbose : print('oops, went crazy in convadj')
             break
     return H_conv
