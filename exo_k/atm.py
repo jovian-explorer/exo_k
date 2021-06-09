@@ -15,8 +15,11 @@ import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
-from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
-    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
+#from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
+#    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
+from .util.radiation import path_integral_corrk, path_integral_xsec
+from .util.radiation2 import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
+    Bnu_integral_array, dBnudT_array
 from .two_stream import two_stream_toon as toon
 from .two_stream import two_stream_lmdz as lmdz
 from .two_stream import two_stream_crisp as crisp
@@ -141,7 +144,9 @@ class Atm_profile(object):
         if tlay.shape != self.logplay.shape:
             raise RuntimeError('tlay and logplay should have the same size.')
         self.tlay=tlay
-        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
+        self.t_rad=(self.tlay[:-1]+self.tlay[1:])*0.5
+#        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
+        self.gas_mix.set_logPT(logp_array=self.logp_rad, t_array=self.t_rad)
 
     def compute_pressure_levels(self):
         """Computes various pressure related quantities
@@ -154,16 +159,24 @@ class Atm_profile(object):
             raise RuntimeError('Pressure grid is in decreasing order!')
         self.play=10**self.logplay
         if self.logplev is None:
-            self.plev=np.zeros(self.Nlev)
-            self.plev[1:-1]=(self.play[:-1]+self.play[1:])*0.5
-            # we choose to use mid point so that there is equal mass in the bottom half
-            # of any top layer and the top half of the layer below. 
-            self.plev[0]=self.play[0]
-            self.plev[-1]=self.play[-1]
-            ## WARNING: Top and bottom pressure levels are set equal to the
-            #  pressure in the top and bottom layers. If you change that,
-            #  some assumptions here and there is the code may break down!!!
-            self.logplev=np.log10(self.plev)
+        ## case where the levels are halfway between layer centers
+        #    self.plev=np.zeros(self.Nlev)
+        #    self.plev[1:-1]=(self.play[:-1]+self.play[1:])*0.5
+        #    # we choose to use mid point so that there is equal mass in the bottom half
+        #    # of any top layer and the top half of the layer below. 
+        #    self.plev[0]=self.play[0]
+        #    self.plev[-1]=self.play[-1]
+        #    ## WARNING: Top and bottom pressure levels are set equal to the
+        #    #  pressure in the top and bottom layers. If you change that,
+        #    #  some assumptions here and there in the code may break down!!!
+        #    self.logplev=np.log10(self.plev)
+
+            self.logplev=np.zeros(self.Nlev)
+            self.logplev[1:-1]=(self.logplay[:-1]+self.logplay[1:])*0.5
+            self.logp_rad=self.logplev[1:-1]
+            self.logplev[0]=self.logplay[0]
+            self.logplev[-1]=self.logplay[-1]
+            self.plev=np.power(10.,self.logplev)
         else:
             self.plev=10**self.logplev
         self.psurf=self.plev[-1]
@@ -184,7 +197,9 @@ class Atm_profile(object):
         if Tstrat is None: Tstrat=Tsurf
         self.tlay=Tsurf*self.exner
         self.tlay=np.where(self.tlay<Tstrat,Tstrat,self.tlay)
-        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
+        self.t_rad=(self.tlay[:-1]+self.tlay[1:])*0.5
+#        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
+        self.gas_mix.set_logPT(logp_array=self.logp_rad, t_array=self.t_rad)
 
     def set_grav(self, grav=None):
         """Sets the surface gravity of the planet
@@ -224,7 +239,7 @@ class Atm_profile(object):
             self.Mgas=Mgas
         else:
             self.Mgas=self.gas_mix.molar_mass()
-        self.Mgas=self.Mgas*np.ones(self.Nlay, dtype=np.float)
+        self.Mgas=self.Mgas*np.ones(self.Nlay-1, dtype=np.float)
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -284,8 +299,9 @@ class Atm_profile(object):
 
         """
         factor=N_A/(self.grav * self.Mgas)
-        self.dcol_density_radlay_up=(self.plev[1:-1]-self.play[:-1])*factor[:-1]
-        self.dcol_density_radlay_dw=(self.play[1:]-self.plev[1:-1])*factor[1:]
+        #self.dcol_density_radlay_up=(self.plev[1:-1]-self.play[:-1])*factor[:-1]
+        #self.dcol_density_radlay_dw=(self.play[1:]-self.plev[1:-1])*factor[1:]
+        self.dcol_density_rad = np.diff(self.play)*factor[:]
 
         if self.Rp is not None: #includes the altitude effect if radius is known
             self.compute_altitudes()
@@ -482,12 +498,21 @@ class Atm(Atm_profile):
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
-            self.tau, self.dtau=rad_prop_xsec(self.dcol_density_radlay_up,
-                self.dcol_density_radlay_dw, self.kdata, mu_eff)
+#            self.tau, self.dtau=rad_prop_xsec(self.dcol_density_radlay_up,
+#                self.dcol_density_radlay_dw, self.kdata, mu_eff)
+            self.tau, self.dtau=rad_prop_xsec(self.dcol_density_rad,
+                self.kdata, mu_eff)
         else:
-            self.tau, self.dtau=rad_prop_corrk(self.dcol_density_radlay_up,
-                self.dcol_density_radlay_dw, self.kdata, mu_eff)
+#            self.tau, self.dtau=rad_prop_corrk(self.dcol_density_radlay_up,
+#                self.dcol_density_radlay_dw, self.kdata, mu_eff)
+            self.tau, self.dtau=rad_prop_corrk(self.dcol_density_rad,
+                self.kdata, mu_eff)
             self.weights=self.kdatabase.weights
+            #print('trad:',self.t_rad.shape)
+            #print('kdata:',self.kdata.shape)
+            #print('tau:',self.tau.shape)
+            #print('dtau:',self.dtau.shape)
+            #print('piBatm:',self.piBatm.shape)
 
     def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
