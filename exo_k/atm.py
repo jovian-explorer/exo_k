@@ -2,11 +2,54 @@
 """
 @author: jeremy leconte
 
-This module contain classes to handle atmosphes
+This module contain classes to handle atmospheres
 and their radiative properties.
-
 This alows us to compute the transmission and emission spectra
 of those atmospheres.
+
+The nomenclature for layers, levels, etc, is as follows (example with 4 layers; Nlay=4):
+
+::
+
+    -------------------  Model top or first level (plev[0])
+    - - - - - - - - - -  First atmopheric layer (play[0]=plev[0], tlay[0], xlay[0])
+
+    -------------------  plev[1]
+
+    - - - - - - - - - -  play[1], tlay[1], xlay[1]
+
+    -------------------  plev[2]
+
+    - - - - - - - - - - play[2], tlay[2], xlay[2]
+
+    -------------------  plev[3]
+
+    - - - - - - - - - -  bottom layer (play[Nlay-1]=psurf, tlay[3], xlay[3])
+    ------------------- Surface (plev[Nlev-1=Nlay]=psurf)
+    ///////////////////
+
+.. image:: /images/atm_schema.png
+
+
+Tempratures (`tlay`) and volume mixing ratios (`xlay`) are provided at the
+*mid layer* point (`play`) (Note that this does not mean
+that this point is the middle of the layer, in general, it is not).
+
+If pressure levels are not specified by the user with `logplevel`,
+they are at the mid point between
+the pressure of the layers directly above and below. The pressure of the
+top and bottom levels are counfounded with the pressure of the
+top and bottom mid layer points.
+
+For radiative calculations, the source function (temperature) needs to be known at
+the boudaries of the *radiative* layers but the opacity needs to be known
+inside the *radiative* layer.
+For this reason, there are `Nlay-1` radiative layers and they are offset
+with respect to atmospheric layers.
+Opacities are computed at the center of those radiative layers, i.e. at the pressure levels.
+The temperature is interpolated at these levels with an arithmetic average.
+Volume mixing ratios are interpolated using a geometric average. 
+
 """
 import numpy as np
 import numba
@@ -15,11 +58,8 @@ import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
 from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
-#from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
-#    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
-from .util.radiation import path_integral_corrk, path_integral_xsec
-from .util.radiation2 import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
-    Bnu_integral_array, dBnudT_array
+from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
+    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
 from .two_stream import two_stream_toon as toon
 from .two_stream import two_stream_lmdz as lmdz
 from .two_stream import two_stream_crisp as crisp
@@ -53,7 +93,7 @@ class Atm_profile(object):
             grav: float
                 Planet surface gravity (gravity constant with altitude for now).
             Rp: float or Astropy.unit quantity
-                Planet radius. If float, Jupiter radii are assumed.
+                Planet radius. If float, meters are assumed.
             rcp: float
                 Adiabatic lapse rate for the gas (R/cp)
             Mgas: float, optional
@@ -95,20 +135,21 @@ class Atm_profile(object):
                 and you should be just fine!
                 """)
             raise RuntimeError('Unknown keyword argument in __init__')
-        self.gas_mix=Gas_mix(composition)
-        self.rcp=rcp
-        self.logplev=None
+        self.gas_mix = None
+        self.set_gas(composition, compute_Mgas=False)
+        self.rcp = rcp
+        self.logplev = None
         if logplay is None:
-            self.Nlay=Nlay
-            self.Nlev=Nlay+1
-            self.logplay=np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlay)
+            self.Nlay = Nlay
+            self.Nlev = Nlay+1
+            self.logplay = np.linspace(np.log10(ptop),np.log10(psurf),num=self.Nlay)
             self.compute_pressure_levels()
             self.set_adiab_profile(Tsurf=Tsurf, Tstrat=Tstrat)
         else:
             self.set_logPT_profile(logplay, tlay, logplev=logplev)
         self.set_Rp(Rp)        
         self.set_grav(grav)
-        self.set_Mgas(Mgas)
+        self.set_Mgas(Mgas=Mgas)
 
     def set_logPT_profile(self, logplay, tlay, logplev=None):
         """Set the logP-T profile of the atmosphere with a new one
@@ -144,9 +185,8 @@ class Atm_profile(object):
         if tlay.shape != self.logplay.shape:
             raise RuntimeError('tlay and logplay should have the same size.')
         self.tlay=tlay
-        self.t_rad=(self.tlay[:-1]+self.tlay[1:])*0.5
-#        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
-        self.gas_mix.set_logPT(logp_array=self.logp_rad, t_array=self.t_rad)
+        self.t_opac=(self.tlay[:-1]+self.tlay[1:])*0.5
+        self.gas_mix.set_logPT(logp_array=self.logp_opac, t_array=self.t_opac)
 
     def compute_pressure_levels(self):
         """Computes various pressure related quantities
@@ -157,28 +197,30 @@ class Atm_profile(object):
             All arrays should be ordered accordingly
             (first values correspond to top of atmosphere)""")
             raise RuntimeError('Pressure grid is in decreasing order!')
-        self.play=10**self.logplay
+        self.play=np.power(10., self.logplay)
         if self.logplev is None:
-        ## case where the levels are halfway between layer centers
-        #    self.plev=np.zeros(self.Nlev)
-        #    self.plev[1:-1]=(self.play[:-1]+self.play[1:])*0.5
-        #    # we choose to use mid point so that there is equal mass in the bottom half
-        #    # of any top layer and the top half of the layer below. 
-        #    self.plev[0]=self.play[0]
-        #    self.plev[-1]=self.play[-1]
-        #    ## WARNING: Top and bottom pressure levels are set equal to the
-        #    #  pressure in the top and bottom layers. If you change that,
-        #    #  some assumptions here and there in the code may break down!!!
-        #    self.logplev=np.log10(self.plev)
+        # case where the levels are halfway between layer centers
+            self.plev=np.zeros(self.Nlev)
+            self.plev[1:-1]=(self.play[:-1]+self.play[1:])*0.5
+            # we choose to use mid point so that there is equal mass in the bottom half
+            # of any top layer and the top half of the layer below. 
+            self.plev[0]=self.play[0]
+            self.plev[-1]=self.play[-1]
+            ## WARNING: Top and bottom pressure levels are set equal to the
+            #  pressure in the top and bottom layers. If you change that,
+            #  some assumptions here and there in the code may break down!!!
+            self.logplev=np.log10(self.plev)
 
-            self.logplev=np.zeros(self.Nlev)
-            self.logplev[1:-1]=(self.logplay[:-1]+self.logplay[1:])*0.5
-            self.logp_rad=self.logplev[1:-1]
-            self.logplev[0]=self.logplay[0]
-            self.logplev[-1]=self.logplay[-1]
-            self.plev=np.power(10.,self.logplev)
+        # case where the levels are halfway between layer centers in LOG10
+            #self.logplev=np.zeros(self.Nlev)
+            #self.logplev[1:-1]=(self.logplay[:-1]+self.logplay[1:])*0.5
+            #self.logplev[0]=self.logplay[0]
+            #self.logplev[-1]=self.logplay[-1]
+            #self.plev=np.power(10.,self.logplev)
         else:
-            self.plev=10**self.logplev
+            self.plev=np.power(10., self.logplev)
+
+        self.logp_opac=self.logplev[1:-1]
         self.psurf=self.plev[-1]
         self.dp_lay=np.diff(self.plev) ### probably redundant with dmass
         self.exner=(self.play/self.psurf)**self.rcp
@@ -197,9 +239,8 @@ class Atm_profile(object):
         if Tstrat is None: Tstrat=Tsurf
         self.tlay=Tsurf*self.exner
         self.tlay=np.where(self.tlay<Tstrat,Tstrat,self.tlay)
-        self.t_rad=(self.tlay[:-1]+self.tlay[1:])*0.5
-#        self.gas_mix.set_logPT(logp_array=self.logplay, t_array=self.tlay)
-        self.gas_mix.set_logPT(logp_array=self.logp_rad, t_array=self.t_rad)
+        self.t_opac=(self.tlay[:-1]+self.tlay[1:])*0.5
+        self.gas_mix.set_logPT(logp_array=self.logp_opac, t_array=self.t_opac)
 
     def set_grav(self, grav=None):
         """Sets the surface gravity of the planet
@@ -212,8 +253,18 @@ class Atm_profile(object):
         if grav is None: raise RuntimeError('A planet needs a gravity!')
         self.grav=grav
     
-    def set_gas(self, composition_dict):
-        """Sets the composition of the atmosphere
+    def set_gas(self, composition_dict, Mgas=None, compute_Mgas=True):
+        """Sets the composition of the atmosphere.
+
+        The composition_dict gives the composition in the layers, but we will
+        need the composition in the radiative layers, so the interpolation is
+        done here. For the moment we do a geometrical average.
+
+        .. important::
+            For the first initialization, compute_Mgas must be False
+            because we need Gas_mix to be initialized before we know the number of layers
+            in the atmosphere, but the number of layers is needed by set_Mgas!
+            So set_Mgas needs to be called at the end of the initialization.
 
         Parameters
         ----------
@@ -222,24 +273,35 @@ class Atm_profile(object):
                 A 'background' value means that the gas will be used to fill up to vmr=1
                 If they do not add up to 1 and there is no background gas_mix,
                 the rest of the gas_mix is considered transparent.
+            compute_Mgas: bool
+                If False, the molar mass of the gas is not updated. 
         """
-        self.gas_mix.set_composition(composition_dict)
-        self.set_Mgas()
+        for mol, vmr in composition_dict.items():
+            if isinstance(vmr,(np.ndarray, list)):
+                tmp_vmr=np.array(vmr)
+                #geometrical average:
+                composition_dict[mol]=np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+        if self.gas_mix is None:
+            self.gas_mix=Gas_mix(composition_dict)
+        else:
+            self.gas_mix.set_composition(composition_dict)
+        if compute_Mgas: self.set_Mgas(Mgas=Mgas)
 
     def set_Mgas(self, Mgas=None):
         """Sets the mean molar mass of the atmosphere.
 
         Parameters
         ----------
-            Mgas: float or array of size Nlay
-                Mean molar mass (kg/mol).
-                If None is give, the mmm is computed from the composition.
+            Mgas_rad: float or array of size Nlay-1
+                Mean molar mass in the radiative layers (kg/mol).
+                If None is given, the mmm is computed from the composition.
         """
         if Mgas is not None:
-            self.Mgas=Mgas
+            self.Mgas_rad=Mgas
         else:
-            self.Mgas=self.gas_mix.molar_mass()
-        self.Mgas=self.Mgas*np.ones(self.Nlay-1, dtype=np.float)
+            self.Mgas_rad=self.gas_mix.molar_mass()
+        if not isinstance(self.Mgas_rad, np.ndarray):
+            self.Mgas_rad=self.Mgas_rad*np.ones(self.Nlay-1, dtype=np.float)
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -285,73 +347,73 @@ class Atm_profile(object):
 
     def compute_density(self):
         """Computes the number density (m^-3) profile of the atmosphere
+        in the radiative layers
         """
-        self.density=self.play/(KBOLTZ*self.tlay)
+        self.density=np.power(10., self.logp_opac)/(KBOLTZ*self.t_opac)
 
     def compute_layer_col_density(self):
         """Computes the column number density (molecules/m^-2) per
         radiative layer of the atmosphere.
 
         There are Nlay-1 radiative layers as they go from the midle of a layer to the next.
-
-        dcol_density_radlay_up (size Nlay-1) is the column density in the upper half of each layer
-        dcol_density_radlay_dw (size Nlay-1) is the column density in the lower half of each layer
-
         """
-        factor=N_A/(self.grav * self.Mgas)
-        #self.dcol_density_radlay_up=(self.plev[1:-1]-self.play[:-1])*factor[:-1]
-        #self.dcol_density_radlay_dw=(self.play[1:]-self.plev[1:-1])*factor[1:]
+        factor=N_A/(self.grav * self.Mgas_rad)
         self.dcol_density_rad = np.diff(self.play)*factor[:]
 
         if self.Rp is not None: #includes the altitude effect if radius is known
             self.compute_altitudes()
-            self.dcol_density_radlay_up*=(1.+self.zlay[:-1]/self.Rp)**2
-            self.dcol_density_radlay_dw*=(1.+self.zlay[1:]/self.Rp)**2
+            self.dcol_density_rad*=(1.+self.zlev[1:-1]/self.Rp)**2
 
     def compute_altitudes(self):
         """Compute altitudes of the level surfaces (zlev) and mid layers (zlay).
         """
-        H=RGP*self.tlay/(self.grav*self.Mgas)
-        dlnP=np.diff(self.logplev)*np.log(10.)
-        self.zlev=np.zeros_like(self.logplev)
+        Mgas = np.empty(self.Nlay, dtype=np.float)
+        Mgas[1:-1] = 0.5*(self.Mgas_rad[:-1]+self.Mgas_rad[1:])
+        Mgas[0] = self.Mgas_rad[0]
+        Mgas[-1] = self.Mgas_rad[-1]
+        H = RGP*self.tlay/(self.grav*Mgas)
+        dlnP = np.diff(self.logplev)*np.log(10.)
+        self.zlev = np.zeros_like(self.logplev)
         if self.Rp is None:
-            self.dz=H*dlnP
-            self.zlev[:-1]=np.cumsum(self.dz[::-1])[::-1]
-            self.zlay=0.5*(self.zlev[1:]+self.zlev[:-1])
-            ## assumes layer centers at the middle of the two levels
-            ## which is not completely consistent with play, but should be
-            ## a minor error.
+            self.dz = H*dlnP
+            self.zlev[:-1] = np.cumsum(self.dz[::-1])[::-1]
         else:
             for i in range(H.size)[::-1]:
-                z1=self.zlev[i+1]
-                H1=H[i]
-                dlnp=dlnP[i]
-                self.zlev[i]=z1+( (H1 * (self.Rp + z1)**2 * dlnp) \
+                z1 = self.zlev[i+1]
+                H1 = H[i]
+                dlnp = dlnP[i]
+                self.zlev[i] = z1+( (H1 * (self.Rp + z1)**2 * dlnp) \
                     / (self.Rp**2 + H1 * self.Rp * dlnp + H1 * z1 * dlnp) )
-        self.zlay=0.5*(self.zlev[1:]+self.zlev[:-1])
+        self.zlay = 0.5*(self.zlev[1:]+self.zlev[:-1])
+        self.zlay[-1] = 0.
+        self.zlay[0] = self.zlev[0]
         ## assumes layer centers at the middle of the two levels
         ## which is not completely consistent with play, but should be
         ## a minor error.
         
     def compute_area(self):
-        """Computes the area of the annulus covered by each layer in a transit setup. 
+        """Computes the area of the annulus covered by each
+        radiative layer (from a mid layer to the next) in a transit setup. 
         """
-        self.area=PI*(self.Rp+self.zlev[:-1])**2
+        self.area=PI*(self.Rp+self.zlay[:-1])**2
         self.area[:-1]-=self.area[1:]
         self.area[-1]-=PI*self.Rp**2
 
     def compute_tangent_path(self):
-        """Computes a triangular array of the tangent path length (in m) spent in each layer.
-        self.tangent_path[ilay][jlay] is the length that the ray that is tangent to the ilay layer 
-        spends in the jlay>=ilay layer (accounting for a factor of 2 due to symmetry)
+        """Computes a triangular array of the tangent path length (in m) spent in each
+        radiative layer.
+        
+        self.tangent_path[ilay][jlay] is the length that the ray that is tangent to the ilay 
+        radiative layer spends in the jlay>=ilay layer
+        (accounting for a factor of 2 due to symmetry)
         """
         if self.Rp is None: raise RuntimeError('Planetary radius should be set')
         self.compute_altitudes()
         self.tangent_path=List()
         # List() is a new numba.typed list to comply with new numba evolution after v0.50
-        for ilay in range(self.Nlay):
-            z0square=(self.Rp+self.zlay[ilay])**2
-            dl=np.sqrt((self.Rp+self.zlev[:ilay+1])**2-z0square)
+        for ilay in range(self.Nlay-1): #layers counted from the top
+            z0square=(self.Rp+self.zlev[ilay+1])**2
+            dl=np.sqrt((self.Rp+self.zlay[:ilay+1])**2-z0square)
             dl[:-1]-=dl[1:]
             self.tangent_path.append(2.*dl)
 
@@ -508,7 +570,7 @@ class Atm(Atm_profile):
             self.tau, self.dtau=rad_prop_corrk(self.dcol_density_rad,
                 self.kdata, mu_eff)
             self.weights=self.kdatabase.weights
-            #print('trad:',self.t_rad.shape)
+            #print('trad:',self.t_opac.shape)
             #print('kdata:',self.kdata.shape)
             #print('tau:',self.tau.shape)
             #print('dtau:',self.dtau.shape)
@@ -858,10 +920,10 @@ class Atm(Atm_profile):
         if self.Ng is not None:
             self.weights=self.kdatabase.weights
             transmittance=path_integral_corrk( \
-                self.Nlay,self.Nw,self.Ng,self.tangent_path,self.density,self.kdata,self.weights)
+                self.Nlay-1,self.Nw,self.Ng,self.tangent_path,self.density,self.kdata,self.weights)
         else:
             transmittance=path_integral_xsec( \
-                self.Nlay,self.Nw,self.tangent_path,self.density,self.kdata)
+                self.Nlay-1,self.Nw,self.tangent_path,self.density,self.kdata)
         return transmittance
 
     def transmission_spectrum(self, normalized=False, Rstar=None, **kwargs):
@@ -878,9 +940,10 @@ class Atm(Atm_profile):
         
         Parameters
         ----------
-            Rstar: float, optional
-                Radius of the host star. Does not need to be given here if
-                as already been specified as an attribute of the self.Atm object.
+            Rstar: float or astropy.unit object, optional
+                Radius of the host star. If a float is specified, meters are assumed.
+                Does not need to be given here if
+                it has already been specified as an attribute of the :class:`Atm` object.
                 If specified, the result is the transit depth:
 
                 .. math::

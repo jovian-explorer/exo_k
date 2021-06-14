@@ -298,16 +298,14 @@ def wavenumber_grid_R(nu_min, nu_max, R):
     return np.append(np.exp(np.arange(np.log(nu_min),np.log(nu_max),1./R)),nu_max)
 
 @numba.njit
-def rad_prop_corrk(dcol_density_radlay_up, dcol_density_radlay_dw, opacity_prof, mu0):
+def rad_prop_corrk(dcol_density, opacity_prof, mu0):
     """Computes the optical depth of each of the radiative layers
     for the opacity given for every wavelength and g point.
 
     Parameters
     ----------
-        dcol_density_radlay_up: array
-            Column density for the upper half of each radiative layer (molecules/m^2/layer).
-        dcol_density_radlay_dw: array
-            Column density for the lower half of each radiative layer (molecules/m^2/layer).
+        dcol_density: array
+            Column density per radiative layer (molecules/m^2/layer).
         opacity_prof: array
             effective cross section per molecule (m^2/molecule).
         mu0: cosine of the equivalent zenith angle for the rays.
@@ -316,34 +314,32 @@ def rad_prop_corrk(dcol_density_radlay_up, dcol_density_radlay_dw, opacity_prof,
     Returns
     -------
         tau: Array
-            cumulative optical depth from the top (with zeros at the top of the first layer)
+            cumulative optical depth from the top
+            (with zeros at the top of the first radiative layer)
         dtau: Array
             optical depth of each radiative layer for each wavenumber.
    """
-    Nlay,Nw,Ng=opacity_prof.shape
+    Nlay_rad,Nw,Ng=opacity_prof.shape
     OvMu=1./mu0
-    dtau=np.empty((Nlay-1,Nw,Ng))
-    tau=np.zeros((Nlay,Nw,Ng))
-    for lay in range(Nlay-1):
+    dtau=np.empty((Nlay_rad,Nw,Ng))
+    tau=np.zeros((Nlay_rad+1,Nw,Ng))
+    for lay in range(Nlay_rad):
         for iW in range(Nw):
             for ig in range(Ng):
-                dtau_tmp=(dcol_density_radlay_up[lay]*opacity_prof[lay,iW,ig] \
-                    +dcol_density_radlay_dw[lay]*opacity_prof[lay+1,iW,ig])*OvMu
+                dtau_tmp=dcol_density[lay]*opacity_prof[lay,iW,ig]*OvMu
                 dtau[lay,iW,ig]=dtau_tmp
                 tau[lay+1,iW,ig]=tau[lay,iW,ig]+dtau_tmp
     return tau, dtau
 
 @numba.njit
-def rad_prop_xsec(dcol_density_radlay_up, dcol_density_radlay_dw, opacity_prof, mu0):
-    """Computes the optical depth of each of the layers
+def rad_prop_xsec(dcol_density, opacity_prof, mu0):
+    """Computes the optical depth of each of the radiative layers
     for the opacity given for every wavelength.
 
     Parameters
     ----------
-        dcol_density_radlay_up: array
-            Column density for the upper half of each radiative layer (molecules/m^2/layer).
-        dcol_density_radlay_dw: array
-            Column density for the lower half of each radiative layer (molecules/m^2/layer).
+        dcol_density: array
+            Column density per radiative layer (molecules/m^2/layer).
         opacity_prof: array
             effective cross section per molecule (m^2/molecule).
         mu0: cosine of the equivalent zenith angle for the rays.
@@ -358,14 +354,13 @@ def rad_prop_xsec(dcol_density_radlay_up, dcol_density_radlay_dw, opacity_prof, 
     
     The 1/mu0 factor is taken account so that these are the depths along the ray.
     """
-    Nlay,Nw=opacity_prof.shape
+    Nlay_rad,Nw=opacity_prof.shape
     OvMu=1./mu0
-    dtau=np.empty((Nlay-1,Nw))
-    tau=np.zeros((Nlay,Nw))
-    for lay in range(Nlay-1):
+    dtau=np.empty((Nlay_rad,Nw))
+    tau=np.zeros((Nlay_rad+1,Nw))
+    for lay in range(Nlay_rad):
         for iW in range(Nw):
-            dtau_tmp=(dcol_density_radlay_up[lay]*opacity_prof[lay,iW] \
-                    +dcol_density_radlay_dw[lay]*opacity_prof[lay+1,iW])*OvMu
+            dtau_tmp=dcol_density[lay]*opacity_prof[lay,iW]*OvMu
             dtau[lay,iW]=dtau_tmp
             tau[lay+1,iW]=tau[lay,iW]+dtau_tmp
     return tau,dtau

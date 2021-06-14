@@ -189,15 +189,15 @@ def c_planck(source, dtau, gam_1, gam_2, mu1):
     removed a pi factor because source is pi*B
     """
     #cst=2*mu1
-    cst=1. # this factor seems to avoid emissivity greater than one. 
+    #cst=1. # this factor seems to avoid emissivity greater than one. 
            # but what is the analytical basis for this ???
     #print(gam_1+gam_2)
     inv_dtaugam=1./(dtau*(gam_1+gam_2))
     #print(1./(dtau*(gam_1+gam_2)), 1./dtau*(gam_1+gam_2))
-    c_up_top=cst*( source[:-1]*(1.-inv_dtaugam)+source[1:]*    inv_dtaugam )
-    c_dw_top=cst*( source[:-1]*(1.+inv_dtaugam)-source[1:]*    inv_dtaugam )
-    c_up_bot=cst*(-source[:-1]*    inv_dtaugam +source[1:]*(1.+inv_dtaugam))
-    c_dw_bot=cst*( source[:-1]*    inv_dtaugam +source[1:]*(1.-inv_dtaugam))
+    c_up_top=( source[:-1]*(1.-inv_dtaugam)+source[1:]*    inv_dtaugam )#*cst
+    c_dw_top=( source[:-1]*(1.+inv_dtaugam)-source[1:]*    inv_dtaugam )#*cst
+    c_up_bot=(-source[:-1]*    inv_dtaugam +source[1:]*(1.+inv_dtaugam))#*cst
+    c_dw_bot=( source[:-1]*    inv_dtaugam +source[1:]*(1.-inv_dtaugam))#*cst
     #print(c_up_top, c_dw_top, c_up_bot, c_dw_bot)
     return c_up_top, c_dw_top, c_up_bot, c_dw_bot
 

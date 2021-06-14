@@ -201,7 +201,7 @@ def solve_2stream(source, dtau, omega0, g_asym, mu0=0.5, flux_top_dw=0.,
       
     if flux_at_level:
         for L in range(Nlay):
-            DTAUK = dtau[L]/2.
+            DTAUK = dtau[L]/2. # here we assume levels are at tau=tau_layer/2.
             EP    = np.exp(min(LAMDA[L]*DTAUK,TAUMAX)) # CLIPPED EXPONENTIAL 
             EM    = 1.e0/EP
             TERM  = mu0/(1.e0-omega_tmp[L]*g_asym[L])

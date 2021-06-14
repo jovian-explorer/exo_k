@@ -20,7 +20,7 @@ from .adatabase import Adatabase
 from .cia_table import Cia_table
 from .ciadatabase import CIAdatabase
 from .hires_spectrum import Hires_spectrum
-from .atm import Atm_profile,Atm
+from .atm import Atm_profile, Atm
 from .chemistry import EquChemTable, InterpolationChemistry
 from .gas_mix import Gas_mix
 from .settings import Settings
