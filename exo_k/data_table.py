@@ -170,7 +170,7 @@ class Data_table(Spectral_object):
         self.convert_p_unit(p_unit='Pa')
 
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array=1.,
-            log_interp=None, logp_interp=True, wngrid_limit=None):
+            log_interp=None, logp_interp=True, wngrid_limit=None, **kwargs):
         """interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. If a volume mixing ratio profile (`x_array`) is given,
         the cross section computed for the species is multiplied by `x_array` to account for the

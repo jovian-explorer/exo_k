@@ -52,17 +52,14 @@ Volume mixing ratios are interpolated using a geometric average.
 
 """
 import numpy as np
-import numba
-from scipy.special import expn
 import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
-from .util.cst import N_A, PI, RGP, KBOLTZ, RSOL, RJUP, SIG_SB
+from .util.cst import N_A, PI, RGP, KBOLTZ, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
-    Bnu_integral_array, path_integral_corrk, path_integral_xsec, dBnudT_array
+    Bnu_integral_array, path_integral_corrk, path_integral_xsec
 from .two_stream import two_stream_toon as toon
 from .two_stream import two_stream_lmdz as lmdz
-from .two_stream import two_stream_crisp as crisp
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
@@ -252,6 +249,8 @@ class Atm_profile(object):
         """
         if grav is None: raise RuntimeError('A planet needs a gravity!')
         self.grav=grav
+        self.dmass=self.dp_lay/self.grav
+        self.inv_dmass=1./self.dmass
     
     def set_gas(self, composition_dict, Mgas=None, compute_Mgas=True):
         """Sets the composition of the atmosphere.
@@ -440,7 +439,7 @@ class Atm(Atm_profile):
     """
 
     def __init__(self, k_database=None, cia_database=None,
-        wn_range=None, wl_range=None, **kwargs):
+        wn_range=None, wl_range=None, internal_flux=0., **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
@@ -448,9 +447,9 @@ class Atm(Atm_profile):
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
+        self.set_internal_flux(internal_flux)
         self.flux_net_nu=None
         self.kernel=None
-        self.tlay_kernel=self.tlay
 
     def set_k_database(self, k_database=None):
         """Change the radiative database used by the
@@ -468,6 +467,9 @@ class Atm(Atm_profile):
         self.kdatabase=self.gas_mix.kdatabase
         self.Ng=self.gas_mix.Ng
         # to know whether we are dealing with corr-k or not and access some attributes. 
+        if self.kdatabase is not None:
+            self.Nw=self.kdatabase.Nw
+            self.flux_top_dw_nu = np.zeros((self.Nw))
 
     def set_cia_database(self, cia_database=None):
         """Change the CIA database used by the
@@ -491,6 +493,33 @@ class Atm(Atm_profile):
         """
         self.gas_mix.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
 
+    def set_incoming_stellar_flux(self, flux=0., Tstar=5778., **kwargs):
+        """Sets the stellar incoming flux integrated in each wavenumber
+        channel.
+
+        .. important::
+            If your simulated range does not include the whole spectral range
+            where the star emits, the flux seen by the model will be smaller
+            than the input one. 
+
+        Parameters
+        ----------
+            flux: float
+                Bolometric Incoming flux (in W/m^2).
+            Tstar: float
+                Stellar temperature (in K) used to compute the spectral distribution
+                of incoming flux using a blackbody.
+
+        """
+        self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, Tstar)
+        factor = flux * PI / (SIG_SB*Tstar**4 * self.dwnedges)
+        self.flux_top_dw_nu = self.flux_top_dw_nu * factor
+    
+    def set_internal_flux(self, internal_flux):
+        """Sets internal flux from the subsurface in W/m^2
+        """
+        self.internal_flux = internal_flux
+
     def spectral_integration(self, spectral_var):
         """Spectrally integrate an array, taking care of whether
         we are dealing with corr-k or xsec data.
@@ -512,7 +541,13 @@ class Atm(Atm_profile):
         return var
 
     def opacity(self, rayleigh = False, **kwargs):
-        """Computes the opacity of each of the layers.
+        """Computes the opacity of each of the radiative layers (m^2/molecule).
+
+        Parameters
+        ----------
+            rayleigh: bool
+                If true, the rayleigh cross section is computed in
+                self.kdata_scat and added to kdata(total extinction cross section)
 
         See :any:`gas_mix.Gas_mix.cross_section` for details.
         """
@@ -560,23 +595,15 @@ class Atm(Atm_profile):
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
-#            self.tau, self.dtau=rad_prop_xsec(self.dcol_density_radlay_up,
-#                self.dcol_density_radlay_dw, self.kdata, mu_eff)
             self.tau, self.dtau=rad_prop_xsec(self.dcol_density_rad,
                 self.kdata, mu_eff)
         else:
-#            self.tau, self.dtau=rad_prop_corrk(self.dcol_density_radlay_up,
-#                self.dcol_density_radlay_dw, self.kdata, mu_eff)
             self.tau, self.dtau=rad_prop_corrk(self.dcol_density_rad,
                 self.kdata, mu_eff)
             self.weights=self.kdatabase.weights
-            #print('trad:',self.t_opac.shape)
-            #print('kdata:',self.kdata.shape)
-            #print('tau:',self.tau.shape)
-            #print('dtau:',self.dtau.shape)
-            #print('piBatm:',self.piBatm.shape)
 
-    def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None, **kwargs):
+    def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None,
+            dtau_min=1.e-13, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
         Parameters
@@ -595,6 +622,10 @@ class Atm(Atm_profile):
                 If an integer is given, the emission intensity is computed
                 for a number of angles and integrated following a gauss legendre
                 quadrature rule of order `mu_quad_order`.
+            dtau_min: float
+                If the optical depth in a layer is smaller than dtau_min,
+                dtau_min is used in that layer instead. Important as too
+                transparent layers can cause important numerical rounding errors.
 
         Returns
         -------
@@ -615,7 +646,7 @@ class Atm(Atm_profile):
             """)
         # self.tau and self.dtau include the 1/mu0 factor.
         expdtau=np.exp(-self.dtau)
-        expdtauminone=np.where(self.dtau<1.e-13,-self.dtau,expdtau-1.)
+        expdtauminone=np.where(self.dtau < dtau_min, -self.dtau, expdtau-1.)
         # careful: due to numerical limitations, 
         # the limited development of Exp(-dtau)-1 needs to be used for small values of dtau
         exptau=np.exp(-self.tau)
@@ -632,7 +663,7 @@ class Atm(Atm_profile):
 
         return Spectrum(IpTop,self.wns,self.wnedges)
 
-    def emission_spectrum_quad(self, integral=True, mu_quad_order=3, **kwargs):
+    def emission_spectrum_quad(self, integral=True, mu_quad_order=3, dtau_min=1.e-13, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
         using gauss legendre qudrature of order `mu_quad_order`
 
@@ -643,6 +674,10 @@ class Atm(Atm_profile):
                 * If not, only the central value is used.
                   False is faster and should be ok for small bins,
                   but True is the correct version. 
+            dtau_min: float
+                If the optical depth in a layer is smaller than dtau_min,
+                dtau_min is used in that layer instead. Important as too
+                transparent layers can cause important numerical rounding errors.
                   
         Returns
         -------
@@ -661,7 +696,7 @@ class Atm(Atm_profile):
             tau=self.tau/mu0
             dtau=self.dtau/mu0
             expdtau=np.exp(-dtau)
-            expdtauminone=np.where(dtau<1.e-13,-dtau,expdtau-1.)
+            expdtauminone=np.where(dtau<dtau_min,-dtau,expdtau-1.)
             exptau=np.exp(-tau)
             if self.Ng is None:
                 timesBatmTop=(-expdtau-expdtauminone/dtau)*exptau[:-1]
@@ -706,7 +741,7 @@ class Atm(Atm_profile):
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
         self.setup_emission_caculation(mu_eff=1., rayleigh=rayleigh, integral=integral,
-            source=source, **kwargs)
+            source=source, flux_top_dw=flux_top_dw, **kwargs)
         # mu_eff=1. because the mu effect is taken into account in solve_2stream_nu
                  # we must compute the vertical optical depth here.
         self.dtau=np.where(self.dtau<dtau_min,dtau_min,self.dtau)
@@ -729,34 +764,14 @@ class Atm(Atm_profile):
         self.single_scat_albedo=np.clip(self.single_scat_albedo,None,0.9999999999999)
         self.asym_param = np.zeros_like(self.dtau)
 
-        if flux_top_dw is None:
-            self.flux_top_dw_nu = np.zeros((self.Nw))
-        else:
-            Tstar=5700.
-            self.flux_top_dw_nu = Bnu_integral_num(self.wnedges,Tstar)
-            self.flux_top_dw_nu = self.flux_top_dw_nu * flux_top_dw \
-                / (np.sum(self.flux_top_dw_nu)*self.dwnedges)
-            #self.flux_top_dw_nu=Spectrum(flux_top_dw_nu,self.wns,self.wnedges)
+        if flux_top_dw is not None:
+            self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)
 
-        if method == 'crisp':
-            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu, kernel_nu = \
-                solve_2stream_nu(self.piBatm, self.dtau,
-                self.single_scat_albedo, self.asym_param, self.flux_top_dw_nu, mu0 = mu0)
-            if compute_kernel:
-                dB = PI * dBnudT_array(self.wns, self.tlay, self.Nw, self.Nlay)
-                if self.Ng is None:
-                    self.kernel=np.sum(kernel_nu*dB*self.dwnedges,axis=2)
-                else:
-                    self.kernel=np.sum(np.sum(kernel_nu*self.weights,axis=3) \
-                        *dB*self.dwnedges,axis=2)
-                self.kernel[:,:-1]=(self.kernel[:,:-1]-self.kernel[:,1:])
-                self.kernel*=self.grav/self.dp_lay
-        else:
-            self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
-                solve_2stream_nu(self.piBatm, self.dtau, self.single_scat_albedo, self.asym_param,
-                    self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
-            if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, flux_at_level=flux_at_level,
-                        per_unit_mass=True, integral=True, **kwargs)
+        self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
+            solve_2stream_nu(self.piBatm, self.dtau, self.single_scat_albedo, self.asym_param,
+                self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
+        if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, flux_at_level=flux_at_level,
+                    per_unit_mass=True, integral=True, **kwargs)
 
         if self.Ng is None:
             return Spectrum(self.flux_up_nu[0],self.wns,self.wnedges)
@@ -769,31 +784,26 @@ class Atm(Atm_profile):
         """
         net=self.spectral_integration(self.flux_net_nu)
         self.kernel=np.empty((self.Nlay,self.Nlay))
-        #dB = PI * dBnudT_array(self.wns, self.tlay, self.Nw, self.Nlay)
         tlay=self.tlay
         dT = epsilon*tlay
         self.tlay = tlay + dT
         newpiBatm = self.source_function(integral=integral)
 
-        #newpiBatm=PI*Bnu_integral_array(self.wnedges,self.tlay+dT,self.Nw,self.Nlay) \
-        #            /self.dwnedges
-
         for ilay in range(self.Nlay):
             pibatm = np.copy(self.piBatm)
-            #dT = epsilon*self.tlay[ilay]
-            #pibatm[ilay] += dB[ilay]*dT
             pibatm[ilay] = newpiBatm[ilay]
             _, _, flux_net_tmp = \
                 solve_2stream_nu(pibatm, self.dtau, self.single_scat_albedo, self.asym_param,
                     self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
             net_tmp = self.spectral_integration(flux_net_tmp)
-            #self.kernel[ilay]=(net_tmp-net)/dT
             self.kernel[ilay]=(net-net_tmp)/dT[ilay]
         self.kernel[:,:-1]-=self.kernel[:,1:]
         self.tlay=tlay
-        if per_unit_mass: self.kernel*=self.grav/self.dp_lay
+        self.tlay_kernel=self.tlay
+        if per_unit_mass: self.kernel*=self.inv_dmass
 
-    def flux_divergence(self, internal_flux=0., per_unit_mass = True):
+    def flux_divergence(self, per_unit_mass = True,
+            compute_kernel=False, **kwargs):
         """Computes the divergence of the net flux in the layers
         (used to compute heating rates).
 
@@ -801,30 +811,48 @@ class Atm(Atm_profile):
 
         Parameters
         ----------
-            internal_flux: float
-                flux coming from below in W/m^2
             per_unit_mass: bool
                 If True, the heating rates are normalized by the
                 mass of each layer (result in W/kg).
 
         Returns
         -------
-            net: array
-                Net fluxes at level surfaces
             H: array
                 Heating rate in each layer (Difference of the net fluxes). Positive means heating.
                 The last value is the net flux impinging on the surface + the internal flux.
+            net: array
+                Net fluxes at level surfaces
         """
         if self.flux_net_nu is None:
             raise RuntimeError('should have ran emission_spectrum_2stream.')
-        net=self.spectral_integration(self.flux_net_nu)
-        H=-np.copy(net)
-        H[:-1]-=H[1:]
-        H[-1]+=internal_flux
-        if per_unit_mass: H*=self.grav/self.dp_lay
-        return net, H
+        net = self.spectral_integration(self.flux_net_nu)
+        H = -np.copy(net)
+        H[:-1] -= H[1:]
+        H[-1] += self.internal_flux
+        if per_unit_mass: H *= self.inv_dmass
+        if compute_kernel: self.H_kernel = H
+        return H, net
 
-    def bolometric_fluxes(self, internal_flux = 0., per_unit_mass = True):
+    def heating_rate(self, compute_kernel=False, dTmax_use_kernel=None, **kwargs):
+        if (not compute_kernel) and (dTmax_use_kernel is not None):
+            dT=self.tlay-self.tlay_kernel
+            if np.amax(np.abs(dT)) < dTmax_use_kernel:
+                try:
+                    H = self.H_kernel + np.dot(dT,self.kernel)
+                except:
+                    raise RuntimeError("Kernel has not been precomputed")
+                net = np.zeros_like(H)
+                return H, net
+        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True,
+                compute_kernel=compute_kernel, **kwargs)
+        H, net = self.flux_divergence(compute_kernel=compute_kernel, **kwargs)
+        if compute_kernel:
+            self.H_kernel = H
+            self.tau_rad = 1./np.amax(np.abs(self.kernel.diagonal()))
+        return H, net
+
+
+    def bolometric_fluxes(self, per_unit_mass = True):
         """Computes the bolometric fluxes at levels and the divergence of the net flux in the layers
         (used to compute heating rates).
 
@@ -832,8 +860,6 @@ class Atm(Atm_profile):
 
         Parameters
         ----------
-            internal_flux: float
-                flux coming from below in W/m^2
             per_unit_mass: bool
                 If True, the heating rates are normalized by the
                 mass of each layer (result in W/kg).
@@ -850,63 +876,10 @@ class Atm(Atm_profile):
                 Heating rate in each layer (Difference of the net fluxes). Positive means heating.
                 The last value is the net flux impinging on the surface + the internal flux.
         """
-        net, H = self.flux_divergence(internal_flux=internal_flux, per_unit_mass = per_unit_mass)
+        H, net = self.flux_divergence(per_unit_mass = per_unit_mass)
         up=self.spectral_integration(self.flux_up_nu)
         dw=self.spectral_integration(self.flux_down_nu)
         return up, dw, net, H
-
-    def exp_minus_tau(self):
-        """Sums Exp(-tau) over gauss points
-        """
-        weights=self.kdatabase.weights
-        return np.sum(np.exp(-self.tau[1:])*weights,axis=2)
-
-    def exp_minus_tau_g(self, g_index):
-        """Sums Exp(-tau) over gauss point
-        """
-        return np.exp(-self.tau[1:,:,g_index])
-
-    def surf_bb(self, integral=True):
-        """Computes the surface black body flux (in W/m^2/cm^-1)
-
-        Parameters
-        ----------
-            integral: boolean, optional
-                * If true, the black body is integrated within each wavenumber bin.
-                * If not, only the central value is used.
-                  False is faster and should be ok for small bins,
-                  but True is the correct version. 
-        Returns
-        -------
-            Spectrum object
-                Spectral flux at the surface (in W/m^2/cm^-1)
-        """
-        if integral:
-            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[-1])/np.diff(self.wnedges)
-        else:
-            piBatm=PI*Bnu(self.wns[:],self.tlay[-1])
-        return Spectrum(piBatm,self.wns,self.wnedges)
-
-    def top_bb(self, integral=True):
-        """Computes the top of atmosphere black body flux (in W/m^2/cm^-1)
-
-        Parameters
-        ----------
-            integral: boolean, optional
-                If true, the black body is integrated within each wavenumber bin.
-                If not, only the central value is used.
-                    False is faster and should be ok for small bins,
-                    but True is the correct version. 
-        Returns
-        -------
-            Spectrum object
-                Spectral flux of a bb at the temperature at the top of atmosphere (in W/m^2/cm^-1)
-        """
-        if integral:
-            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[0])/np.diff(self.wnedges)
-        else:
-            piBatm=PI*Bnu(self.wns[:],self.tlay[0])
-        return Spectrum(piBatm,self.wns,self.wnedges)
 
     def transmittance_profile(self, **kwargs):
         """Computes the transmittance profile of an atmosphere,
@@ -991,97 +964,63 @@ class Atm(Atm_profile):
             output+='    wn range        : '+ self.gas_mix._wn_range +'\n'
 
         return output
+        
+    def exp_minus_tau(self):
+        """Sums Exp(-tau) over gauss points
+        """
+        weights=self.kdatabase.weights
+        return np.sum(np.exp(-self.tau[1:])*weights,axis=2)
 
+    def exp_minus_tau_g(self, g_index):
+        """Sums Exp(-tau) over gauss point
+        """
+        return np.exp(-self.tau[1:,:,g_index])
 
-@numba.jit(nopython=True,fastmath=True)
-def convadj(timestep, Nlay, tlay, exner, dp_lay, verbose = False):
-    r"""Computes the heating rates needed to adjust unstable regions 
-    of a given atmosphere to a convectively neutral T profile on
-    a given timestep.
+    def blackbody(self, layer_idx=-1, integral=True):
+        """Computes the surface black body flux (in W/m^2/cm^-1) for the temperature
+        of layer `layer_idx`.
 
-    .. important::
-        The *layers* here are not the same as the *layers* in the radiative transfer!
+        Parameters
+        ----------
+            layer_idx; int
+                Index of layer used for the temperature.
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+        Returns
+        -------
+            Spectrum object
+                Spectral flux in W/m^2/cm^-1
+        """
+        if integral:
+            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[layer_idx])/np.diff(self.wnedges)
+        else:
+            piBatm=PI*Bnu(self.wns[:],self.tlay[layer_idx])
+        return Spectrum(piBatm,self.wns,self.wnedges)
 
-        In the radiative transfer, a layer is the volume between two pressure level boundaries
-        (`plev`).
+    def surf_bb(self, **kwargs):
+        """Computes the surface black body flux (in W/m^2/cm^-1).
 
-        Here, a layer is centered on a pressure level (`plev`) with its temperature `tlev`.
-        Therefore, `dp_lay[0]=play[0]-plev[0]`, `dp_lay[i]=play[i]-play[i-1]`, and
-        `dp_lay[-1]=psurf-play[-1]`.
-    
-    Parameters
-    ----------
-        timestep: float
-            Duration of the adjustment in seconds.
-        Nlay: int
-            Number of atmospheric layers
-        tlay: array
-            Temperatures of the atmospheric layers
-        exner: array
-            Exner function computed at the layer centers ((p/psurf)**rcp)
+        See :any:`blackbody` for options.
 
-            .. math::
-              \Pi=(p / p_{s})^{R/c_p}
+        Returns
+        -------
+            Spectrum object
+                Spectral flux of a bb at the surface (in W/m^2/cm^-1)
+        """
+        return self.blackbody(layer_idx=-1, **kwargs)
 
-        dp_lay: array
-            Pressure difference between the bottom and top of each layer
+    def top_bb(self, **kwargs):
+        """Computes the top of atmosphere black body flux (in W/m^2/cm^-1).
 
-    Returns
-    -------
-        array
-            Heating rate in each atmospheric layer (K/s).  
-    """
-    epsilon=-1.e-5
-    theta_lay=tlay/exner
-    new_theta_lay=np.copy(theta_lay)
-    dsig=dp_lay
-    sdsig=dsig*exner
-    H_conv=np.zeros(Nlay)
-    n_iter=0
-    while True:
-        conv=np.nonzero(new_theta_lay[:-1]-new_theta_lay[1:]<epsilon)[0]
-        # find convective layers
-        N_conv=conv.size
-        if N_conv==0: # no more convective regions, can exit
-            return H_conv
-        i_conv=0
-        i_top=conv[i_conv] #upper unstable layer
-        while i_conv<N_conv-1: #search from the top of the 1st unstable layer for its bottom
-            if conv[i_conv+1]==conv[i_conv]+1:
-                i_conv+=1
-                continue
-            else:
-                break
-        i_bot=conv[i_conv]+1
-        mass_conv=0.
-        intexner=0.
-        theta_mean=0.
-        for ii in range(i_top,i_bot+1): # compute new mean potential temperature
-            intexner+=sdsig[ii]
-            mass_conv+=dsig[ii]
-            theta_mean+=sdsig[ii] * (theta_lay[ii] - theta_mean) / intexner
-        while i_top>0:#look for newly unstable layers above
-            if theta_lay[i_top-1]<theta_mean:
-                i_top-=1
-                intexner+=sdsig[i_top]
-                mass_conv+=dsig[i_top]
-                theta_mean+=sdsig[i_top] * (theta_lay[i_top] - theta_mean) / intexner
-            else:
-                break
-        while i_bot<Nlay-1: #look for newly unstable layers below
-            if theta_lay[i_bot+1]>theta_mean:
-                i_bot+=1
-                intexner+=sdsig[i_bot]
-                mass_conv+=dsig[i_bot]
-                theta_mean+=sdsig[i_bot] * (theta_lay[i_bot] - theta_mean) / intexner
-            else:
-                break
-        # compute heating and adjust before looking for a new potential unstable layer
-        H_conv[i_top:i_bot+1]=(theta_mean-new_theta_lay[i_top:i_bot+1]) \
-            *exner[i_top:i_bot+1]/timestep
-        new_theta_lay[i_top:i_bot+1]=theta_mean
-        n_iter+=1
-        if n_iter>Nlay+1:
-            if verbose : print('oops, went crazy in convadj')
-            break
-    return H_conv
+        See :any:`blackbody` for options.
+
+        Returns
+        -------
+            Spectrum object
+                Spectral flux of a bb at the temperature at the top of atmosphere (in W/m^2/cm^-1)
+        """
+        return self.blackbody(layer_idx=0, **kwargs)
+

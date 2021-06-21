@@ -1,4 +1,4 @@
-"""Defines constants"""
+"""Defines constants in SI units"""
 
 G = 6.67384e-11
 RSOL = 6.955e8
@@ -14,6 +14,7 @@ PLANCK = 6.62606957e-34
 C_LUM = 299792458
 SIG_SB = 5.670367e-08
 N_A = 6.022140857e+23
+DAY = 86400. #s
 tiny=1.e-13
 OneMintiny=1.-tiny
 
