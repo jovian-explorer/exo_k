@@ -323,7 +323,7 @@ class Kdatabase(Spectral_object):
         self.consolidated_kdata_unit=True
 
     def create_mix_ktable(self, composition, inactive_species=[],
-        cia_database=None, verbose=False):
+        cia_database=None, verbose=False, mol=None, random_overlap=True):
         """Creates a :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable`
         for a mix of molecules.
 
@@ -388,33 +388,35 @@ class Kdatabase(Spectral_object):
             return res
         gas_mixture=Gas_mix(composition)
         first_mol=True
-        for mol in mol_to_be_done:
+        for molec in mol_to_be_done:
             if first_mol:
-                res=self.ktables[mol].copy(cp_kdata=True)
+                res=self.ktables[molec].copy(cp_kdata=True)
                 try:
-                    res.kdata=res.vmr_normalize(gas_mixture[mol])
+                    res.kdata=res.vmr_normalize(gas_mixture[molec])
                 except TypeError:
                     print('gave bad mixing ratio format to vmr_normalize')
                     raise TypeError('bad mixing ratio type')            
                 first_mol=False
             else:
-                if verbose: print('treating molecule ',mol)
-                if self.Ng is not None:
-                    res.kdata=res.RandOverlap(self.ktables[mol], None, gas_mixture[mol])
+                if verbose: print('treating molecule ',molec)
+                if (not random_overlap) or (self.Ng is None):
+                    res.kdata+=self.ktables[molec].vmr_normalize(gas_mixture[molec])
+                else:
+                    res.kdata=res.RandOverlap(self.ktables[molec], None, gas_mixture[molec])
                     # no need to re normalize with respect to 
                     # the abundances of the molecules already done.
-                else:
-                    res.kdata+=self.ktables[mol].vmr_normalize(gas_mixture[mol])
         if cia_database is not None:
             cia=cia_database.cia_cross_section_grid(self.logpgrid, self.tgrid, gas_mixture)
             if self.Ng is None:
                 res.kdata+=cia
             else:
                 res.kdata+=cia[:,:,:,None]
+        if mol is not None:
+            res.change_molecule_name(mol)
         return res  
 
     def create_mix_ktable5d(self, bg_comp={}, vgas_comp={}, x_array=None,
-            bg_inac_species=[], vgas_inac_species=[], **kwargs):
+            bg_inac_species=[], vgas_inac_species=[], mol=None, **kwargs):
         """Creates a Ktable5d for a mix of molecules with a variable gas.
         In essence, the regular create_mix_ktable is called to create
         two mixes:
@@ -446,4 +448,7 @@ class Kdatabase(Spectral_object):
         for iX, vmr in enumerate(ktab5d.xgrid):
             new_kdata[:,:,iX,:,:]=var_gas_mix.RandOverlap(background_mix, vmr, 1.-vmr, **kwargs)
         ktab5d.set_kdata(new_kdata)
+        if mol is not None:
+            ktab5d.change_molecule_name(mol)
+
         return ktab5d

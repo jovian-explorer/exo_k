@@ -189,7 +189,7 @@ class Atm_2band(Atm):
                 self.kdata_stellar, mu_eff)
             self.weights_stellar=self.kdatabase_stellar.weights
 
-    def reflexion_spectrum_2stream(self, integral=True, mu0=0.5,
+    def reflexion_spectrum_2stream(self, integral=True, mu0_stellar=0.5,
             method='toon', dtau_min=1.e-10, flux_at_level=False, rayleigh=False,
             flux_top_dw=None, **kwargs):
         """Returns the reflexion flux at the top of the atmosphere (in W/m^2/cm^-1)
@@ -246,7 +246,7 @@ class Atm_2band(Atm):
         self.flux_up_nu_stellar, self.flux_down_nu_stellar, self.flux_net_nu_stellar = \
             solve_2stream_nu(self.piBatm_stellar, self.dtau_stellar,
                 self.single_scat_albedo_stellar, self.asym_param_stellar,
-                self.flux_top_dw_nu_stellar, mu0 = mu0, flux_at_level=flux_at_level)
+                self.flux_top_dw_nu_stellar, mu0 = mu0_stellar, flux_at_level=flux_at_level)
 
         if self.Ng_stellar is None:
             return Spectrum(self.flux_up_nu_stellar[0],self.wns_stellar,self.wnedges_stellar)

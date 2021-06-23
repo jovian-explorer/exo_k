@@ -23,15 +23,18 @@ class Rayleigh(Singleton):
 
     def sigma(self, wns, vmr):
         """Computes the Rayleigh cross section for the gas.
-        This one is faster than sigma_array, but can be used only when vmr values are floats.
+        This one is faster than sigma_array, but can be used only
+        when vmr values are constants.
 
         Parameters
         ----------
             wns: array
                 array of wavenumbers
 
-            vmr: dict of floats
-                Keys are molecule names. Values are the volume mixing ratios
+            vmr: dict of arrays
+                Keys are molecule names. Values are the volume mixing ratios.
+                For speedup, only the first value will be used because we assume
+                that the vmr arrays are constant
 
         Returns
         -------
@@ -43,7 +46,7 @@ class Rayleigh(Singleton):
         wn4 = wn2*wn2
         for mol, x in vmr.items():
             to_add, tmp = self.sigma_mol(mol, wn2, wn4)
-            if to_add: res+=x*tmp
+            if to_add: res+=x[0]*tmp
 
         return res
 

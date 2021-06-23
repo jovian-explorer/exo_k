@@ -23,6 +23,6 @@ from .hires_spectrum import Hires_spectrum
 from .atm import Atm_profile, Atm
 from .atm_2band import Atm_2band
 from .chemistry import EquChemTable, InterpolationChemistry
-from .gas_mix import Gas_mix
+from .gas_mix import Gas_mix, Known_composite_species
 from .settings import Settings
 from .rayleigh import Rayleigh

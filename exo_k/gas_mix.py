@@ -7,6 +7,7 @@ from .util.molar_mass import Molar_mass
 from .util.interp import RandOverlap_2_kdata_prof, rm_molec
 from .rayleigh import Rayleigh
 from .util.spectral_object import Spectral_object
+from .util.singleton import Singleton
 
 class Gas_mix(Spectral_object):
     """Dict-like class to handle gas composition (with background gas) and molar mass.
@@ -27,6 +28,7 @@ class Gas_mix(Spectral_object):
         self.wns=None
         self.wnedges=None
         self.Nw=None
+        self.need_to_recompute_vmr_array = True
 
         self.set_composition(composition, bg_gas=bg_gas)
         self.set_logPT(logp_array=logp_array, t_array=t_array)
@@ -59,6 +61,7 @@ class Gas_mix(Spectral_object):
             self.composition['inactive_gas']='background'
             self.bg_gas='inactive_gas'
         self.get_background_vmr()
+        self.need_to_recompute_vmr_array = True
 
     def set_logPT(self, logp_array=None, t_array=None):
         """Sets the pressure (in Pa) and temperature fields.
@@ -142,22 +145,63 @@ class Gas_mix(Spectral_object):
 
         Returns
         -------
-            res: dict
+            vmr_array: dict
                 A dictionary with the an array of vmr per species.
             cst_array: boolean
                 Is True if all the values in the arrays are constant.
         """
-        res=dict()
+        vmr_array=dict()
         cst_array=True
         for mol,vmr in self.composition.items():
             if isinstance(vmr,(float,int)):
-                res[mol]=np.ones(sh)*vmr
+                vmr_array[mol]=np.ones(sh)*vmr
             else:
                 cst_array=False
-                res[mol]=np.array(vmr)
-                if not np.array_equal(res[mol].shape, sh):
+                vmr_array[mol]=np.array(vmr) # this np.array could probably go because vmr should be an array at this stage. 
+                if not np.array_equal(vmr_array[mol].shape, sh):
+                    print(vmr_array[mol].shape)
                     raise RuntimeError('Wrong shape in get_vmr_array')
-        return res, cst_array
+        return vmr_array, cst_array
+
+    def get_vmr_array_basic_molecules(self, sh=None):
+        """Returns a dictionary with an array of vol. mix. ratios for each and decomposes
+        gas mixtures into basic molecules. 
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+            vmr_array_basic_mol: dictionary of arrays
+                A dictionary with the an array of vmr per species.
+                Each species is considered a basic molecule.
+            vmr_array: dictionary of arrays
+                A dictionary with the an array of vmr per species.
+                Species in this dictionary can be a gas mixture. 
+            cst_array: boolean
+                Is True if all the values in the arrays are constant.
+        """
+        vmr_array_basic_mol=dict()
+        cst_array=True
+        vmr_array, tmp_cst_array = self.get_vmr_array(sh=sh)
+        if not tmp_cst_array: cst_array=False
+        for mol,vmr in vmr_array.items():
+            if mol in Known_composite_species().keys():
+                tmp, _, tmp_cst_array= \
+                    Known_composite_species()[mol].get_vmr_array_basic_molecules(sh=sh)
+                if not tmp_cst_array: cst_array=False
+                for mol2,vmr2 in tmp.items():
+                    if mol2 in vmr_array_basic_mol.keys():
+                        vmr_array_basic_mol[mol2]+=vmr*vmr2
+                    else:
+                        vmr_array_basic_mol[mol2]=vmr*vmr2
+            else:
+                if mol in vmr_array_basic_mol.keys():
+                    vmr_array_basic_mol[mol]+=vmr
+                else:
+                    vmr_array_basic_mol[mol]=vmr
+        return vmr_array_basic_mol, vmr_array, cst_array
+
 
     def set_k_database(self, k_database=None):
         """Change the radiative database attached to the current instance of Gas_mix
@@ -264,7 +308,7 @@ class Gas_mix(Spectral_object):
 
     def cross_section(self, composition=None, logp_array=None, t_array=None,
             wl_range=None, wn_range=None, rayleigh=True,
-            write=0, random_overlap=False, logp_interp=True, **kwargs):
+            write=0, random_overlap=False, logp_interp=True, use_basic_molecules=False, **kwargs):
         """Computes the cross section (m^2/total number of molecule) for the mix
         at each of the logPT points as a function of wavenumber (and possibly g point).
 
@@ -308,13 +352,25 @@ class Gas_mix(Spectral_object):
 
         if composition is not None:
             self.set_composition(composition)
-        molecs=self.composition.keys()
+        if self.need_to_recompute_vmr_array:
+            self.vmr_arr_base_mol, self.vmr_arr, self.cst_array = \
+                self.get_vmr_array_basic_molecules((self.Narray,))
+            self.need_to_recompute_vmr_array = False
+            if write>6 :
+                print('recomputed vmr array:', self.vmr_arr_base_mol, self.vmr_arr) 
+        if use_basic_molecules:
+            molecs=self.vmr_arr_base_mol.keys()
+        else:
+            molecs=self.vmr_arr.keys()
+        if write>6 :
+            print('molecs:', molecs) 
         mol_to_be_done=list(set(molecs).intersection(self.kdatabase.molecules))
-        vmr_prof, cst_prof=self.get_vmr_array((self.Narray,))
         if not mol_to_be_done:
             if 'total' in self.kdatabase.molecules:
+                #special case where you have one ktable that describes the whole gas.
                 mol_to_be_done=['total']
-                vmr_prof['total']=np.ones((self.Narray))
+                use_basic_molecules=False
+                self.vmr_arr['total']=np.ones((self.Narray))
             else:
                 raise RuntimeError("""The k_database you provided 
                     should contain at least one molecule in your atm,
@@ -332,13 +388,17 @@ class Gas_mix(Spectral_object):
         self._compute_wn_range_indices(wn_range=local_wn_range)
         self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
         self.dwnedges=np.diff(self.wnedges)
-        self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max])
+        self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max]) # 2021: are these copy needed?
         self.Nw=self.wns.size
 
         first_mol=True
+        if use_basic_molecules:
+            vmr_arr_to_use = self.vmr_arr_base_mol
+        else:
+            vmr_arr_to_use = self.vmr_arr
         for mol in mol_to_be_done:
             tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
-                t_array=self.t_array, x_array=vmr_prof[mol], wngrid_limit=local_wn_range,
+                t_array=self.t_array, x_array=vmr_arr_to_use[mol], wngrid_limit=local_wn_range,
                 logp_interp=logp_interp,
                 **kwargs)
             if first_mol:
@@ -354,16 +414,17 @@ class Gas_mix(Spectral_object):
                     kdata_array+=tmp_kdata
 
         if rayleigh or (self.cia_database is not None):
+            # continua always use base molecules
             cont_sig=np.zeros((self.Narray,self.Nw))
             if rayleigh:
-                if cst_prof:
-                    cont_sig+=Rayleigh().sigma(self.wns, self.composition)
+                if self.cst_array:
+                    cont_sig+=Rayleigh().sigma(self.wns, self.vmr_arr_base_mol)
                 else:
-                    cont_sig+=Rayleigh().sigma_array(self.wns, vmr_prof)
+                    cont_sig+=Rayleigh().sigma_array(self.wns, self.vmr_arr_base_mol)
                 self.kdata_scat=np.copy(cont_sig)
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
-                    self.t_array, vmr_prof, wngrid_limit=local_wn_range, Nw=self.Nw)
+                    self.t_array, self.vmr_arr_base_mol, wngrid_limit=local_wn_range, Nw=self.Nw)
             if self.kdatabase.Ng is None:
                 kdata_array+=cont_sig
             else:
@@ -443,3 +504,53 @@ class Gas_mix(Spectral_object):
         #return res
 
     __rmul__ = __mul__
+
+
+class Known_composite_species(Singleton):
+    """A class to store composite gas mixes that can be used in other gas mixes
+    This class can also store the molar mass of custom gases with arbitrary names
+    (for example: My_gas, earth_background).
+    """
+    
+    def init(self, *args, **kwds):
+        """Initializes empty dictionary of custom molecular masses.
+        """
+        self._known_composite_species={}
+
+    def add_species(self, species_dict):
+        """Add one or several composite species to the database. 
+
+        Parameters
+        ----------
+            species_dict: dict
+                Keys are gases names (they do not have to be real molecules).
+                Values are a gas_mix object. 
+        """
+        self._known_composite_species.update(species_dict)
+        for species, gas_mix in species_dict.items():
+            Molar_mass().add_species({species: gas_mix.molar_mass()})
+
+    def items(self):
+        """Emulates dict.items() method
+        """
+        return self._known_composite_species.items()
+
+    def values(self):
+        """Emulates dict.values() method
+        """
+        return self._known_composite_species.values()
+
+    def keys(self):
+        """Emulates dict.keys() method
+        """
+        return self._known_composite_species.keys()
+
+    def __getitem__(self, molecule):
+        """Overrides getitem
+        """
+        return self._known_composite_species[molecule]
+
+    def __setitem__(self, molecule, mix):
+        """Overrides setitem
+        """
+        self._known_composite_species[molecule]=mix
