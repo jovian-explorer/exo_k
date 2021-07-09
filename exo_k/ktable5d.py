@@ -386,7 +386,7 @@ class Ktable5d(Data_table):
 
                 spec_hr=Hires_spectrum(fname, file_kdata_unit=file_kdata_unit,
                     **select_kwargs(kwargs,['skiprows','wn_column','mult_factor',
-                        'kdata_column','data_type']))
+                        'kdata_column','data_type','binary','mass_amu']))
                 # for later conversion, the real kdata_unit is in spec_hr.kdata_unit
                 self.kdata_unit=spec_hr.kdata_unit
                 was_xsec=(spec_hr.data_type=='xsec')

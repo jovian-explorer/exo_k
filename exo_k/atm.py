@@ -761,7 +761,7 @@ class Atm(Atm_profile):
                 self.single_scat_albedo = self.kdata_scat[:,:,None] / self.kdata
         else:
             self.single_scat_albedo = np.zeros_like(self.dtau)
-        self.single_scat_albedo=np.clip(self.single_scat_albedo,None,0.9999999999999)
+        self.single_scat_albedo=np.core.umath.minimum(self.single_scat_albedo,0.9999999999999)
         self.asym_param = np.zeros_like(self.dtau)
 
         if flux_top_dw is not None:

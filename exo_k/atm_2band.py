@@ -178,6 +178,8 @@ class Atm_2band(Atm):
         """Computes all necessary quantities for emission calculations
         (opacity, source, etc.)
         """
+        # no need to change composition as it has been done in emission channel
+        # but that won't work if you are not using both channels.
         self.opacity_stellar(rayleigh=rayleigh, **kwargs)
         self.piBatm_stellar = self.source_function_stellar()
         self.compute_layer_col_density() #done twice
@@ -237,7 +239,7 @@ class Atm_2band(Atm):
                 self.single_scat_albedo_stellar = self.kdata_scat_stellar[:,:,None] / self.kdata_stellar
         else:
             self.single_scat_albedo_stellar = np.zeros_like(self.dtau)
-        self.single_scat_albedo_stellar=np.clip(self.single_scat_albedo_stellar,None,0.9999999999999)
+        self.single_scat_albedo_stellar=np.core.umath.minimum(self.single_scat_albedo_stellar,0.9999999999999)
         self.asym_param_stellar = np.zeros_like(self.dtau_stellar)
 
         if flux_top_dw is not None:
