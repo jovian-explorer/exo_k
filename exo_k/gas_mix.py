@@ -16,7 +16,7 @@ class Gas_mix(Spectral_object):
     can be used to compute the opacity of the gas
     """
 
-    def __init__(self, composition={}, bg_gas=None, logp_array=None, t_array=None,
+    def __init__(self, composition={}, logp_array=None, t_array=None,
         k_database=None, cia_database=None):
         """__init_ Instantiates
         a Gas_mix object and computes the vmr of the 'background' gas.
@@ -30,13 +30,13 @@ class Gas_mix(Spectral_object):
         self.Nw=None
         self.need_to_recompute_vmr_array = True
 
-        self.set_composition(composition, bg_gas=bg_gas)
+        self.set_composition(composition)
         self.set_logPT(logp_array=logp_array, t_array=t_array)
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
 
 
-    def set_composition(self, composition, bg_gas=None):
+    def set_composition(self, composition):
         """Reset composition and computes the vmr of the 'background' gas.
 
         Parameters
@@ -47,19 +47,20 @@ class Gas_mix(Spectral_object):
                 Name of the background molecule. 
                 If None, it is inferred from the molecule for which vmr='background'.
         """
-        self.composition=dict()
+        self.composition = dict()
+        self.bg_gas = None
         for mol,vmr in composition.items():
             if isinstance(vmr, list):
                 self.composition[mol]=np.array(vmr)
+            elif isinstance(vmr, str):
+                self.bg_gas = mol
             else:
-                self.composition[mol]=vmr
-        self.bg_gas=bg_gas
-        if (True in [isinstance(val,str) for val in self.composition.values()]) \
-                or (self.bg_gas is not None):
-            self.composition['inactive_gas']=0.
+                self.composition[mol] = vmr
+        if (self.bg_gas is not None):
+            self.composition['inactive_gas'] = 0.
         else:
-            self.composition['inactive_gas']='background'
-            self.bg_gas='inactive_gas'
+            self.composition['inactive_gas'] = 'background'
+            self.bg_gas = 'inactive_gas'
         self.get_background_vmr()
         self.need_to_recompute_vmr_array = True
 
@@ -92,23 +93,13 @@ class Gas_mix(Spectral_object):
         and its Vol. Mix. Ratio will be updated in the composition dict. 
         """
         other_vmr=0.
-        if self.bg_gas is None: # should never happen
-            for mol,vmr in self.composition.items():
-                if isinstance(vmr,str):
-                    self.bg_gas=mol
-                    continue
-                try:
-                    other_vmr+=vmr
-                except ValueError:
-                    raise TypeError('Incompatible shapes in Gas_mix arrays.')
-        else:
-            for mol,vmr in self.composition.items():
-                if mol==self.bg_gas:
-                    continue
-                try:
-                    other_vmr+=vmr
-                except ValueError:
-                    raise TypeError('Incompatible shapes in Gas_mix arrays.')
+        for mol,vmr in self.composition.items():
+            if mol==self.bg_gas:
+                continue
+            try:
+                other_vmr+=vmr
+            except ValueError:
+                raise TypeError('Incompatible shapes in Gas_mix arrays.')
         if np.amax(other_vmr)>1.:
             print("""Careful: the sum of the vmr of your gas components is > 1.
             If there is a background gas, its vmr will become negative.

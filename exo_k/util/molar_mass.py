@@ -24,7 +24,7 @@ class Molar_mass(Singleton):
         ----------
             species_dict: dict
                 Keys are gases names (they do not have to be real molecules).
-                Values are molecular weight in kg/mol.
+                Values are molar masses in kg/mol.
         """
         self._custom_mol_mass.update(species_dict)
 
@@ -52,7 +52,7 @@ class Molar_mass(Singleton):
         for element, count in s:
             count = int(count or '1')
             try:
-                molecule_mass += _atomic_mass_in_amu[element] * count
+                molecule_mass += _molar_mass_atoms[element] * count
             except KeyError:
                 print("""The following molecule name was not recognized: {mol}
                     If this is a custom gas
@@ -60,7 +60,10 @@ class Molar_mass(Singleton):
                     Molar_mass().add_species({{\'{mol}\':weight in kg/mol}})
                     """.format(mol=molecule_name) )
                 raise RuntimeError()
-        return molecule_mass*1.e-3 # conversion to kg/mol
+        self._custom_mol_mass[molecule_name] = molecule_mass
+        return molecule_mass
+        #return molecule_mass*1.e-3 # conversion to kg/mol
+
 
 _atomic_mass_in_amu = {
   "H":	1.00794,
@@ -174,3 +177,114 @@ _atomic_mass_in_amu = {
   "Mt":	266,
 }
 
+
+_molar_mass_atoms = {'H': 0.0010079400000000001,
+        'He': 0.004002602000000001,
+        'Li': 0.006941,
+        'Be': 0.009012181999999999,
+        'B': 0.010811,
+        'C': 0.012010999999999999,
+        'N': 0.01400674,
+        'O': 0.0159994,
+        'F': 0.0189984032,
+        'Ne': 0.020179700000000002,
+        'Na': 0.022989768,
+        'Mg': 0.024305,
+        'Al': 0.026981539000000002,
+        'Si': 0.0280855,
+        'P': 0.030973762000000002,
+        'S': 0.032066000000000004,
+        'Cl': 0.035452700000000004,
+        'Ar': 0.039948000000000004,
+        'K': 0.0390983,
+        'Ca': 0.040078,
+        'Sc': 0.04495591,
+        'Ti': 0.047880000000000006,
+        'V': 0.0509415,
+        'Cr': 0.051996099999999996,
+        'Mn': 0.054938049999999995,
+        'Fe': 0.055847,
+        'Co': 0.0589332,
+        'Ni': 0.0586934,
+        'Cu': 0.063546,
+        'Zn': 0.06539,
+        'Ga': 0.06972300000000001,
+        'Ge': 0.07261000000000001,
+        'As': 0.07492159,
+        'Se': 0.07895999999999999,
+        'Br': 0.079904,
+        'Kr': 0.0838,
+        'Rb': 0.0854678,
+        'Sr': 0.08762,
+        'Y': 0.08890585000000001,
+        'Zr': 0.091224,
+        'Nb': 0.09290638,
+        'Mo': 0.09594,
+        'Tc': 0.098,
+        'Ru': 0.10107,
+        'Rh': 0.10290550000000001,
+        'Pd': 0.10642,
+        'Ag': 0.1078682,
+        'Cd': 0.112411,
+        'In': 0.11481999999999999,
+        'Sn': 0.11871,
+        'Sb': 0.121757,
+        'Te': 0.1276,
+        'I': 0.12690447000000002,
+        'Xe': 0.13129,
+        'Cs': 0.13290543,
+        'Ba': 0.137327,
+        'La': 0.1389055,
+        'Ce': 0.14011500000000002,
+        'Pr': 0.14090765,
+        'Nd': 0.14424,
+        'Pm': 0.145,
+        'Sm': 0.15036000000000002,
+        'Eu': 0.15196500000000002,
+        'Gd': 0.15725,
+        'Tb': 0.15892534,
+        'Dy': 0.1625,
+        'Ho': 0.16493032,
+        'Er': 0.16726,
+        'Tm': 0.16893421,
+        'Yb': 0.17304,
+        'Lu': 0.174967,
+        'Hf': 0.17849,
+        'Ta': 0.1809479,
+        'W': 0.18384999999999999,
+        'Re': 0.18620699999999998,
+        'Os': 0.19019999999999998,
+        'Ir': 0.19222,
+        'Pt': 0.19508,
+        'Au': 0.19696654000000002,
+        'Hg': 0.20059000000000002,
+        'Tl': 0.2043833,
+        'Pb': 0.2072,
+        'Bi': 0.20898037,
+        'Po': 0.209,
+        'At': 0.21,
+        'Rn': 0.222,
+        'Fr': 0.223,
+        'Ra': 0.2260254,
+        'Ac': 0.227,
+        'Th': 0.2320381,
+        'Pa': 0.2130359,
+        'U': 0.2380289,
+        'Np': 0.23704820000000001,
+        'Pu': 0.244,
+        'Am': 0.243,
+        'Cm': 0.247,
+        'Bk': 0.247,
+        'Cf': 0.251,
+        'Es': 0.252,
+        'Fm': 0.257,
+        'Md': 0.258,
+        'No': 0.259,
+        'Lr': 0.26,
+        'Rf': 0.261,
+        'Db': 0.262,
+        'Sg': 0.263,
+        'Bh': 0.262,
+        'Hs': 0.265,
+        'Mt': 0.266,
+        }

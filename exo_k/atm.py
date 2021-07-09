@@ -587,10 +587,11 @@ class Atm(Atm_profile):
         return piBatm
 
     def setup_emission_caculation(self, mu_eff=0.5, rayleigh=False, integral=True,
-            source=True, **kwargs):
+            source=True, gas_vmr=None, **kwargs):
         """Computes all necessary quantities for emission calculations
         (opacity, source, etc.)
         """
+        if gas_vmr is not None: self.set_gas(gas_vmr)
         self.opacity(rayleigh=rayleigh, **kwargs)
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
