@@ -636,7 +636,7 @@ class Atm(Atm_profile):
         if mu_quad_order is not None:
             # if we want quadrature, use the more general method.
             return self.emission_spectrum_quad(integral=integral,
-                mu_quad_order=mu_quad_order, **kwargs)
+                mu_quad_order=mu_quad_order, dtau_min=dtau_min, **kwargs)
 
         try:
             self.setup_emission_caculation(mu_eff=mu0, rayleigh=False, integral=integral, **kwargs)
@@ -700,15 +700,15 @@ class Atm(Atm_profile):
             expdtauminone=np.where(dtau<dtau_min,-dtau,expdtau-1.)
             exptau=np.exp(-tau)
             if self.Ng is None:
-                timesBatmTop=(-expdtau-expdtauminone/dtau)*exptau[:-1]
-                timesBatmBottom=(1.+expdtauminone/dtau)*exptau[:-1]
-                timesBatmBottom[-1]=timesBatmBottom[-1]+exptau[-1]
+                timesBatmTop=(1.+expdtauminone/dtau)*exptau[:-1]
+                timesBatmBottom=(-expdtau-expdtauminone/dtau)*exptau[:-1]
+                timesBatmBottom[-1]+=exptau[-1]
             else:
-                timesBatmTop=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1] \
+                timesBatmTop=np.sum((1.+expdtauminone/dtau)*exptau[:-1] \
                     *self.weights,axis=-1)
-                timesBatmBottom=np.sum((1.+expdtauminone/dtau)*exptau[:-1] \
+                timesBatmBottom=np.sum((-expdtau-expdtauminone/dtau)*exptau[:-1] \
                     *self.weights,axis=-1)
-                timesBatmBottom[-1]=timesBatmBottom[-1]+np.sum(exptau[-1]*self.weights,axis=-1)
+                timesBatmBottom[-1]+=np.sum(exptau[-1]*self.weights,axis=-1)
             IpTop+=np.sum(self.piBatm[:-1]*timesBatmTop+self.piBatm[1:]*timesBatmBottom,axis=0) \
                 *mu_w[ii]
 
