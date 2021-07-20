@@ -129,7 +129,7 @@ class Kdatabase(Spectral_object):
                     self.wns    = None
                     self.wnedges= None
                     self.Nw     = None
-                if not (np.array_equal(tmp_ktable.pgrid,self.pgrid) \
+                if not (np.array_equal(tmp_ktable.logpgrid,self.logpgrid) \
                     and np.array_equal(tmp_ktable.tgrid,self.tgrid)) :
                     self.consolidated_PT_grid=False
                     self.pgrid   = None
@@ -137,7 +137,7 @@ class Kdatabase(Spectral_object):
                     self.tgrid   = None
                     self.Np      = None
                     self.Nt      = None
-                    print("""Careful, not all tables have the same PT grid.
+                    print("""Careful, not all tables have the same logPT grid.
                         You'll need to use remap_logPT""")
             self.molecules=list(self.ktables.keys())
 

@@ -448,7 +448,7 @@ class Ktable5d(Data_table):
         self.setup_interpolation()
 
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array= None,
-            log_interp=None, logp_interp=True, wngrid_limit=None):
+            log_interp=None, logp_interp=True, wngrid_limit=None, **kwargs):
         """interpolate_kdata interpolates the kdata at on a given temperature and
         log pressure profile. 
 
