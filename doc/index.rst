@@ -41,6 +41,10 @@ Enjoy!
 Recent releases
 ===============
 
+v1.1.0 (August 2021): New scheme for the computation of atmospheric emission/transmission
+to ensure an improved numerical accuracy. The variable names to instantiate atm objects have
+changed accordingly (see tutorial). 
+
 v1.0.2 (June 2021): Adds a few missing dependencies. Enables computation of thermal
 emission spectra with scattering through the two-stream method (full documentation pending). 
 Enables creating Xtables for a mix of gases (CIA can be added as well). Solves some issues
