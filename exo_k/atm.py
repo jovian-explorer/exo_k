@@ -55,6 +55,7 @@ import numpy as np
 import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
+from .aerosols import Aerosols
 from .util.cst import N_A, PI, RGP, KBOLTZ, SIG_SB
 from .util.radiation import Bnu_integral_num, Bnu, rad_prop_corrk, rad_prop_xsec,\
     Bnu_integral_array, path_integral_corrk, path_integral_xsec
@@ -75,7 +76,7 @@ class Atm_profile(object):
     
     def __init__(self, composition={}, psurf=None, ptop=None, logplay=None, tlay=None,
             Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlay=20,
-            logplev=None, 
+            logplev=None, aerosols=None,
             ## old parameters that should be None. THey are left here to catch
             ## exceptions and warn the user that their use is obsolete
             Nlev=None, tlev=None,
@@ -134,6 +135,7 @@ class Atm_profile(object):
             raise RuntimeError('Unknown keyword argument in __init__')
         self.gas_mix = None
         self.set_gas(composition, compute_Mgas=False)
+        self.set_aerosols(aerosols)
         self.rcp = rcp
         self.logplev = None
         if logplay is None:
@@ -312,6 +314,11 @@ class Atm_profile(object):
         """
         self.rcp=rcp
 
+    def set_aerosols(self, aerosols):
+        """Sets the aerosols dictionary
+        """
+        self.aerosols = Aerosols(aerosols)
+
     def set_Rp(self, Rp):
         """Sets the radius of the planet
 
@@ -351,7 +358,7 @@ class Atm_profile(object):
         self.density=np.power(10., self.logp_opac)/(KBOLTZ*self.t_opac)
 
     def compute_layer_col_density(self):
-        """Computes the column number density (molecules/m^-2) per
+        """Computes the column number density (molecules/m^2) per
         radiative layer of the atmosphere.
 
         There are Nlay-1 radiative layers as they go from the midle of a layer to the next.
@@ -438,7 +445,7 @@ class Atm(Atm_profile):
     Radiative data are accessed through the :any:`gas_mix.Gas_mix` class.
     """
 
-    def __init__(self, k_database=None, cia_database=None,
+    def __init__(self, k_database=None, cia_database=None, a_database=None,
         wn_range=None, wl_range=None, internal_flux=0., **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
@@ -446,6 +453,7 @@ class Atm(Atm_profile):
         super().__init__(**kwargs)
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
+        self.set_a_database(a_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
         self.set_internal_flux(internal_flux)
         self.flux_net_nu=None
@@ -484,6 +492,19 @@ class Atm(Atm_profile):
                 New CIAdatabase to use.
         """
         self.gas_mix.set_cia_database(cia_database=cia_database)
+
+    def set_a_database(self, a_database=None):
+        """Change the Aerosol database used by the
+        :class:`Aerosols` object handling aerosol optical properties.
+
+        See :any:`aerosols.Aerosols.set_a_database` for details.
+
+        Parameters
+        ----------
+            a_database: :class:`Adatabase` object
+                New Adatabase to use.
+        """    
+        self.aerosols.set_a_database(a_database=a_database)
 
     def set_spectral_range(self, wn_range=None, wl_range=None):
         """Sets the spectral range in which computations will be done by specifying
@@ -540,7 +561,7 @@ class Atm(Atm_profile):
             var=np.sum(np.sum(spectral_var*self.weights,axis=-1)*self.dwnedges,axis=-1)
         return var
 
-    def opacity(self, rayleigh = False, **kwargs):
+    def opacity(self, rayleigh = False, compute_all_opt_prop = False, **kwargs):
         """Computes the opacity of each of the radiative layers (m^2/molecule).
 
         Parameters
@@ -552,7 +573,34 @@ class Atm(Atm_profile):
         See :any:`gas_mix.Gas_mix.cross_section` for details.
         """
         self.kdata = self.gas_mix.cross_section(rayleigh=rayleigh, **kwargs)
-        if rayleigh: self.kdata_scat=self.gas_mix.kdata_scat
+        shape = self.kdata.shape
+        if self.aerosols.adatabase is not None:
+            [kdata_aer, k_scat_aer, g_aer] = self.aerosols.optical_properties(
+                    compute_all_opt_prop=compute_all_opt_prop, **kwargs)
+            if self.Ng is None:
+                self.kdata += kdata_aer
+            else:
+                self.kdata += kdata_aer[:,:,None]
+        if compute_all_opt_prop:
+            if rayleigh:
+                kdata_scat_tot = self.gas_mix.kdata_scat
+            else:
+                kdata_scat_tot = np.zeros(shape[0:2], dtype=np.float)
+            if self.aerosols.adatabase is not None:
+                kdata_scat_tot += k_scat_aer
+                self.asym_param = k_scat_aer * g_aer / kdata_scat_tot
+            else:
+                self.asym_param = np.zeros(shape[0:2], dtype=np.float)
+
+            if self.Ng is None:
+                self.single_scat_albedo = kdata_scat_tot / self.kdata
+            else:
+                self.single_scat_albedo = kdata_scat_tot[:,:,None] / self.kdata
+                self.asym_param = self.asym_param[:,:,None] * np.ones(self.Ng)
+                #JL21 the line above could be removed as asym param does not seem to change
+                # with g point, but then the dimensions should be change in 2stream routines.
+            self.single_scat_albedo=np.core.umath.minimum(self.single_scat_albedo,0.9999999999999)
+
         self.Nw=self.gas_mix.Nw
         self.wns=self.gas_mix.wns
         self.wnedges=self.gas_mix.wnedges
@@ -742,9 +790,10 @@ class Atm(Atm_profile):
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
         self.setup_emission_caculation(mu_eff=1., rayleigh=rayleigh, integral=integral,
-            source=source, flux_top_dw=flux_top_dw, **kwargs)
+            source=source, flux_top_dw=flux_top_dw, compute_all_opt_prop=True, **kwargs)
         # mu_eff=1. because the mu effect is taken into account in solve_2stream_nu
                  # we must compute the vertical optical depth here.
+        # JL21: shouldn't we remove flux_top_dw, it seems not to be used.
         self.dtau=np.where(self.dtau<dtau_min,dtau_min,self.dtau)
 
         module_to_use=globals()[method]
@@ -754,16 +803,6 @@ class Atm(Atm_profile):
             solve_2stream_nu=module_to_use.solve_2stream_nu_xsec
         else:
             solve_2stream_nu=module_to_use.solve_2stream_nu_corrk
-
-        if rayleigh:
-            if self.Ng is None:
-                self.single_scat_albedo = self.kdata_scat / self.kdata
-            else:
-                self.single_scat_albedo = self.kdata_scat[:,:,None] / self.kdata
-        else:
-            self.single_scat_albedo = np.zeros_like(self.dtau)
-        self.single_scat_albedo=np.core.umath.minimum(self.single_scat_albedo,0.9999999999999)
-        self.asym_param = np.zeros_like(self.dtau)
 
         if flux_top_dw is not None:
             self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)

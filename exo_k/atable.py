@@ -192,7 +192,7 @@ class Atable(Spectral_object):
         f.close()    
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False,
-            sample_all_vars=False, **kwargs):
+            sample_all_vars=True, **kwargs):
         """Method to re sample a Atable to a new grid of wavenumbers (in place)
 
         Parameters
@@ -281,26 +281,20 @@ class Atable(Spectral_object):
             wngrid_filter = np.where((self.wnedges > wngrid_limit.min()) & (
                 self.wnedges <= wngrid_limit.max()))[0][:-1]
             Nw=wngrid_filter.size
-        res=np.zeros((rind.size,Nw))
+        if log_interp is None: log_interp=self._settings._log_interp
+        if var_type == -1:
+            return [interp_data(self.ext_coeff, rind, rweight, Nw, wngrid_filter, log_interp),
+                interp_data(self.single_scat_alb, rind, rweight, Nw, wngrid_filter, log_interp),
+                interp_data(self.asymmetry_factor, rind, rweight, Nw, wngrid_filter, log_interp)
+                ]
         if var_type == 0:
             data_to_interp=self.ext_coeff
-        elif var_type ==1:
+        elif var_type == 1:
             data_to_interp=self.single_scat_alb
         else:
             data_to_interp=self.asymmetry_factor
-        if log_interp is None: log_interp=self._settings._log_interp
-        if log_interp:
-            for ii in range(rind.size):
-                kc_t1=np.log(data_to_interp[rind[ii]][wngrid_filter].ravel())
-                kc_t0=np.log(data_to_interp[rind[ii]-1][wngrid_filter].ravel())
-                res[ii]=linear_interpolation(kc_t0, kc_t1, rweight[ii])
-            return np.exp(res)
-        else:
-            for ii in range(rind.size):
-                kc_t1=data_to_interp[rind[ii]][wngrid_filter].ravel()
-                kc_t0=data_to_interp[rind[ii]-1][wngrid_filter].ravel()
-                res[ii]=linear_interpolation(kc_t0, kc_t1, rweight[ii])
-            return res
+        return interp_data(data_to_interp, rind, rweight, Nw, wngrid_filter, log_interp)
+
 
     def cross_section(self, r_array, wngrid_limit=None, log_interp=None):
         """Computes the cross section due to the aerosol in area per particles.
@@ -327,7 +321,7 @@ class Atable(Spectral_object):
             wngrid_limit=wngrid_limit, log_interp=log_interp).transpose()).transpose()
 
     def absorption_coefficient(self, r_array, n_density, wngrid_limit=None, log_interp=None):
-        """Computes the cross section due to the aerosol in area per particles.
+        """Computes the absorption coefficient due to the aerosol (in per unit length).
 
         Parameters
         ----------
@@ -351,6 +345,42 @@ class Atable(Spectral_object):
         factor=np.array(n_density)*PI*r_array**2
         return (factor*self.interpolate_optical_properties(r_array=r_array,
             wngrid_limit=wngrid_limit, log_interp=log_interp).transpose()).transpose()
+
+    def optical_properties(self, r_array, n_density, wngrid_limit=None,
+            log_interp=None, compute_all_opt_prop=True):
+        """Computes all the optical properties for the aerosol.
+
+        Parameters
+        ----------
+            r_array: float or 1d array
+                Effective radius array to interpolate to.
+                If a float is given, it is interpreted as an array of size 1.
+            n_density: float or 1d array (same dim as r_array)
+                Number density of aerosol
+
+        Other Parameters
+        ----------------
+            wngrid_limit: array, optional
+                If an array is given, interpolates only within this array.
+            log_interp: bool, optional
+                Whether the interpolation is linear in kdata or in log(kdata).
+        """
+        if hasattr(r_array, "__len__"):
+            r_array=np.array(r_array)
+        else:
+            r_array=np.array([r_array])
+        factor=np.array(n_density)*PI*r_array**2
+        if compute_all_opt_prop:
+            Q, omeg, g = self.interpolate_optical_properties(r_array=r_array,
+                var_type=-1, wngrid_limit=wngrid_limit, log_interp=log_interp)
+            kdata = (factor*Q.transpose()).transpose()
+            return [kdata, kdata*omeg, g]
+        else:
+            Q = self.interpolate_optical_properties(r_array=r_array,
+                var_type=0, wngrid_limit=wngrid_limit, log_interp=log_interp) 
+            kdata = (factor*Q.transpose()).transpose()
+            return [kdata, 0., 0.]
+
 
     def plot_spectrum(self, ax, r=1.e-6, x_axis='wls', xscale=None, yscale=None, 
             var_type=0, **kwarg):
@@ -410,13 +440,15 @@ class Atable(Spectral_object):
         output="""
         file          : {file}
         aerosol name  : {name}
-        reff grid (mu): {r}
+        reff grid     : {r}
+        reff unit     : {runit}
         wavenumber    : {w}
         ext coeff     : {ext_coeff}
         albedo        : {alb}
         asymmetry     : {ass}
-        """.format(file=self.filename,name=self.aerosol_name, r=self.r_eff_grid,\
-            w=self.wns,ext_coeff=self.ext_coeff, \
+        """.format(file=self.filename,name=self.aerosol_name, r=self.r_eff_grid,
+            runit = self.r_eff_unit,
+            w=self.wns,ext_coeff=self.ext_coeff,
             alb=self.single_scat_alb, ass=self.asymmetry_factor)
         return output
 
@@ -470,3 +502,18 @@ def combine_tables(aerosol_name, *atables):
         [atable.asymmetry_factor[:,:-1] for atable in ordered_atables], axis=1)
     res.aerosol_name=aerosol_name
     return res
+
+def interp_data(data_to_interp, rind, rweight, Nw, wngrid_filter, log_interp):
+    res=np.zeros((rind.size,Nw))
+    if log_interp:
+        for ii in range(rind.size):
+            kc_t1=np.log(data_to_interp[rind[ii]][wngrid_filter].ravel())
+            kc_t0=np.log(data_to_interp[rind[ii]-1][wngrid_filter].ravel())
+            res[ii]=linear_interpolation(kc_t0, kc_t1, rweight[ii])
+        return np.exp(res)
+    else:
+        for ii in range(rind.size):
+            kc_t1=data_to_interp[rind[ii]][wngrid_filter].ravel()
+            kc_t0=data_to_interp[rind[ii]-1][wngrid_filter].ravel()
+            res[ii]=linear_interpolation(kc_t0, kc_t1, rweight[ii])
+        return res

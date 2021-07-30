@@ -95,7 +95,7 @@ class Adatabase(Spectral_object):
         return output
 
     def sample(self, wngrid, remove_zeros=True, use_grid_filter=True,
-            sample_all_vars=False):
+            sample_all_vars=True):
         """Samples all the Atables in the database on the same wavenumber grid
         to be able to use them in radiative transfer modules.
 
@@ -163,8 +163,53 @@ class Adatabase(Spectral_object):
                     res+=self.atables[aer].absorption_coefficient(values[0], values[1],
                         wngrid_limit=wngrid_limit, log_interp=log_interp)
         if first: # means that no molecule was in the database, we need to initialize res
-            res=np.zeros((self.wns.size))
+            res=np.zeros((1, self.wns.size))
         return res
 
-        
+    def optical_properties(self, aer_reffs_densities, wngrid_limit=None,
+            log_interp=None, compute_all_opt_prop=True):
+        """Computes the optical properties for the mix of aerosols
+        (assumes data in MKS).
+
+        Parameters
+        ----------
+            aer_reffs_densities: dict
+                A dictionary with aerosol names as keys and lists containing 2
+                floats (or arrays) as values. The values are the particle effective radii
+                and number densities.
+
+            wngrid_limit: array, optional
+                Smaller and bigger wavenumbers inside which to perform the calculation.
+
+        Returns:
+            array:
+                The effective cross section coefficient profile for the aerosols (in m^2).
+        """
+        first=True
+        if self.wns is None: raise RuntimeError("""Atables must be sampled
+            on the same grid before calling optical_properties.
+            Please use the sample() method.""")
+        for aer, values in aer_reffs_densities.items():
+            if aer in self.atables.keys():
+                [k, kscat, g]=self.atables[aer].optical_properties(values[0], values[1],
+                        wngrid_limit=wngrid_limit, log_interp=log_interp,
+                        compute_all_opt_prop=compute_all_opt_prop)
+                k_scat_g = kscat * g
+                if first:
+                    k_tot = k
+                    kscat_tot = kscat
+                    g_tot = k_scat_g
+                    first=False
+                else:
+                    k_tot += k 
+                    kscat_tot += kscat
+                    g_tot += k_scat_g
+        if first: # means that no molecule was in the database, we need to initialize res
+            res=[np.zeros((1,self.wns.size)), np.zeros((1,self.wns.size)), np.zeros((1,self.wns.size))]
+        else:
+            if compute_all_opt_prop: g_tot /= kscat_tot
+            res = [k_tot, kscat_tot, g_tot]
+        return res
+
+
 
