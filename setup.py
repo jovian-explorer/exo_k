@@ -18,7 +18,7 @@ install_requires = ['numpy',
                     'astropy',
                     'h5py',
                     'matplotlib',
-                    'panda'
+                    'pandas'
                     ]
 
 console_scripts = ['']
