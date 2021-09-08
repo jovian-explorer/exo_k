@@ -4,6 +4,7 @@
 """
 import numpy as np
 from .ktable import Ktable
+from .ktable5d import Ktable5d
 from .xtable import Xtable
 from .gas_mix import Gas_mix
 from .settings import Settings
@@ -53,6 +54,7 @@ class Kdatabase(Spectral_object):
         self.consolidated_PT_grid=True
         self.consolidated_p_unit=True
         self.consolidated_kdata_unit=True
+        self.N_ktable5d=0
 
         self.molecules=None
         if molecules is None:
@@ -60,8 +62,12 @@ class Kdatabase(Spectral_object):
         if isinstance(molecules,list):
             for mol in molecules:
                 try:
-                    tmp_ktable=Ktable(*str_filters, mol=mol,
-                        remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                    try: tmp_ktable=Ktable(*str_filters, mol=mol,
+                            remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                    except:
+                        tmp_ktable=Ktable5d(*str_filters, mol=mol,
+                            remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                        self.N_ktable5d += 1
                 except:
                     tmp_ktable=Xtable(*str_filters, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
@@ -71,13 +77,22 @@ class Kdatabase(Spectral_object):
                 try:
                     # below, we still provide  *([mol+delim]+list(str_filters)) 
                     # as an input in case filename is None
-                    tmp_ktable=Ktable(*str_filters, filename=filename, mol=mol,
-                        remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                    try: tmp_ktable=Ktable(*str_filters, filename=filename, mol=mol,
+                            remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                    except:
+                        tmp_ktable=Ktable5d(*str_filters, filename=filename, mol=mol,
+                            remove_zeros=remove_zeros, search_path=search_path, **kwargs)
+                        self.N_ktable5d += 1
                 except:
                     tmp_ktable=Xtable(*str_filters, filename=filename, mol=mol,
                         remove_zeros=remove_zeros, search_path=search_path, **kwargs)
                 self.add_ktables(tmp_ktable)
-        
+        if self.N_ktable5d > 1:
+            print("""
+        Warning!!! You loaded more than one Ktable5d in a single database.
+        This is not supposed to happen. Proceed at your own risks!
+        """)
+
     def add_ktables(self, *ktables):
         """Adds as many :class:`~exo_k.ktable.Ktable` or :class:`~exo_k.xtable.Xtable`
         to the database as you want (inplace).
