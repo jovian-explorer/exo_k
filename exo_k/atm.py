@@ -135,6 +135,7 @@ class Atm_profile(object):
             raise RuntimeError('Unknown keyword argument in __init__')
         self.gas_mix = None
         self.set_gas(composition, compute_Mgas=False)
+        self.aerosols = None
         self.set_aerosols(aerosols)
         self.rcp = rcp
         self.logplev = None
@@ -316,8 +317,24 @@ class Atm_profile(object):
 
     def set_aerosols(self, aerosols):
         """Sets the aerosols dictionary
+
+        performs the interlayer averaging so that we only have properties at
+        the middle of radiative layers
         """
-        self.aerosols = Aerosols(aerosols)
+        if aerosols is not None:
+            for aer, [reff, densities] in aerosols.items():
+                if isinstance(reff,(np.ndarray, list)):
+                    tmp_reff=np.array(reff)
+                    aerosols[aer][0]=0.5*(tmp_reff[1:]+tmp_reff[:-1])
+                if isinstance(densities,(np.ndarray, list)):
+                    tmp_densities=np.array(densities)
+                    #geometrical average:
+                    aerosols[aer][1]=np.sqrt(tmp_densities[1:]*tmp_densities[:-1])
+        if self.aerosols is None:
+            self.aerosols = Aerosols(aerosols)
+        else:
+            self.aerosols.set_aer_reffs_densities(aer_reffs_densities=aerosols)
+
 
     def set_Rp(self, Rp):
         """Sets the radius of the planet
