@@ -207,7 +207,9 @@ class Adatabase(Spectral_object):
         if first: # means that no molecule was in the database, we need to initialize res
             res=[np.zeros((1,self.wns.size)), np.zeros((1,self.wns.size)), np.zeros((1,self.wns.size))]
         else:
-            if compute_all_opt_prop: g_tot /= kscat_tot
+            if compute_all_opt_prop:
+                index = np.where(kscat_tot != 0)
+                g_tot[index] /= kscat_tot[index]
             res = [k_tot, kscat_tot, g_tot]
         return res
 
