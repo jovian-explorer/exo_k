@@ -20,7 +20,7 @@ class Atable(Spectral_object):
     """
 
     def __init__(self, *filename_filters, filename=None, aerosol_name=None, search_path=None,
-            mks=False, remove_zeros=False):
+            mks=False, remove_zeros=False, N_per_line=5):
         """Initialization for Atables.
 
         Parameters
@@ -56,7 +56,7 @@ class Atable(Spectral_object):
             if self.filename.lower().endswith(('h5','hdf5')):
                 self.read_hdf5(self.filename, aerosol_name=aerosol_name)
             elif self.filename.lower().endswith('.dat'):
-                self.read_LMDZ(self.filename, aerosol_name=aerosol_name)
+                self.read_LMDZ(self.filename, aerosol_name=aerosol_name, N_per_line=N_per_line)
             else:
                 raise RuntimeError('Aerosol optical property file extension not known.')
         if self.ext_coeff is not None:
@@ -80,7 +80,7 @@ class Atable(Spectral_object):
         self.filename=None
 
 
-    def read_LMDZ(self, filename, aerosol_name=None):
+    def read_LMDZ(self, filename, aerosol_name=None, N_per_line=5):
         """Reads LMDZ like optical propertt files.
 
         Parameters
@@ -94,26 +94,26 @@ class Atable(Spectral_object):
             _=file.readline()
             self.Nr=int(file.readline())
             _=file.readline()
-            self.wns=_read_array(file, self.Nw, revert=True)
+            self.wns=_read_array(file, self.Nw, N_per_line=N_per_line, revert=True)
             self.wns=.01/self.wns # conversion from m to cm^-1
             _=file.readline()
-            self.r_eff_grid=_read_array(file, self.Nr, N_per_line=5, revert=False)
+            self.r_eff_grid=_read_array(file, self.Nr, N_per_line=N_per_line, revert=False)
             # read ext coeff
             _=file.readline()
-            self.ext_coeff=self._read_arrays(file, self.Nw, self.Nr)
+            self.ext_coeff=self._read_arrays(file, self.Nw, self.Nr, N_per_line=N_per_line)
             # read albedo
             _=file.readline()
-            self.single_scat_alb=self._read_arrays(file, self.Nw, self.Nr)
+            self.single_scat_alb=self._read_arrays(file, self.Nw, self.Nr, N_per_line=N_per_line)
             # read asymmetry factor
             _=file.readline()
-            self.asymmetry_factor=self._read_arrays(file, self.Nw, self.Nr)
+            self.asymmetry_factor=self._read_arrays(file, self.Nw, self.Nr, N_per_line=N_per_line)
         self.r_eff_unit='m'
         if aerosol_name:
             self.aerosol_name=aerosol_name
         else:
             self.aerosol_name=os.path.basename(filename).split('.')[0]
 
-    def _read_arrays(self, file, Nvalue, Narray):
+    def _read_arrays(self, file, Nvalue, Narray, N_per_line=5):
         """Reads an array in a optical property LMDZ file. 
         Assumes that the arrays are arranged 5 values per line. 
 
@@ -125,6 +125,8 @@ class Atable(Spectral_object):
                 Number of values to be read in each array. 
             Narray: int
                 Number of arrays to be read. 
+            N_per_line: int
+                Number of values per lines
 
         Returns
         -------
@@ -132,13 +134,13 @@ class Atable(Spectral_object):
                 A numpy array with the values.
         """
         
-        Nline=Nvalue//5
-        if Nvalue%5 != 0:
+        Nline=Nvalue//N_per_line
+        if Nvalue%N_per_line != 0:
             Nline+=1
         new_array=np.zeros((Narray,Nvalue))
         for ii in range(Narray):
             file.readline()
-            new_array[ii]=_read_array(file, Nvalue, N_per_line=5, Nline=Nline, revert=True)
+            new_array[ii]=_read_array(file, Nvalue, N_per_line=N_per_line, Nline=Nline, revert=True)
         return new_array
 
     def read_hdf5(self, filename, aerosol_name=None):

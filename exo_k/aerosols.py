@@ -12,7 +12,7 @@ class Aerosols(Spectral_object):
     can be used to compute the opacity of the gas
     """
 
-    def __init__(self, aer_reffs_densities=None, a_database=None):
+    def __init__(self, aer_reffs_densities={}, a_database=None):
         """__init__ Instantiates
         an aerosols object.
         """
@@ -20,9 +20,8 @@ class Aerosols(Spectral_object):
         self.set_aer_reffs_densities(aer_reffs_densities=aer_reffs_densities)
         self._wn_range=None
 
-    def set_aer_reffs_densities(self, aer_reffs_densities=None):
-        if aer_reffs_densities is not None:
-            self.aer_reffs_densities = aer_reffs_densities
+    def set_aer_reffs_densities(self, aer_reffs_densities={}):
+        self.aer_reffs_densities = aer_reffs_densities
 
     def set_a_database(self, a_database=None):
         """Change the radiative database attached to the current instance of aerosols

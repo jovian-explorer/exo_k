@@ -76,7 +76,7 @@ class Atm_profile(object):
     
     def __init__(self, composition={}, psurf=None, ptop=None, logplay=None, tlay=None,
             Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlay=20,
-            logplev=None, aerosols=None,
+            logplev=None, aerosols={},
             ## old parameters that should be None. THey are left here to catch
             ## exceptions and warn the user that their use is obsolete
             Nlev=None, tlev=None,
@@ -321,15 +321,14 @@ class Atm_profile(object):
         performs the interlayer averaging so that we only have properties at
         the middle of radiative layers
         """
-        if aerosols is not None:
-            for aer, [reff, densities] in aerosols.items():
-                if isinstance(reff,(np.ndarray, list)):
-                    tmp_reff=np.array(reff)
-                    aerosols[aer][0]=0.5*(tmp_reff[1:]+tmp_reff[:-1])
-                if isinstance(densities,(np.ndarray, list)):
-                    tmp_densities=np.array(densities)
-                    #geometrical average:
-                    aerosols[aer][1]=np.sqrt(tmp_densities[1:]*tmp_densities[:-1])
+        for aer, [reff, densities] in aerosols.items():
+            if isinstance(reff,(np.ndarray, list)):
+                tmp_reff=np.array(reff)
+                aerosols[aer][0]=0.5*(tmp_reff[1:]+tmp_reff[:-1])
+            if isinstance(densities,(np.ndarray, list)):
+                tmp_densities=np.array(densities)
+                #geometrical average:
+                aerosols[aer][1]=np.sqrt(tmp_densities[1:]*tmp_densities[:-1])
         if self.aerosols is None:
             self.aerosols = Aerosols(aerosols)
         else:
@@ -605,7 +604,10 @@ class Atm(Atm_profile):
                 kdata_scat_tot = np.zeros(shape[0:2], dtype=np.float)
             if self.aerosols.adatabase is not None:
                 kdata_scat_tot += k_scat_aer
-                self.asym_param = k_scat_aer * g_aer / kdata_scat_tot
+                self.asym_param = np.where(kdata_scat_tot<=0., 0., k_scat_aer * g_aer / kdata_scat_tot)
+                #the line below is for test. Should be removed
+                #self.asym_param = np.zeros(shape[0:2], dtype=np.float)
+                self.asym_param = np.ones(shape[0:2], dtype=np.float)
             else:
                 self.asym_param = np.zeros(shape[0:2], dtype=np.float)
 
@@ -616,7 +618,8 @@ class Atm(Atm_profile):
                 self.asym_param = self.asym_param[:,:,None] * np.ones(self.Ng)
                 #JL21 the line above could be removed as asym param does not seem to change
                 # with g point, but then the dimensions should be change in 2stream routines.
-            self.single_scat_albedo=np.core.umath.minimum(self.single_scat_albedo,0.9999999999999)
+            self.single_scat_albedo=np.core.umath.minimum(self.single_scat_albedo,0.9999999999)
+            #self.single_scat_albedo=np.core.umath.maximum(self.single_scat_albedo,0.1)
 
         self.Nw=self.gas_mix.Nw
         self.wns=self.gas_mix.wns
@@ -811,6 +814,7 @@ class Atm(Atm_profile):
         # mu_eff=1. because the mu effect is taken into account in solve_2stream_nu
                  # we must compute the vertical optical depth here.
         # JL21: shouldn't we remove flux_top_dw, it seems not to be used.
+        self.single_scat_albedo=np.where(self.dtau<dtau_min,0.,self.single_scat_albedo)
         self.dtau=np.where(self.dtau<dtau_min,dtau_min,self.dtau)
 
         module_to_use=globals()[method]
