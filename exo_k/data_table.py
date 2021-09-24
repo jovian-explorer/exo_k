@@ -11,7 +11,9 @@ from .util.interp import rm_molec,unit_convert,interp_ind_weights,bilinear_inter
 from .settings import Settings
 from .util.spectral_object import Spectral_object
 from .util.molar_mass import Molar_mass
-from .util.cst import ktable_long_name_attributes
+from .util.cst import ktable_long_name_attributes, PI
+from .util.radiation import Bnu_integral_num, Bnu
+from .util.spectrum import Spectrum
 
 class Data_table(Spectral_object):
     """An abstract class that will serve as a basis for Ktable and Xtable.
@@ -643,6 +645,29 @@ class Data_table(Spectral_object):
         """Computes molar mass from molecule name
         """
         return Molar_mass().fetch(self.mol)
+
+    def blackbody(self, Temperature, integral=True):
+        """Computes the surface black body flux (in W/m^2/cm^-1) at Temperature.
+
+        Parameters
+        ----------
+            Temperature; float
+                Blackbody temperature
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+        Returns
+        -------
+            Spectrum object
+                Spectral flux in W/m^2/cm^-1
+        """
+        if integral:
+            piB=PI*Bnu_integral_num(self.wnedges, Temperature)/np.diff(self.wnedges)
+        else:
+            piB=PI*Bnu(self.wns[:], Temperature)
+        return Spectrum(piB,self.wns,self.wnedges)
 
     def write_hdf5_common(self, f, compression="gzip", compression_level=9,
         p_unit=None):

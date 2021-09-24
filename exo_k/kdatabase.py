@@ -467,3 +467,35 @@ class Kdatabase(Spectral_object):
             ktab5d.change_molecule_name(mol)
 
         return ktab5d
+
+    def blackbody(self, Temperature, integral=True):
+        """Computes the surface black body flux (in W/m^2/cm^-1) at Temperature.
+
+        Parameters
+        ----------
+            Temperature; float
+                Blackbody temperature
+            integral: boolean, optional
+                * If true, the black body is integrated within each wavenumber bin.
+                * If not, only the central value is used.
+                  False is faster and should be ok for small bins,
+                  but True is the correct version. 
+        Returns
+        -------
+            Spectrum object
+                Spectral flux in W/m^2/cm^-1
+        """
+        if self.molecules:
+            if self.consolidated_wn_grid:
+                return self.ktables[self.molecules[0]].blackbody(Temperature, integral=integral)
+            else:
+                raise RuntimeError( \
+            """All tables in the database should have the same wavenumber grid to proceed.
+            You should probably use bin_down().""")
+        else:
+                raise RuntimeError( \
+            """There should be at least one K/Xtable in the Kdatabase to proceed.""")
+
+
+
+

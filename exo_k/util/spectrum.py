@@ -102,7 +102,7 @@ class Spectrum(Spectral_object):
     def __add__(self,other):
         """Defines addition
         """
-        if not isinstance(other, Spectrum):
+        if (isinstance(other,float) or isinstance(other,int)):
             return Spectrum(self.value+other,self.wns,self.wnedges)
         elif (self.wns.size==other.wns.size) and np.array_equal(self.wns,other.wns):
             val=self.value+other.value
