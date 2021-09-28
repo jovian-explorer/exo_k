@@ -891,7 +891,7 @@ class Atm(Atm_profile):
         H[:-1] -= H[1:]
         H[-1] += self.internal_flux
         if per_unit_mass: H *= self.inv_dmass
-        if compute_kernel: self.H_kernel = H
+        #if compute_kernel: self.H_kernel = H
         return H, net
 
     def heating_rate(self, compute_kernel=False, dTmax_use_kernel=None, **kwargs):
@@ -900,16 +900,17 @@ class Atm(Atm_profile):
             if np.amax(np.abs(dT)) < dTmax_use_kernel:
                 try:
                     H = self.H_kernel + np.dot(dT,self.kernel)
+                    net = self.internal_flux - np.cumsum((H*self.dmass)[::-1])[::-1]
                 except:
                     raise RuntimeError("Kernel has not been precomputed")
-                net = np.zeros_like(H)
                 return H, net
         _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True,
                 compute_kernel=compute_kernel, **kwargs)
         H, net = self.flux_divergence(compute_kernel=compute_kernel, **kwargs)
         if compute_kernel:
             self.H_kernel = H
-            self.tau_rad = 1./np.amax(np.abs(self.kernel.diagonal()))
+            self.tau_rads = 1./np.abs(self.kernel.diagonal())
+            self.tau_rad = np.amin(self.tau_rads)
         return H, net
 
 

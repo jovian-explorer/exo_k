@@ -10,7 +10,8 @@ class Settings(object):
         """
         self.parameters={'rayleigh': True,
                         'internal_flux': 0.,
-                        'convection': True,
+                        'convection': False,
+                        'radiative_acceleration': False,
                         'convective_transport': True,
                         'diffusion': False,
                         'condensation': False,

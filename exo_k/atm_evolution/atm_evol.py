@@ -232,7 +232,7 @@ class Atm_evolution(object):
         """
         self.Fnet = np.zeros((6, self.Nlay))
         self.Fnet[0] = self.Fnet_rad
-        for ii in range(1,6):
+        for ii in range(1,5):
             self.Fnet[ii]=np.concatenate([[0.],
                 np.cumsum(self.H_ave[ii]*self.atm.dmass)[:-1]])
         self.Fnet[-1] = np.sum(self.Fnet, axis=0)
@@ -270,7 +270,7 @@ class Atm_evolution(object):
                 if verbose: print(self.N_last_ker, self.N_last_ker%N_kernel)
                 compute_kernel = (self.N_last_ker%N_kernel == 0)
             else:
-                if dTlay_max < 0.9 * self.settings['dTmax_use_kernel']:
+                if dTlay_max < 0.5 * self.settings['dTmax_use_kernel']:
                     compute_kernel = True
                     self.N_last_ker = 0
                 else:
@@ -280,17 +280,20 @@ class Atm_evolution(object):
                 if ii != 0:
                     compute_kernel=True
             self.H_tot=np.zeros(self.Nlay)
-            if verbose: print(compute_kernel)
+            if verbose: print('iter, compute_kernel:', ii, compute_kernel)
             if self.tracers.some_var_gases:
                 gas_vmr_rad = self.tracers.gas_vmr
             else:
                 gas_vmr_rad = None
-            self.H_rad, self.Fnet_rad = self.atm.heating_rate(compute_kernel=compute_kernel,
-                rayleigh=self.settings['rayleigh'], dTmax_use_kernel=self.settings['dTmax_use_kernel'],
-                gas_vmr=gas_vmr_rad, **kwargs)
-            self.H_tot+=self.H_rad
+            self.H_rad, self.Fnet_rad = self.atm.heating_rate(compute_kernel = compute_kernel,
+                rayleigh = self.settings['rayleigh'], dTmax_use_kernel=self.settings['dTmax_use_kernel'],
+                gas_vmr = gas_vmr_rad, **kwargs)
+#            if verbose and compute_kernel: print('H_rad', self.H_rad)
+            if self.settings['radiative_acceleration']:
+                self.H_rad =  self.H_rad * self.atm.tau_rads / self.atm.tau_rad
+            self.H_tot += self.H_rad
             self.timestep = alpha * self.atm.tau_rad
-            if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
+            #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
             self.evol_time += self.timestep
             if self.settings['diffusion']:
                 self.tracers.compute_turbulent_diffusion(self.timestep, self.H_tot, self.atm, self.cp)
@@ -316,9 +319,10 @@ class Atm_evolution(object):
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
-            if verbose: print('heat rates (rad, dry conv):', np.sum(self.H_rad*self.atm.dmass), np.sum(self.H_conv*self.atm.dmass))
             dTlay= self.H_tot * self.timestep
             dTlay_max = np.amax(np.abs(dTlay))
+            if verbose: print('heat rates (rad, dry conv), dTmax:', 
+                np.sum(self.H_rad*self.atm.dmass), np.sum(self.H_conv*self.atm.dmass), dTlay_max)
             #if dTlay_max > dT_max:
             #    print("got a big T step at iteration:", ii)
             #    print(dTlay)
