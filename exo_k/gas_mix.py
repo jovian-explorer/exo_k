@@ -100,10 +100,10 @@ class Gas_mix(Spectral_object):
                 other_vmr+=vmr
             except ValueError:
                 raise TypeError('Incompatible shapes in Gas_mix arrays.')
-        if np.amax(other_vmr)>1.:
-            print("""Careful: the sum of the vmr of your gas components is > 1.
-            If there is a background gas, its vmr will become negative.
-            I hope you know what you are doing.""")
+        #if np.amax(other_vmr)>1.:
+        #    print("""Careful: the sum of the vmr of your gas components is > 1.
+        #    If there is a background gas, its vmr will become negative.
+        #    I hope you know what you are doing.""")
         self.composition[self.bg_gas]=1.-other_vmr
 
     def molar_mass(self):
