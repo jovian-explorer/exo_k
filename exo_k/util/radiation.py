@@ -37,7 +37,7 @@ def Bnu(nu, T):
         float
             Bnu in W/m^2/str/cm^-1 (not SI units).
 
-    sigma*T^4=Int(Bnu dnu) where nu is expressed in cm^-1
+    sigma*T^4/PI=Int(Bnu dnu) where nu is expressed in cm^-1
     """
     sigma=nu*1.e2
     return PLANCK_CST1*sigma**3/(np.exp(PLANCK_CST2*sigma/T)-1.)
@@ -93,7 +93,7 @@ def Bnu_integral_num(nu_edges, T, n=30):
             Bnu_integral_num: Integral of the source function at 
             temperatures T_array inside the bins in W/m^2/str
     
-    sigma*T^4=sum of Bnu_integral_num
+    sigma*T^4/PI=sum of Bnu_integral_num
     """
     kp=PLANCK_CST2/T
     res=np.zeros(nu_edges.size)
@@ -138,7 +138,7 @@ def Bnu_integral_array(nu_edges, T_array, Nw, Nt, n=30):
             Bnu_integral_num: Integral of the source function at
             temperatures T_array inside the bins in W/m^2/str
     
-    sigma*T^4=sum of Bnu_integral_num
+    sigma*T^4/PI=sum of Bnu_integral_num
     """
     res=np.empty((Nt,Nw))
     for iT in range(Nt):
@@ -205,7 +205,7 @@ def Bmicron(lamb, T):
         float
             Bmicron in W/m^2/str/micron (not SI units).
 
-    sigma*T^4=Int(Bmicron d lamb) where lamb is expressed in microns
+    sigma*T^4/PI=Int(Bmicron d lamb) where lamb is expressed in microns
     """
     lambda_si=lamb*1.e-6
     return PLANCK_CST1_lamb/(lambda_si**5   \

@@ -11,7 +11,7 @@ class Spectral_object(object):
 
     @property
     def wls(self):
-        """Returns the wavelength array for the bin centers
+        """Returns the wavelength array for the bin centers (in micron)
         """
         if self.wns is not None:
             return 10000./self.wns
@@ -20,7 +20,7 @@ class Spectral_object(object):
 
     @property
     def wledges(self):
-        """Returns the wavelength array for the bin edges
+        """Returns the wavelength array for the bin edges (in micron)
         """
         if self.wnedges is not None:
             return 10000./self.wnedges

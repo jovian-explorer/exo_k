@@ -6,6 +6,7 @@ A module to handle ouputs rebinning and plotting
 """
 import numpy as np
 import h5py
+import astropy.units as u
 from exo_k.util.interp import rebin
 from exo_k.util.spectral_object import Spectral_object
 
@@ -13,15 +14,17 @@ class Spectrum(Spectral_object):
     """A class defining a Spectrum object to plot and manipulate.
     """
 
-    def __init__(self, value=None, wns=None, wnedges=None, filename=None,
-            from_taurex=False, dataset='native_spectrum', **kwargs):
+    def __init__(self, value = None, wns = None, wnedges = None, input_spectral_unit='cm^-1', spectral_unit='cm^-1',
+            filename = None, spectral_radiance = False, 
+            from_taurex = False, dataset = 'native_spectrum', **kwargs):
         """Instanciate with a value, bin centers, and bin edges.
         Can also load a Taurex spectrum if filename is provided.
         """
-        self.wn_unit='cm^-1'
-        self.value=value
-        self.wns=wns
-        self.wnedges=wnedges
+        self.value = value
+        self.wns = wns
+        self.wnedges = wnedges
+        self.spec_unit = input_spectral_unit
+
         if filename is not None:
             if from_taurex:
                 self.load_taurex(filename, dataset)
@@ -29,9 +32,31 @@ class Spectrum(Spectral_object):
                 self.read_hdf5(filename)
             elif filename.lower().endswith(('.dat', '.txt')):
                 self.read_ascii(filename, **kwargs)
+
         if (self.wnedges is None) and (self.wns is not None):
-            self.wnedges=np.concatenate(([self.wns[0]],
+            self.wnedges = np.concatenate(([self.wns[0]],
                 (self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
+
+        self.convert_spectral_units(input_spectral_unit=input_spectral_unit,
+            spectral_unit=spectral_unit, spectral_radiance = spectral_radiance)
+
+    def convert_spectral_units(self, input_spectral_unit='cm^-1', spectral_unit='cm^-1', spectral_radiance = False):
+        if (spectral_unit != input_spectral_unit):
+            wns_tmp = (self.wns*u.Unit(input_spectral_unit)).to(u.Unit(spectral_unit), equivalencies=u.spectral()).value
+            wnedges_tmp = (self.wnedges*u.Unit(input_spectral_unit)).to(u.Unit(spectral_unit), equivalencies=u.spectral()).value
+            if spectral_radiance:
+                dwnedges = np.diff(self.wnedges)
+                dwnedges_tmp = np.diff(wnedges_tmp)
+                self.value = self.value * np.abs(dwnedges / dwnedges_tmp)
+                # assumes that the wavelength unit
+                # is the same as the spectral unit (for example F in W/nm if wl in nm).
+            if wnedges_tmp[-1] > wnedges_tmp[0]:
+                self.wns = wns_tmp
+                self.wnedges = wnedges_tmp
+            else:
+                self.wns = wns_tmp[::-1]
+                self.wnedges = wnedges_tmp[::-1]
+                self.value = self.value[::-1]
 
     
     def copy(self):
@@ -39,7 +64,7 @@ class Spectrum(Spectral_object):
         """
         return Spectrum(self.value,self.wns,self.wnedges)
 
-    def plot_spectrum(self, ax, per_wavenumber=True, x_axis='wls',
+    def plot_spectrum(self, ax, per_wavenumber = True, x_axis = 'wls',
             xscale=None, yscale=None, **kwarg):
         """Plot the spectrum
         
@@ -179,10 +204,10 @@ class Spectrum(Spectral_object):
         self.wns=f['bin_centers'][...]
         self.wnedges=f['bin_edges'][...]
         if 'units' in f['bin_edges'].attrs:
-            self.wn_unit=f['bin_edges'].attrs['units']
+            self.spec_unit=f['bin_edges'].attrs['units']
         else:
             if 'units' in f['bin_centers'].attrs:
-                self.wn_unit=f['bin_centers'].attrs['units']
+                self.spec_unit=f['bin_centers'].attrs['units']
         self.value=f['spectrum'][...]
         f.close()  
 
@@ -206,7 +231,7 @@ class Spectrum(Spectral_object):
         f["bin_centers"].attrs["units"] = 'cm^-1'
         f.close()
 
-    def read_ascii(self, filename, spec_axis='wns', skip_header=None):
+    def read_ascii(self, filename, usecols = (0,1), skip_header=0):
         """Saves data in a ascii format
 
         Parameters
@@ -219,13 +244,10 @@ class Spectrum(Spectral_object):
             skip_header: int
                 Number of lines to skip
         """
-        raw=np.genfromtxt(filename, skip_header=skip_header,
-            usecols=(0,1), names=('spec_axis','value'))
-        if spec_axis=='wls':
-            raw['spec_axis']=1.e4/raw['spec_axis'][::-1] #conversion to wavenumber in cm-1
-            raw['value']=raw['value'][::-1]
-        self.value=raw['value']
-        self.wns=raw['spec_axis']
+        raw=np.genfromtxt(filename, skip_header = skip_header,
+            usecols = usecols, names=('spec_axis','value'))
+        self.wns = raw['spec_axis']
+        self.value = raw['value']
 
     def write_ascii(self, filename, fmt='%.18e', spec_axis='wns', header=None):
         """Saves data in a ascii format
@@ -259,8 +281,8 @@ class Spectrum(Spectral_object):
                 Name of the hdf5 dataset to load
         """
         f = h5py.File(filename, 'r')
-        self.wns=f['Output/Spectra/native_wngrid'][...]
-        self.value=f['Output/Spectra/'+dataset][...]
+        self.wns = f['Output/Spectra/native_wngrid'][...]
+        self.value = f['Output/Spectra/'+dataset][...]
         f.close()
         self.wnedges=np.concatenate(([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
 
