@@ -184,6 +184,64 @@ def turbulent_diffusion(timestep, Nlay, p_lay, p_lev, dmass,
     return new_tracers
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
+def molecular_diffusion(timestep, Nlay, p_lay, p_lev, dmass,
+        tlay, mu, g, Dmol, verbose = False):
+    r"""Solves turbulent diffusion equation:
+
+    .. math::
+      \rho frac{\partialT}{\partial t} = \frac{\partial F_{diff}}{\partial z}
+    
+    with a diffusive flux given by 
+
+    .. math::
+      F_{diff} = - \rho D_{mol} \frac{\partial T}{\partial z}
+
+    The equation is solved with an implicit scheme assuming that
+    there is no flux at the top and bottom boundaries
+    (evaporation must be treated separately for now).
+
+    Parameters
+    ----------
+        timestep: float
+            Time step in seconds.
+        Nlay: int
+            Number of atmospheric layers
+        t_lay_ov_mu: array
+            Temperatures of the atmospheric layers divided by the molar_mass in kg/mol
+        p_lay: array
+            Pressure at the layer centers (Pa)
+        p_lev: array
+            Presure at the Nlay+1 level boundaries (Pa)
+        dmass: array
+            Mass of gas in each layer (kg/m^2)
+        g: float
+            Gravity (m/s^2)
+        Dmol: float
+            molecular diffusion coefficient (m^2/s)
+
+    Returns
+    -------
+        new_tlay: array (Nlay)
+            Array containing the temperature at each layer
+            after the mixing
+    """
+    mid_density = p_lev[1:-1]*2.*(mu[1:]+mu[:-1])/(cst.RGP*(tlay[1:]+tlay[:-1]))
+    mid_factor = - g * g * timestep * mid_density**2 / np.diff(p_lay) * Dmol
+    if verbose:
+        print(mid_factor)
+        print(dmass)
+    A = np.zeros(Nlay)
+    B = np.copy(dmass)
+    C = np.zeros(Nlay)
+    A[1:] = mid_factor
+    C[:-1] = mid_factor
+    B += - C - A
+    D = dmass * tlay
+    new_tlay = DTRIDGL(Nlay,A,B,C,D)
+    H_diff = (new_tlay-tlay)/timestep
+    return H_diff
+
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def DTRIDGL(L,AF,BF,CF,DF):
     """
     !  GCM2.0  Feb 2003

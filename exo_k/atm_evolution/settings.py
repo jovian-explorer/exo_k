@@ -14,6 +14,7 @@ class Settings(object):
                         'radiative_acceleration': False,
                         'convective_transport': True,
                         'diffusion': False,
+                        'molecular_diffusion': False,
                         'condensation': False,
                         'rain':False,
                         'latent_heating': True,

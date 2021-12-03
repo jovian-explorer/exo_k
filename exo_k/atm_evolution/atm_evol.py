@@ -6,7 +6,7 @@ import numpy as np
 import numba
 import exo_k as xk
 from .settings import Settings
-from .convection import dry_convective_adjustment, turbulent_diffusion
+from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion
 from .condensation import Condensing_species, moist_adiabat, compute_condensation,\
                 Condensation_Thermodynamical_Parameters 
 
@@ -298,6 +298,10 @@ class Atm_evolution(object):
             if self.settings['diffusion']:
                 self.tracers.compute_turbulent_diffusion(self.timestep, self.H_tot, self.atm, self.cp)
                 self.tracers.update_gas_composition(update_vmr=False)
+            if self.settings['molecular_diffusion']:
+                self.H_diff = self.compute_molecular_diffusion(self.timestep,
+                    self.H_tot, self.atm, self.cp)
+                self.H_tot += self.H_diff
             if self.settings['convection']:
                 self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose=verbose)
                 self.H_tot += self.H_conv
@@ -418,6 +422,29 @@ class Atm_evolution(object):
             self.tracers.qarray = qarray
             if verbose: print(qarray[idx_cond])
         return H_madj
+
+    def compute_molecular_diffusion(self, timestep, Htot, atm, cp):
+        """Mixes energy following a diffusion equation
+        with a constant Dmol parameter (self.Dmol in m^2/s).
+
+        Parameters
+        ----------
+            timestep: float
+                physical timestep of the current step (in s/cp).
+                (needs to be converted before it is sent to `turbulent diffusion)
+            Htot: array
+                Total heating rate (in W/kg) of all physical processes
+                already computed
+            atm: :class:`Atm` object
+                The Atm object used in the radiative transfer which
+                contains many state variables. 
+        """
+        new_t = atm.tlay + timestep * Htot
+        H_diff = molecular_diffusion(timestep*cp, self.Nlay,
+                    atm.play, atm.plev,
+                    atm.dmass, new_t, self.tracers.Mgas,
+                    atm.grav, self.tracers.Dmol)
+        return H_diff
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def moist_convective_adjustment(timestep, Nlay, tlay, play, dmass, cp, Mgas, q_array,
@@ -698,7 +725,7 @@ def moist_convective_adjustment2(timestep, Nlay, tlay, play, dmass, cp, q_array,
 
 class Tracers(object):
 
-    def __init__(self, settings, tracers={}, tracer_values={}, Kzz=0.,
+    def __init__(self, settings, tracers={}, tracer_values={}, Kzz=0., Dmol=0.,
             bg_vmr=None, M_bg=None, Nlay=None, **kwargs):
         """Deals with tracers. 
 
@@ -743,6 +770,7 @@ class Tracers(object):
         self.M_bg = M_bg
         self.update_gas_composition()
         self.Kzz = Kzz
+        self.Dmol = Dmol
 
     def update_gas_composition(self, update_vmr=True):
         """Performs mass to volume mixing ratio conversion,
@@ -794,6 +822,7 @@ class Tracers(object):
                     atm.grav, self.Kzz, self.qarray)
         #self.dm_trac = (qarray - self.qarray) * atm.dmass / (timestep*cp)
         self.qarray = qarray
+
 
     def dry_convective_adjustment(self, timestep, Htot, atm, verbose=False):
         """Computes convective adjustement. 
