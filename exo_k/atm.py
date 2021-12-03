@@ -492,7 +492,9 @@ class Atm(Atm_profile):
         self.Ng=self.gas_mix.Ng
         # to know whether we are dealing with corr-k or not and access some attributes. 
         if self.kdatabase is not None:
-            self.Nw=self.kdatabase.Nw
+            self.Nw = self.kdatabase.Nw
+            self.wnedges = self.kdatabase.wnedges
+            self.dwnedges = np.diff(self.wnedges)
             self.flux_top_dw_nu = np.zeros((self.Nw))
 
     def set_cia_database(self, cia_database=None):
@@ -530,7 +532,8 @@ class Atm(Atm_profile):
         """
         self.gas_mix.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
 
-    def set_incoming_stellar_flux(self, flux=0., Tstar=5778., **kwargs):
+    def set_incoming_stellar_flux(self, flux=0., Tstar=5778.,
+            stellar_spectrum = None, **kwargs):
         """Sets the stellar incoming flux integrated in each wavenumber
         channel.
 
@@ -548,8 +551,13 @@ class Atm(Atm_profile):
                 of incoming flux using a blackbody.
 
         """
-        self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, Tstar)
-        factor = flux * PI / (SIG_SB*Tstar**4 * self.dwnedges)
+        if stellar_spectrum:
+            binned_spec = stellar_spectrum.bin_down_cp(self.wnedges)
+            self.flux_top_dw_nu = binned_spec.value
+            factor = flux / (binned_spec.total)
+        else:
+            self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, Tstar)
+            factor = flux * PI / (SIG_SB*Tstar**4 * self.dwnedges)
         self.flux_top_dw_nu = self.flux_top_dw_nu * factor
     
     def set_internal_flux(self, internal_flux):
@@ -863,8 +871,7 @@ class Atm(Atm_profile):
         self.tlay_kernel=self.tlay
         if per_unit_mass: self.kernel*=self.inv_dmass
 
-    def flux_divergence(self, per_unit_mass = True,
-            compute_kernel=False, **kwargs):
+    def flux_divergence(self, per_unit_mass = True, **kwargs):
         """Computes the divergence of the net flux in the layers
         (used to compute heating rates).
 
@@ -891,7 +898,6 @@ class Atm(Atm_profile):
         H[:-1] -= H[1:]
         H[-1] += self.internal_flux
         if per_unit_mass: H *= self.inv_dmass
-        #if compute_kernel: self.H_kernel = H
         return H, net
 
     def heating_rate(self, compute_kernel=False, dTmax_use_kernel=None, **kwargs):
@@ -913,8 +919,19 @@ class Atm(Atm_profile):
             self.tau_rad = np.amin(self.tau_rads)
         return H, net
 
+    def bolometric_fluxes_2band(self, **kwargs):
+        save_stellar_flux = np.copy(self.flux_top_dw_nu)
+        self.flux_top_dw_nu = self.flux_top_dw_nu * 0.
+        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, **kwargs)
+        Fup_emis, Fdw_emis, Fnet_emis, H_emis = self.bolometric_fluxes(**kwargs)
+        self.flux_top_dw_nu = save_stellar_flux
+        save_internal_flux = np.copy(self.internal_flux)
+        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, source=False, **kwargs)
+        Fup_stel, Fdw_stel, Fnet_stel, H_stel = self.bolometric_fluxes(**kwargs)
+        self.internal_flux = save_internal_flux
+        return Fup_emis, Fdw_emis, Fnet_emis, H_emis, Fup_stel, Fdw_stel, Fnet_stel, H_stel
 
-    def bolometric_fluxes(self, per_unit_mass = True):
+    def bolometric_fluxes(self, per_unit_mass = True, **kwargs):
         """Computes the bolometric fluxes at levels and the divergence of the net flux in the layers
         (used to compute heating rates).
 
