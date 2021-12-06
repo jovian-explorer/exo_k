@@ -79,10 +79,10 @@ class Condensing_species(object):
             epsilon: float or array
                 Ratio of the molar mass of the vapor over the background molar mass
         """
-        fac =  p + (epsilon -1.) * psat
-        qsat = epsilon * psat / fac
-        return np.core.umath.minimum(qsat,1.)
-
+        psat_tmp = np.core.umath.minimum(psat,p)
+        fac =  p + (epsilon -1.) * psat_tmp
+        qsat = epsilon * psat_tmp / fac
+        return qsat
 
     def dPsat_dT(self, T):
         """Saturation vapor pressure derivative for the condensing species 
@@ -256,9 +256,10 @@ def Qsat(psat, p, epsilon):
         epsilon: float or array
             Ratio of the molar mass of the vapor over the background molar mass
     """
-    fac =  p + (epsilon -1.) * psat
-    qsat = epsilon * psat / fac
-    return np.core.umath.minimum(qsat,1.)
+    psat_tmp = np.core.umath.minimum(psat,p)
+    fac =  p + (epsilon -1.) * psat_tmp
+    qsat = epsilon * psat_tmp / fac
+    return qsat
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def dPsat_dT(T, Latent_heat_vaporization, T_ref, Psat_ref, Rvap, delta_cp, delta_cp_R, c1, c2):

@@ -175,12 +175,17 @@ class Atm_evolution(object):
             idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
             mass_cond = np.sum(self.tracers.qarray[idx_cond]*self.atm.dmass)
             dqvap = mass_cond / self.atm.dmass[-1]
-            self.tracers.qarray[idx_vap,-1] += dqvap
+            new_q = self.tracers.qarray[idx_vap,-1] + dqvap
+            self.tracers.qarray[idx_cond] = np.zeros(self.Nlay)
+            if new_q <= 1.:
+                self.tracers.qarray[idx_vap,-1] = new_q
+            else:
+                self.tracers.qarray[idx_vap,-1] = 1.
+                self.tracers.qarray[idx_cond,-1] = new_q-1.
             #print(dqvap*self.atm.dmass[-1]/(self.atm.grav*timestep))
             if self.settings['latent_heating']:
                 H_rain[-1] += - self.condensing_species_params[i_cond].Lvap(new_t[-1]) \
                     * dqvap / (timestep *self.cp)
-            self.tracers.qarray[idx_cond] = np.zeros(self.Nlay)
         return H_rain
 
 
@@ -792,7 +797,7 @@ class Tracers(object):
             qvar += self.qarray[idx]
             ovMvar += self.qarray[idx]/self.gas_molar_masses[ii]
         ovMbg=1./self.M_bg
-        self.Mgas = 1./(qvar*(ovMvar - ovMbg)+ ovMbg)
+        self.Mgas = 1./((1.-qvar)*ovMbg + ovMvar)
         if update_vmr:
             for ii, idx in enumerate(self.var_gas_idx):
                 self.gas_vmr[self.var_gas_names[ii]] = np.core.umath.maximum(
