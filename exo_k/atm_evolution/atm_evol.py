@@ -180,6 +180,7 @@ class Atm_evolution(object):
             if new_q <= 1.:
                 self.tracers.qarray[idx_vap,-1] = new_q
             else:
+                dqvap = 1. - self.tracers.qarray[idx_vap,-1]
                 self.tracers.qarray[idx_vap,-1] = 1.
                 self.tracers.qarray[idx_cond,-1] = new_q-1.
             #print(dqvap*self.atm.dmass[-1]/(self.atm.grav*timestep))
