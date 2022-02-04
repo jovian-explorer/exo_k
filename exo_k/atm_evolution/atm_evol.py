@@ -169,24 +169,27 @@ class Atm_evolution(object):
             H_rain: array
                 Heating rate due to re evaporation (W/kg)
         """
+        i_evap = -10
         new_t = self.atm.tlay + timestep * Htot
         H_rain=np.zeros(self.Nlay)
         for i_cond in range(self.Ncond):
             idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
             mass_cond = np.sum(self.tracers.qarray[idx_cond]*self.atm.dmass)
-            dqvap = mass_cond / self.atm.dmass[-1]
-            new_q = self.tracers.qarray[idx_vap,-1] + dqvap
+            dqvap = mass_cond / self.atm.dmass[i_evap]
+            new_q = self.tracers.qarray[idx_vap,i_evap] + dqvap
             self.tracers.qarray[idx_cond] = np.zeros(self.Nlay)
             if new_q <= 1.:
-                self.tracers.qarray[idx_vap,-1] = new_q
+                self.tracers.qarray[idx_vap,i_evap] = new_q
             else:
-                dqvap = 1. - self.tracers.qarray[idx_vap,-1]
-                self.tracers.qarray[idx_vap,-1] = 1.
-                self.tracers.qarray[idx_cond,-1] = new_q-1.
+                dqvap = 1. - self.tracers.qarray[idx_vap,i_evap]
+                self.tracers.qarray[idx_vap,i_evap] = 1.
+                self.tracers.qarray[idx_cond,i_evap] = new_q-1.
             #print(dqvap*self.atm.dmass[-1]/(self.atm.grav*timestep))
             if self.settings['latent_heating']:
-                H_rain[-1] += - self.condensing_species_params[i_cond].Lvap(new_t[-1]) \
+                H_rain[i_evap] += - self.condensing_species_params[i_cond].Lvap(new_t[i_evap]) \
                     * dqvap / (timestep *self.cp)
+            if self.settings['qvap_deep']>=0.:
+                self.tracers.qarray[idx_vap,i_evap] = self.settings['qvap_deep']
         return H_rain
 
 
