@@ -171,50 +171,14 @@ class Atm_evolution(object):
         """
         new_t = self.atm.tlay + timestep * Htot
         H_rain=np.zeros(self.Nlay)
-        evap_coeff = self.settings['evap_coeff']
         for i_cond in range(self.Ncond):
             idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
             thermo_parameters = self.condensing_species_thermo[i_cond].th_params
-            Lvap, qsat, dqsat_dt = compute_condensation(new_t, self.atm.play, self.tracers.Mgas, *thermo_parameters[1:])
-            qvap=self.tracers.qarray[idx_vap]
-            mass_cond = 0.
-            for i_lay in range(self.Nlay):
-                #  if evap_coeff =1, rain vaporisation in an undersaturated layer can fill the layer up to the (estimated) saturation
-                #  if 0 < evap_coeff < 1, rain vaporisation in one layer is limited to a fraction of the amount that would saturate the layer
-                #  This allows not to exceed saturation, to spread rain vaporization in more and denser layers
-                
-                dqvap = evap_coeff*(qsat[i_lay] - qvap[i_lay])/(1 + Lvap[i_lay]*dqsat_dt[i_lay]/self.cp)
-                mass_cond += self.tracers.qarray[idx_cond,i_lay]*self.atm.dmass[i_lay]
-                self.tracers.qarray[idx_cond,i_lay] = 0.
-                # dqvap is the change in vapor content to reach saturation and accounting for the temperature change.
-                # dqvap < 0 implies condensation, meaning that there is a remaining excess of vapor after the previous 
-                # condensation step. In such case we apply this new change in vapor content and temperature and
-                # increase the amount of falling condensed species (mass_cond).
-                # dqvap > 0 implies evaporation. Here there are two possibilities:
-                #   - the amount of condensates is lower dans dqvap. All condensates are vaporised in the layer
-                #    and the tempertaure change is -Ldqv/cp where dqv is the actual change in vapor.
-                #   - the amount of condensates is larger dans dqvap. We then apply dqvap and the corresponding 
-                #    change in temperature and transfer the remaining condensate in the falling rain reservoir.
- 
-                if dqvap < 0: # more condensation in the layer
-                    self.tracers.qarray[idx_vap][i_lay] += dqvap
-                    H_rain[i_lay] = -Lvap[i_lay]*dqvap/(self.cp*timestep)
-                    mass_cond -= dqvap*self.atm.dmass[i_lay]               
-                else: # evaporation of rain
-                    mass_dvap = dqvap*self.atm.dmass[i_lay]     
-                    if mass_dvap > mass_cond: # evaporate everything
-                        self.tracers.qarray[idx_vap][i_lay] += mass_cond/self.atm.dmass[i_lay]
-                        H_rain[i_lay] = - Lvap[i_lay] * (mass_cond/self.atm.dmass[i_lay])/(self.cp*timestep)
-                        mass_cond = 0.
-                    else:
-                        self.tracers.qarray[idx_vap,i_lay] += dqvap
-                        H_rain[i_lay] = -Lvap[i_lay]*dqvap/(self.cp*timestep)
-                        mass_cond -= dqvap*self.atm.dmass[i_lay]
-            if mass_cond != 0.:
-                self.tracers.qarray[idx_cond][-1]+= mass_cond
-                # Issue : self.tracers.qarray[idx_cond][-1] sometimes reaches Inf (whan starting with a hot atmosphere dominated with H2O that cools to saturation)
-            if self.settings['qvap_deep']>=0.:
-                self.tracers.qarray[idx_vap,-1] = self.settings['qvap_deep']
+            H_rain += compute_rainout(timestep, self.Nlay, new_t, self.atm.play,
+                self.atm.dmass, self.cp, self.tracers.Mgas, self.tracers.qarray,
+                idx_vap, idx_cond, thermo_parameters,
+                self.settings['evap_coeff'], self.settings['qvap_deep'])
+
         return H_rain
 
 
@@ -329,6 +293,11 @@ class Atm_evolution(object):
             self.timestep = alpha * self.atm.tau_rad
             #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
             self.evol_time += self.timestep
+            if self.settings['convection']:
+                self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose=verbose)
+                self.H_tot += self.H_conv
+            else:
+                self.H_conv = np.zeros(self.Nlay)
             if self.settings['diffusion']:
                 self.tracers.compute_turbulent_diffusion(self.timestep, self.H_tot, self.atm, self.cp)
                 self.tracers.update_gas_composition(update_vmr=False)
@@ -336,11 +305,6 @@ class Atm_evolution(object):
                 self.H_diff = self.compute_molecular_diffusion(self.timestep,
                     self.H_tot, self.atm, self.cp)
                 self.H_tot += self.H_diff
-            if self.settings['convection']:
-                self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose=verbose)
-                self.H_tot += self.H_conv
-            else:
-                self.H_conv = np.zeros(self.Nlay)
             if self.settings['moist_convection']:
                 self.H_madj = self.moist_convective_adjustment(self.timestep, self.H_tot,
                                     moist_inhibition=self.settings['moist_inhibition'], verbose=verbose)                
@@ -439,6 +403,7 @@ class Atm_evolution(object):
                     atm.dmass, new_t, self.tracers.Mgas,
                     atm.grav, self.tracers.Dmol)
         return H_diff
+
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def moist_convective_adjustment(timestep, Nlay, tlay, play, dmass, cp, Mgas, q_array,
@@ -588,6 +553,67 @@ def moist_convective_adjustment(timestep, Nlay, tlay, play, dmass, cp, Mgas, q_a
     if verbose: 
         print('m_cond, m_conv, m_cond2', m_cond, m_conv, m_cond_2)
     return H_madj, new_q, new_t
+
+@numba.jit(nopython=True, fastmath=True, cache=True)
+def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
+        idx_vap, idx_cond, thermo_parameters, evap_coeff, qvap_deep,
+        verbose = False):
+    r"""Computes the heating rates needed to adjust unstable regions 
+    of a given atmosphere to a moist adiabat.
+
+    Parameters
+    ----------
+        timestep
+        Nlay: float
+            Number of layers
+        tlay: array
+            Layer temperatures
+    """
+    H_rain=np.zeros(Nlay)
+    Lvap, qsat, dqsat_dt = compute_condensation(tlay, play, Mgas, 
+            thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
+            thermo_parameters[5], thermo_parameters[6], thermo_parameters[7], thermo_parameters[8],
+            thermo_parameters[9])
+    #compute_condensation(tlay, play, Mgas, *thermo_parameters[1:])
+    mass_cond = 0.
+    for i_lay in range(Nlay):
+        #  if evap_coeff =1, rain vaporisation in an undersaturated layer can fill the layer up to the (estimated) saturation
+        #  if 0 < evap_coeff < 1, rain vaporisation in one layer is limited to a fraction of the amount that would saturate the layer
+        #  This allows not to exceed saturation, to spread rain vaporization in more and denser layers
+        
+        dqvap = evap_coeff*(qsat[i_lay] - qarray[idx_vap,i_lay])/(1 + Lvap[i_lay]*dqsat_dt[i_lay]/cp)
+        mass_cond += qarray[idx_cond,i_lay]*dmass[i_lay]
+        qarray[idx_cond,i_lay] = 0.
+        # dqvap is the change in vapor content to reach saturation and accounting for the temperature change.
+        # dqvap < 0 implies condensation, meaning that there is a remaining excess of vapor after the previous 
+        # condensation step. In such case we apply this new change in vapor content and temperature and
+        # increase the amount of falling condensed species (mass_cond).
+        # dqvap > 0 implies evaporation. Here there are two possibilities:
+        #   - the amount of condensates is lower dans dqvap. All condensates are vaporised in the layer
+        #    and the tempertaure change is -Ldqv/cp where dqv is the actual change in vapor.
+        #   - the amount of condensates is larger dans dqvap. We then apply dqvap and the corresponding 
+        #    change in temperature and transfer the remaining condensate in the falling rain reservoir.
+        if dqvap < 0: # more condensation in the layer
+            qarray[idx_vap][i_lay] += dqvap
+            H_rain[i_lay] = -Lvap[i_lay]*dqvap/(cp*timestep)
+            mass_cond -= dqvap*dmass[i_lay]               
+        else: # evaporation of rain
+            mass_dvap = dqvap*dmass[i_lay]     
+            if mass_dvap > mass_cond: # evaporate everything
+                qarray[idx_vap][i_lay] += mass_cond/dmass[i_lay]
+                H_rain[i_lay] = - Lvap[i_lay] * (mass_cond/dmass[i_lay])/(cp*timestep)
+                mass_cond = 0.
+            else:
+                qarray[idx_vap,i_lay] += dqvap
+                H_rain[i_lay] = -Lvap[i_lay]*dqvap/(cp*timestep)
+                mass_cond -= dqvap*dmass[i_lay]
+    if mass_cond != 0.:
+        qarray[idx_cond][-1]+= mass_cond
+        # Issue : qarray[idx_cond][-1] sometimes reaches Inf (whan starting with a hot atmosphere dominated with H2O that cools to saturation)
+    if qvap_deep>=0.:
+        qarray[idx_vap,-1] = qvap_deep
+    return H_rain
+
 
 
 class Tracers(object):
