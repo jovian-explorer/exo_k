@@ -150,7 +150,8 @@ class Gas_mix(Spectral_object):
                 cst_array=False
                 vmr_array[mol]=np.array(vmr) # this np.array could probably go because vmr should be an array at this stage. 
                 if not np.array_equal(vmr_array[mol].shape, sh):
-                    print(vmr_array[mol].shape)
+                    print('molecule:',mol)
+                    print('requested shape:',sh,', molecule shape:',vmr_array[mol].shape)
                     raise RuntimeError('Wrong shape in get_vmr_array')
         return vmr_array, cst_array
 

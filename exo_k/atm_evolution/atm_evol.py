@@ -64,6 +64,8 @@ class Atm_evolution(object):
             self.settings.set_parameters(tlay=self.tlay, **kwargs)
         else:
             self.settings.set_parameters(**kwargs)
+        if 'Kzz' in kwargs.keys():
+            self.tracers.Kzz = np.ones(self.Nlay)*kwargs['Kzz']
         if reset_rad_model: self.setup_radiative_model(**self.settings.parameters)
 
     def initialize_condensation(self, condensing_species={}, **kwargs):
@@ -662,7 +664,7 @@ class Tracers(object):
         self.gas_molar_masses = np.array(self.gas_molar_masses)
         self.M_bg = M_bg
         self.update_gas_composition()
-        self.Kzz = Kzz
+        self.Kzz = np.ones(self.Nlay)*Kzz
         self.Dmol = Dmol
 
     def update_gas_composition(self, update_vmr=True):

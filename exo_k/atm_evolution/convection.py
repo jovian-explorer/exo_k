@@ -164,7 +164,7 @@ def turbulent_diffusion(timestep, Nlay, p_lay, p_lev, dmass,
             after the mixing
     """
     mid_density = p_lev[1:-1]*2./(cst.RGP*(t_lay_ov_mu[1:]+t_lay_ov_mu[:-1]))
-    mid_factor = - g * g * timestep * mid_density**2 / np.diff(p_lay) * Kzz
+    mid_factor = - g * g * timestep * mid_density**2 / np.diff(p_lay) * 0.5*(Kzz[1:]+Kzz[:-1])
     if verbose:
         print(mid_factor)
         print(dmass)
