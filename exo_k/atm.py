@@ -278,15 +278,18 @@ class Atm_profile(object):
             compute_Mgas: bool
                 If False, the molar mass of the gas is not updated. 
         """
+        vmr_midlevel_dict=dict()
         for mol, vmr in composition_dict.items():
             if isinstance(vmr,(np.ndarray, list)):
                 tmp_vmr=np.array(vmr)
                 #geometrical average:
-                composition_dict[mol]=np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+                vmr_midlevel_dict[mol] = np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+            else:
+                vmr_midlevel_dict[mol] = vmr
         if self.gas_mix is None:
-            self.gas_mix=Gas_mix(composition_dict)
+            self.gas_mix = Gas_mix(vmr_midlevel_dict)
         else:
-            self.gas_mix.set_composition(composition_dict)
+            self.gas_mix.set_composition(vmr_midlevel_dict)
         if compute_Mgas: self.set_Mgas(Mgas=Mgas)
 
     def set_Mgas(self, Mgas=None):
