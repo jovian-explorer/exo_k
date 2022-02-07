@@ -112,12 +112,12 @@ class Rayleigh(Singleton):
             tmp=(5.484e-50+1.338e-60*wn2)*wn4
         elif mol=='N2':
             tmp=self._mult_factor * wn4 * (1.034 + 3.17e-12*wn2) * \
-                (6.4982e-5 + 3.0743305e-10/(1.44e10-wn2))**2 * 4./9.
+                (6.4982e-5 + 3.0743305e6/(1.44e10-wn2))**2 * 4./9.
                 # 4./9. is approximately ((n+1)/(n**2+2))**2
                 # from eq 12 of caldas et al. 2019
         elif mol=='O2':
             tmp=self._mult_factor * wn4 * (1.096 + 1.385e-11*wn2 + 1.448e-20*wn4) * \
-                (2.1351e-4 + 0.218567e-10/(0.409e10-wn2))**2 * 4./9.
+                (2.1351e-4 + 0.218567e-6/(0.409e10-wn2))**2 * 4./9.
         elif mol=='CO2':
             tmp=self._mult_factor * wn4 * (1.1364 + 2.53e-11*wn2) * \
                 (1.1427e-2 * (5.799e3/(1.6617e10-wn2) + 1.2005e2/(7.960e9-wn2) \
