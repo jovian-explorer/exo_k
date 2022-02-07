@@ -169,27 +169,52 @@ class Atm_evolution(object):
             H_rain: array
                 Heating rate due to re evaporation (W/kg)
         """
-        i_evap = -10
         new_t = self.atm.tlay + timestep * Htot
         H_rain=np.zeros(self.Nlay)
+        evap_coeff = self.settings['evap_coeff']
         for i_cond in range(self.Ncond):
             idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
-            mass_cond = np.sum(self.tracers.qarray[idx_cond]*self.atm.dmass)
-            dqvap = mass_cond / self.atm.dmass[i_evap]
-            new_q = self.tracers.qarray[idx_vap,i_evap] + dqvap
-            self.tracers.qarray[idx_cond] = np.zeros(self.Nlay)
-            if new_q <= 1.:
-                self.tracers.qarray[idx_vap,i_evap] = new_q
-            else:
-                dqvap = 1. - self.tracers.qarray[idx_vap,i_evap]
-                self.tracers.qarray[idx_vap,i_evap] = 1.
-                self.tracers.qarray[idx_cond,i_evap] = new_q-1.
-            #print(dqvap*self.atm.dmass[-1]/(self.atm.grav*timestep))
-            if self.settings['latent_heating']:
-                H_rain[i_evap] += - self.condensing_species_params[i_cond].Lvap(new_t[i_evap]) \
-                    * dqvap / (timestep *self.cp)
+            thermo_parameters = self.condensing_species_thermo[i_cond].th_params
+            Lvap, qsat, dqsat_dt = compute_condensation(new_t, self.atm.play, self.tracers.Mgas, *thermo_parameters[1:])
+            qvap=self.tracers.qarray[idx_vap]
+            mass_cond = 0.
+            for i_lay in range(self.Nlay):
+                #  if evap_coeff =1, rain vaporisation in an undersaturated layer can fill the layer up to the (estimated) saturation
+                #  if 0 < evap_coeff < 1, rain vaporisation in one layer is limited to a fraction of the amount that would saturate the layer
+                #  This allows not to exceed saturation, to spread rain vaporization in more and denser layers
+                
+                dqvap = evap_coeff*(qsat[i_lay] - qvap[i_lay])/(1 + Lvap[i_lay]*dqsat_dt[i_lay]/self.cp)
+                mass_cond += self.tracers.qarray[idx_cond,i_lay]*self.atm.dmass[i_lay]
+                self.tracers.qarray[idx_cond,i_lay] = 0.
+                # dqvap is the change in vapor content to reach saturation and accounting for the temperature change.
+                # dqvap < 0 implies condensation, meaning that there is a remaining excess of vapor after the previous 
+                # condensation step. In such case we apply this new change in vapor content and temperature and
+                # increase the amount of falling condensed species (mass_cond).
+                # dqvap > 0 implies evaporation. Here there are two possibilities:
+                #   - the amount of condensates is lower dans dqvap. All condensates are vaporised in the layer
+                #    and the tempertaure change is -Ldqv/cp where dqv is the actual change in vapor.
+                #   - the amount of condensates is larger dans dqvap. We then apply dqvap and the corresponding 
+                #    change in temperature and transfer the remaining condensate in the falling rain reservoir.
+ 
+                if dqvap < 0: # more condensation in the layer
+                    self.tracers.qarray[idx_vap][i_lay] += dqvap
+                    H_rain[i_lay] = -Lvap[i_lay]*dqvap/(self.cp*timestep)
+                    mass_cond -= dqvap*self.atm.dmass[i_lay]               
+                else: # evaporation of rain
+                    mass_dvap = dqvap*self.atm.dmass[i_lay]     
+                    if mass_dvap > mass_cond: # evaporate everything
+                        self.tracers.qarray[idx_vap][i_lay] += mass_cond/self.atm.dmass[i_lay]
+                        H_rain[i_lay] = - Lvap[i_lay] * (mass_cond/self.atm.dmass[i_lay])/(self.cp*timestep)
+                        mass_cond = 0.
+                    else:
+                        self.tracers.qarray[idx_vap,i_lay] += dqvap
+                        H_rain[i_lay] = -Lvap[i_lay]*dqvap/(self.cp*timestep)
+                        mass_cond -= dqvap*self.atm.dmass[i_lay]
+            if mass_cond != 0.:
+                self.tracers.qarray[idx_cond][-1]+= mass_cond
+                # Issue : self.tracers.qarray[idx_cond][-1] sometimes reaches Inf (whan starting with a hot atmosphere dominated with H2O that cools to saturation)
             if self.settings['qvap_deep']>=0.:
-                self.tracers.qarray[idx_vap,i_evap] = self.settings['qvap_deep']
+                self.tracers.qarray[idx_vap,-1] = self.settings['qvap_deep']
         return H_rain
 
 
@@ -354,46 +379,6 @@ class Atm_evolution(object):
         inv_delta_t = 1./(self.evol_time-tau0)
         self.H_ave *= inv_delta_t
         self.compute_average_fluxes()
-
-    def moist_convective_adjustment2(self, timestep, Htot, moist_inhibition = True,
-            verbose = False):
-        """This method computes the vapor and temperature tendencies do to
-        moist convectoin in saturated layers.
-
-        The tracer array in modified in place.
-
-        Parameters
-        ----------
-            timestep: float
-                physical timestep of the current step (in s/cp).
-            Htot: array
-                Total heating rate (in W/kg) of all physical processes
-                already computed
-
-        Return
-        ------
-            H_madj: array
-                Heating rate due to large scale condensation (W/kg)
-        """
-        new_t = self.atm.tlay + timestep * Htot
-        H_madj = np.zeros(self.Nlay)
-        for i_cond in range(self.Ncond): #careful i_cond is a dumy loop index, idx_cond is position of species i_cond in tracers array.
-            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
-            cond_species = self.condensing_species_params[i_cond]
-            #print(new_t, self.Mgas)
-            #print(cond_species.Psat(new_t))
-            dlnt_dlnp_moist, Lvap, psat, qsat, dqsat_dt, q_crit = \
-                cond_species.moist_adiabat(new_t, self.atm.play, self.cp, self.tracers.Mgas)
-            #print(dlnt_dlnp_moist, qsat, dqsat_dt)
-            H, qarray, new_t = moist_convective_adjustment2(timestep, self.Nlay,
-                new_t, self.atm.play, self.atm.dmass, self.cp, self.tracers.qarray, idx_vap, idx_cond,
-                qsat, dqsat_dt, Lvap, dlnt_dlnp_moist, q_crit,
-                moist_inhibition = moist_inhibition, verbose = verbose)
-            #print('t after madj:', new_t)
-            H_madj += H
-            self.tracers.qarray = qarray
-            if verbose: print(qarray[idx_cond])
-        return H_madj
 
     def moist_convective_adjustment(self, timestep, Htot, moist_inhibition = True,
             verbose = False):
@@ -604,133 +589,6 @@ def moist_convective_adjustment(timestep, Nlay, tlay, play, dmass, cp, Mgas, q_a
         print('m_cond, m_conv, m_cond2', m_cond, m_conv, m_cond_2)
     return H_madj, new_q, new_t
 
-@numba.jit(nopython=True, fastmath=True, cache=True)
-def moist_convective_adjustment2(timestep, Nlay, tlay, play, dmass, cp, q_array,
-        i_vap, i_cond, qsat, dqsat_dt, Lvap, dlnt_dlnp_moist, q_crit, 
-        moist_inhibition = True, verbose = False):
-    r"""Computes the heating rates needed to adjust unstable regions 
-    of a given atmosphere to a moist adiabat.
-
-    Parameters
-    ----------
-        timestep
-        Nlay: float
-            Number of layers
-        tlay: array
-            Layer temperatures
-        play:array
-            Pressure at layer centers
-        dmass: array
-            mass of layers in kg/m^2
-        cp: float
-            specific heat capacity at constant pressure
-        q_array: array
-            mass mixing ratio of tracers
-        i_vap: int
-            index of vapor tracer in qarray
-        i_cond: int
-            index of condensate tracer in qarray
-        qsat: array
-            Saturation mmr for each layer
-        dqsat_dt: array
-            d qsat / dT in each layer
-        Lvap: array
-            Latent heat of vaporization (can have different values
-            in each layer if Lvap=f(T))
-        dlnt_dlnp_moist: array
-            threshold thermal gradient (d ln T / d ln P) for a moist atmosphere
-            computed at the layer centers.
-        q_crit: array
-            Critical mass mixing ratio for the inhibition of moist convection
-            (Eq. 17 of Leconte et al. 2017)
-
-    Returns
-    -------
-        H_madj: array
-            Heating rate in each atmospheric layer (W/kg). 
-        new_q: array
-            tracer mmr array after adjustment.
-        new_t: array
-            Temperature of layers after adjustment. 
-    """
-    if verbose: print('enter moist adj')
-    new_q = q_array.copy()
-    new_t = tlay.copy()
-    dp = np.diff(play)
-    nabla_interlayer = tlay * dlnt_dlnp_moist /play
-    nabla_interlayer = 0.5*(nabla_interlayer[:-1]+nabla_interlayer[1:])
-    dTmoist_array = nabla_interlayer * dp
-    dT_inter_lay = np.diff(tlay)
-    qvap = new_q[i_vap]
-    mvap_sursat_array = (qvap-qsat) * dmass
-    H_madj=np.zeros(Nlay)
-    if moist_inhibition:
-        q_crit_criterion = qvap<q_crit # convection possible if True
-    else:
-        q_crit_criterion = qvap<2. #should always be true
-    #print('dT:', dT_inter_lay)
-    #print('dTmoist:', dTmoist_array)
-    #dT_unstab = np.nonzero(dT_inter_lay>dTmoist_array)[0]
-    #saturated = np.nonzero(mvap_sursat_array>0.)[0]
-    #conv = np.intersect1d(dT_unstab, saturated, assume_unique = True)# find convective layers
-    conv = np.nonzero((dT_inter_lay>dTmoist_array)*(mvap_sursat_array[:-1]>0.) \
-            *q_crit_criterion[:-1])[0]# find convective layers
-    if verbose: 
-        print(conv)
-        print(np.nonzero(dT_inter_lay>dTmoist_array)[0])
-        print(np.nonzero(mvap_sursat_array[:-1]>0.)[0])
-        print(np.nonzero(q_crit_criterion)[0])
-    N_conv=conv.size
-    if N_conv==0: # no more convective regions, can exit
-        return H_madj, new_q, new_t
-    i_conv=0
-    i_top=conv[i_conv] #upper unstable layer
-    T_top = new_t[i_top]
-    mvap_sursat = mvap_sursat_array[i_top]
-    C = (cp + Lvap[i_top]*dqsat_dt[i_top])*dmass[i_top]
-    B = C * new_t[i_top] + Lvap[i_top] * mvap_sursat_array[i_top]
-    dT_moist = 0.
-    i_bot=i_top
-    while i_bot<Nlay-1: #search for the bottom of the 1st unstable layer from its top
-        tmp1 = mvap_sursat + mvap_sursat_array[i_bot+1]
-        tmp2 = dT_moist + dTmoist_array[i_bot]
-        if tmp1>0. and tmp2<new_t[i_bot+1]-T_top and q_crit_criterion[i_bot+1]:
-            i_bot += 1
-            dT_moist = tmp2
-            mvap_sursat = tmp1
-            tmp = (cp + Lvap[i_bot]*dqsat_dt[i_bot])*dmass[i_bot]
-            C += tmp
-            B += tmp * (new_t[i_bot]-dT_moist) + Lvap[i_bot] * mvap_sursat_array[i_bot] 
-            continue
-        else:
-            break
-    if verbose: print('it,ib=', i_top, i_bot)
-    if i_top==i_bot: # need at least 2 layers to convect, so exit
-        return H_madj, new_q, new_t
-    new_Ttop=(B)/C
-    dT=new_Ttop-new_t[i_top]
-    qvap[i_top] = qsat[i_top] + dqsat_dt[i_top] * dT
-    #if verbose: print('top i, dT, qv, qs, dqs, qf', i_top, dT, q_array[i_vap, i_top], qsat[i_top], dqsat_dt[i_top], qvap[i_top])
-    new_t[i_top] = new_Ttop
-    H_madj[i_top]=dT/timestep
-    for ii in range(i_top+1, i_bot+1):
-        dT = new_t[ii-1] + dTmoist_array[ii-1] - new_t[ii]
-        #print(ii, new_t[ii-1], dTmoist_array[ii-1],  new_t[ii], new_t[ii-1] + dTmoist_array[ii-1] - new_t[ii])
-        qvap[ii] = qsat[ii] + dqsat_dt[ii] * dT
-        new_t[ii] += dT
-        # compute heating and adjust before looking for a new potential unstable layer
-        H_madj[ii]=dT/timestep
-        #if verbose: print('i, dT, qv, qs, dqs, qf', ii, dT, q_array[i_vap, ii], qsat[ii], dqsat_dt[ii], qvap[ii])
-    # put ice
-    m_cond = np.sum((q_array[i_vap, i_top:i_bot+1]-qvap[i_top:i_bot+1])*dmass[i_top:i_bot+1])
-    if m_cond<0.:
-        print('Negative condensates in moist adj, i:', i_top, i_bot)
-        print(q_array[i_vap, i_top:i_bot+1], qvap[i_top:i_bot+1], q_array[i_vap, i_top:i_bot+1]-qvap[i_top:i_bot+1])
-    m_conv = np.sum(dmass[i_top:i_bot+1])
-    new_q[i_cond, i_top:i_bot+1] += m_cond / m_conv
-    if verbose: 
-        print('m_cond, m_conv, new_q', m_cond, m_conv)
-    return H_madj, new_q, new_t
 
 class Tracers(object):
 

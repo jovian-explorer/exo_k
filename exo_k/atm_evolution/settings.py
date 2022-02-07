@@ -22,6 +22,8 @@ class Settings(object):
                         'moist_inhibition': False,
                         'dTmax_use_kernel': 10.,
                         'cp': 10000.,
+                        'qvap_deep': -1.,
+                        'evap_coeff': 1.,
                         }
 
     def set_parameters(self, **kwargs):
