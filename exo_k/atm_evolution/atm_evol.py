@@ -589,9 +589,9 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
         # condensation step. In such case we apply this new change in vapor content and temperature and
         # increase the amount of falling condensed species (mass_cond).
         # dqvap > 0 implies evaporation. Here there are two possibilities:
-        #   - the amount of condensates is lower dans dqvap. All condensates are vaporised in the layer
+        #   - the amount of condensates is lower than dqvap. All condensates are vaporised in the layer
         #    and the tempertaure change is -Ldqv/cp where dqv is the actual change in vapor.
-        #   - the amount of condensates is larger dans dqvap. We then apply dqvap and the corresponding 
+        #   - the amount of condensates is larger than dqvap. We then apply dqvap and the corresponding 
         #    change in temperature and transfer the remaining condensate in the falling rain reservoir.
         if dqvap < 0: # more condensation in the layer
             qarray[idx_vap][i_lay] += dqvap
@@ -600,16 +600,16 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
         else: # evaporation of rain
             mass_dvap = dqvap*dmass[i_lay]     
             if mass_dvap > mass_cond: # evaporate everything
-                qarray[idx_vap][i_lay] += mass_cond/dmass[i_lay]
-                H_rain[i_lay] = - Lvap[i_lay] * (mass_cond/dmass[i_lay])/(cp*timestep)
+                qarray[idx_vap,i_lay] += mass_cond/dmass[i_lay]
+                H_rain[i_lay] = - Lvap[i_lay] * mass_cond / (dmass[i_lay]*cp*timestep)
                 mass_cond = 0.
             else:
                 qarray[idx_vap,i_lay] += dqvap
                 H_rain[i_lay] = -Lvap[i_lay]*dqvap/(cp*timestep)
                 mass_cond -= dqvap*dmass[i_lay]
     if mass_cond != 0.:
-        qarray[idx_cond][-1]+= mass_cond
-        # Issue : qarray[idx_cond][-1] sometimes reaches Inf (whan starting with a hot atmosphere dominated with H2O that cools to saturation)
+        qarray[idx_cond,-1]+= mass_cond/dmass[-1]
+        # Issue : qarray[idx_cond,-1] sometimes can become large (when starting with a hot atmosphere dominated with H2O that cools to saturation)
     if qvap_deep>=0.:
         qarray[idx_vap,-1] = qvap_deep
     return H_rain
