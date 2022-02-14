@@ -19,14 +19,14 @@ from .util.cst import KBOLTZ
 
 class Ktable(Ktable_io):
     """A class that handles 4D tables of k-coefficients.
-    
+
     Based on the :class:`~exo_k.data_table.Data_table` class
     that handles basic operations common to Xtable.
 
     Based on the :class:`~exo_k.ktable_io.Ktable_io` class
     that incorporates all io routines (read/write_xxx for all the xxx supported formats).
     """
-        
+
     def __init__(self, *filename_filters, filename=None, xtable=None, path=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
@@ -38,7 +38,7 @@ class Ktable(Ktable_io):
         Parameters
         ----------
             filename: str, optional
-                Relative or absolute name of the file to be loaded. 
+                Relative or absolute name of the file to be loaded.
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define
                 a file in the global search path defined in
@@ -61,11 +61,11 @@ class Ktable(Ktable_io):
         Other Parameters
         ----------------
             p_unit: str, optional
-                String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
+                String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar',
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
             file_p_unit: str, optional
-                String to specify the current pressure unit if it is unspecified or if 
+                String to specify the current pressure unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
             kdata_unit: str, optional
@@ -79,7 +79,7 @@ class Ktable(Ktable_io):
                 Opacities per unit mass are not supported yet.
                 Note that you do not need to specify the '/molec' or '/molecule' in the unit.
             file_kdata_unit: str, optional
-                String to specify the current kdata unit if it is unspecified or if 
+                String to specify the current kdata unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
             remove_zeros: boolean, optional
@@ -97,7 +97,7 @@ class Ktable(Ktable_io):
 
         if filename is not None:
             self.filename=filename
-        elif filename_filters or (mol is not None and (xtable is None and path is None)): 
+        elif filename_filters or (mol is not None and (xtable is None and path is None)):
         # a none empty sequence returns a True in a conditional statement
             self.filename=self._settings.list_files(*filename_filters, molecule = mol,
                 only_one=True, search_path=search_path, path_type='ktable')[0]
@@ -106,7 +106,7 @@ class Ktable(Ktable_io):
             if self.filename.lower().endswith('pickle'):
                 self.read_pickle(filename=self.filename)
             elif self.filename.lower().endswith(('.hdf5', '.h5')):
-                self.read_hdf5(filename=self.filename, mol=mol)
+                self.read_hdf5(filename=self.filename, mol=mol, **kwargs)
             elif self.filename.lower().endswith('.kta'):
                 self.read_nemesis(filename=self.filename, mol=mol)
             elif self.filename.lower().endswith('ktable.exorem.txt'):
@@ -120,7 +120,7 @@ class Ktable(Ktable_io):
             self.xtable_to_ktable(xtable=xtable, **kwargs)
         elif path is not None:
             self.read_LMDZ(path=path, mol=mol, **kwargs)
-        else:                  #if there is no input file, just create an empty object 
+        else:                  #if there is no input file, just create an empty object
             self.wnedges=None
             self.weights=None
             self.ggrid=None
@@ -147,7 +147,7 @@ class Ktable(Ktable_io):
         Other Parameters
         ----------------
             weights: array, optional
-                If weights are provided, they are used instead of the legendre quadrature. 
+                If weights are provided, they are used instead of the legendre quadrature.
             quad: string, optional
                 Type of quadrature used. Default is 'legendre'.
                 Also available: 'split-legendre' which uses half quadrature
@@ -161,10 +161,10 @@ class Ktable(Ktable_io):
                 * If True, the Xsec values in the high resolution xtable data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
-                  The first and last Xsec values are discarded. 
+                  The first and last Xsec values are discarded.
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
-        """        
+        """
         if xtable is None: raise TypeError("You should provide an input Xtable object")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
@@ -176,7 +176,7 @@ class Ktable(Ktable_io):
         if weights is not None:
             self.weights=np.array(weights)
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is not None: 
+            if ggrid is not None:
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
@@ -234,9 +234,9 @@ class Ktable(Ktable_io):
             filename_grid : array of str with shape (logpgrid.size,tgrid.size)
                 Names of the input high-res spectra. If None, the files are assumed to
                 follow Kspectrum/LMDZ convention, i.e.
-                be of the type 'k001', 'k002', etc. 
+                be of the type 'k001', 'k002', etc.
                 See :func:`~exo_k.util.filenames.create_fname_grid_Kspectrum_LMDZ`
-                for possible additional keyword arguments. 
+                for possible additional keyword arguments.
             logpgrid: array
                 Grid in log(pressure) of the input. Default unit is Pa, but can be changed
                 with the `grid_p_unit` keyword.
@@ -248,7 +248,7 @@ class Ktable(Ktable_io):
         Other Parameters
         ----------------
             weights: array, optional
-                If weights are provided, they are used instead of the legendre quadrature. 
+                If weights are provided, they are used instead of the legendre quadrature.
             quad: string, optional
                 Type of quadrature used. Default is 'legendre'.
                 Also available: 'split-legendre' which uses half quadrature
@@ -261,7 +261,7 @@ class Ktable(Ktable_io):
                 * If True, the Xsec values in the high resolution xsec data are assumed to
                   cover a spectral interval that is centered around
                   the corresponding wavenumber value.
-                  The first and last Xsec values are discarded. 
+                  The first and last Xsec values are discarded.
                 * If False, each interval runs from the wavenumber value to the next one.
                   The last Xsec value is dicarded.
             mol: string, optional
@@ -280,7 +280,7 @@ class Ktable(Ktable_io):
         or :class:`~exo_k.util.hires_spectrum.Hires_spectrum`
         for a list of additional arguments that can be provided to those funtion
         through `**kwargs`.
-        """        
+        """
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
@@ -293,7 +293,7 @@ class Ktable(Ktable_io):
         if weights is not None:
             self.weights=np.array(weights)
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is not None: 
+            if ggrid is not None:
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
@@ -323,14 +323,14 @@ class Ktable(Ktable_io):
         if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
-        
+
         self.kdata=np.zeros(self.shape)
         if filename_grid is None:
             filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
                 **select_kwargs(kwargs,['suffix','nb_digit']))
         else:
             filename_grid=np.array(filename_grid)
-        
+
         for iP in range(self.Np):
           for iT in range(self.Nt):
             filename=filename_grid[iP,iT]
@@ -381,21 +381,21 @@ class Ktable(Ktable_io):
         ----------
             cp_kdata: bool, optional
                 If false, the kdata table is not copied and
-                only the structure and metadata are. 
+                only the structure and metadata are.
             ktab5d: bool, optional
-                If true, creates a Ktable5d object with the same structure. 
+                If true, creates a Ktable5d object with the same structure.
                 Data are not copied.
 
         Returns
         -------
             :class:`Ktable` or :class:`Ktable5d`
-                A new :class:`Ktable` or :class:`Ktable5d` 
+                A new :class:`Ktable` or :class:`Ktable5d`
                 instance with the same structure as self.
         """
         if ktab5d:
             res=Ktable5d()
             cp_kdata=False
-        else:    
+        else:
             res=Ktable()
         res.copy_attr(self,cp_kdata=cp_kdata)
         res.weights = np.copy(self.weights)
@@ -440,7 +440,7 @@ class Ktable(Ktable_io):
         """
         wlindex=self.wlindex(wl)
         toplot=self.interpolate_kdata(log10(p),t)[0,wlindex]*x
-        if xscale is not None: 
+        if xscale is not None:
             ax.set_xscale(xscale)
             ax.plot(1.-self.ggrid,toplot,**kwarg)
             ax.set_xlabel('1-g')
@@ -479,7 +479,7 @@ class Ktable(Ktable_io):
         Returns
         -------
             array
-                array of k-coefficients for the mix. 
+                array of k-coefficients for the mix.
         """
         if not np.array_equal(self.shape,other.shape):
             raise TypeError("""in RandOverlap: kdata tables do not have the same dimensions.
@@ -505,7 +505,7 @@ class Ktable(Ktable_io):
 
         if write >= 3 : start=time.time()
         kdata_conv_loop(kdatas,kdatao,kdataconv,self.shape)
-        if write >= 3 : end=time.time();print("kdata conv: ",end - start)        
+        if write >= 3 : end=time.time();print("kdata conv: ",end - start)
 
         if write >= 3 : start=time.time()
         for iP in range(self.Np):
@@ -522,10 +522,10 @@ class Ktable(Ktable_io):
                   newkdata[iP,iT,iW,:]=rebin(kdatasort,newggrid,self.gedges)
               else:
                   newkdata[iP,iT,iW,:]=np.interp(self.ggrid,newggrid,kdatasort)
-        if write >= 3 : end=time.time();print("kdata rebin with loop: ",end - start)        
+        if write >= 3 : end=time.time();print("kdata rebin with loop: ",end - start)
 
         return newkdata
-        
+
     def bin_down(self, wnedges=None, weights=None, ggrid=None,
         remove_zeros=False, num=300, use_rebin=False, write=0):
         """Method to bin down a kcoeff table to a new grid of wavenumbers (inplace).
@@ -550,7 +550,7 @@ class Ktable(Ktable_io):
         if weights is not None:
             self.weights=np.array(weights)
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is not None: 
+            if ggrid is not None:
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5

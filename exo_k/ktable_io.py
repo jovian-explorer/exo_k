@@ -19,7 +19,7 @@ class Ktable_io(Data_table):
     """A class to handle the input-output methods of the :class:`~exo_k.ktable.Ktable` class.
     """
 
-    def read_hdf5(self, filename=None, mol=None):
+    def read_hdf5(self, filename=None, mol=None, wns=None):
         """Initializes k coeff table and supporting data from an hdf5 file
         (compatible with Exomol format)
 
@@ -51,12 +51,17 @@ class Ktable_io(Data_table):
                 if isinstance(self.DOI, bytes): self.DOI=self.DOI.decode('UTF-8')
             self.wns=f['bin_centers'][...]
             self.wnedges=f['bin_edges'][...]
+            indices = slice(len(self.wns)) # by default select all indices
+            if wns is not None:
+                indices = np.where((self.wns > min(wns)) & (self.wns < max(wns)))[0]
+                self.wns = self.wns[indices]
+                self.wnedges = self.wnedges[indices]
             if 'units' in f['bin_edges'].attrs:
                 self.wn_unit=f['bin_edges'].attrs['units']
             else:
                 if 'units' in f['bin_centers'].attrs:
                     self.wn_unit=f['bin_centers'].attrs['units']
-            self.kdata=f['kcoeff'][...]
+            self.kdata=f['kcoeff'][:,:, indices]
             self.kdata_unit=f['kcoeff'].attrs['units']
             self.tgrid=f['t'][...]
             self.pgrid=f['p'][...]
@@ -123,8 +128,8 @@ class Ktable_io(Data_table):
 
     def read_LMDZ(self, path=None, res=None, band=None, mol=None):
         """Initializes k coeff table and supporting data from a .dat file in a gcm friendly format.
-        
-        Units are assumed to be cm^2 for kdata and mbar for pressure. 
+
+        Units are assumed to be cm^2 for kdata and mbar for pressure.
 
         Parameters
         ----------
@@ -136,8 +141,8 @@ class Ktable_io(Data_table):
             band: str
                 "IR" or "VI" to specify which band to load.
             mol: str
-                Name of the molecule to be saved in the Ktable object. 
-        """        
+                Name of the molecule to be saved in the Ktable object.
+        """
         if (path is None) or (res is None): \
             raise TypeError("You should provide an input directory name and a resolution")
 
@@ -170,21 +175,21 @@ class Ktable_io(Data_table):
         self.wnedges=np.append(raw[0],raw[1,-1])
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
-        
+
         self.kdata_unit='cm^2/molecule'
         if band is None:
             file_to_load=os.path.join(path,res,'corrk_gcm.dat')
         else:
-            file_to_load=os.path.join(path,res,'corrk_gcm_'+band+'.dat')        
+            file_to_load=os.path.join(path,res,'corrk_gcm_'+band+'.dat')
         tmp=np.loadtxt(file_to_load).reshape((self.Nt,self.Np,self.Nw,self.Ng+1),order='F')
-        self.kdata=tmp[:,:,:,:-1].transpose((1,0,2,3)) 
+        self.kdata=tmp[:,:,:,:-1].transpose((1,0,2,3))
         # also removing the last g point which is equal to 0.
-        self.logk=False        
+        self.logk=False
         return None
 
     def write_LMDZ(self, path, band='IR', fmt='%22.15e', write_only_metadata=False):
         """Saves data in a LMDZ friendly format.
-        
+
         The gcm requires p in mbar and kdata in cm^2/molec.
         The conversion is done automatically.
 
@@ -196,7 +201,7 @@ class Ktable_io(Data_table):
             band: str
                 The band you are computing: 'IR' or 'VI'
             fmt: str
-                Fortran format for the corrk file. 
+                Fortran format for the corrk file.
         """
         try:
             os.makedirs(path, exist_ok=True)
@@ -254,7 +259,7 @@ class Ktable_io(Data_table):
         """
         if (filename is None or not filename.lower().endswith('.kta')):
             raise RuntimeError("You should provide an input nemesis (.kta) file")
-        
+
         self.Np, self.Nt, self.Nw, self.Ng, \
             self.pgrid, self.tgrid, self.wns, \
             self.ggrid, self.weights, self.kdata, \
@@ -316,7 +321,7 @@ class Ktable_io(Data_table):
             conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))*1.e20
             data_to_write=data_to_write*conv_factor
             o.write(float_format(data_to_write).tobytes())
-    
+
     def read_exorem(self, filename, mol=None):
         """Reads data in an ExoREM .dat format
 
@@ -363,7 +368,7 @@ class Ktable_io(Data_table):
             self.kdata_unit='cm^2/molec'
             self.wnedges=np.concatenate( \
                 ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-                
+
     def read_arcis(self, filename=None, mol=None):
         """Initializes k coeff table and supporting data from an ARCI fits file (.fits)
 
@@ -443,7 +448,7 @@ class Ktable_io(Data_table):
         pickle_file=open(filename,'rb')
         raw=pickle.load(pickle_file, encoding='latin1')
         pickle_file.close()
-        
+
         self.mol=raw['name']
         if self.mol=='H2OP': self.mol='H2O'
 
@@ -459,7 +464,7 @@ class Ktable_io(Data_table):
         self.ggrid=raw['samples']
         self.gedges=np.insert(np.cumsum(self.weights),0,0.)
         self.kdata=raw['kcoeff']
-    
+
         if 'p_unit' in raw.keys():
             self.p_unit=raw['p_unit']
         else:

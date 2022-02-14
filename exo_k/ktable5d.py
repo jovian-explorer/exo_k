@@ -80,7 +80,7 @@ class Ktable5d(Data_table):
         if self.kdata is not None:
             self.setup_interpolation()
 
-    def read_hdf5(self, filename=None, mol=None):
+    def read_hdf5(self, filename=None, mol=None, wns=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
         Parameters
@@ -111,12 +111,17 @@ class Ktable5d(Data_table):
                 if isinstance(self.DOI, bytes): self.DOI=self.DOI.decode('UTF-8')
             self.wns=f['bin_centers'][...]
             self.wnedges=f['bin_edges'][...]
+            indices = slice(len(self.wns)) # by default select all indices
+            if wns is not None:
+                indices = np.where((self.wns > min(wns)) & (self.wns < max(wns)))[0]
+                self.wns = self.wns[indices]
+                self.wnedges = self.wnedges[indices]
             if 'units' in f['bin_edges'].attrs:
                 self.wn_unit=f['bin_edges'].attrs['units']
             else:
                 if 'units' in f['bin_centers'].attrs:
                     self.wn_unit=f['bin_centers'].attrs['units']
-            self.kdata=f['kcoeff'][...]
+            self.kdata=f['kcoeff'][:,:, indices]
             self.kdata_unit=f['kcoeff'].attrs['units']
             self.tgrid=f['t'][...]
             self.pgrid=f['p'][...]

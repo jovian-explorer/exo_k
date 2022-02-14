@@ -21,7 +21,7 @@ class Xtable(Data_table):
     def __init__(self, *filename_filters, filename=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
-        remove_zeros=False, search_path=None, mol=None):
+        remove_zeros=False, search_path=None, mol=None, **kwargs):
         """Initializes cross section table and
         supporting data from a file based on its extension.
 
@@ -54,7 +54,7 @@ class Xtable(Data_table):
             if self.filename.lower().endswith('pickle'):
                 self.read_pickle(filename=self.filename)
             elif self.filename.lower().endswith(('.hdf5', '.h5')):
-                self.read_hdf5(filename=self.filename, mol=mol)
+                self.read_hdf5(filename=self.filename, mol=mol, **kwargs)
             elif self.filename.lower().endswith(('.dat')):
                 self.read_exo_transmit(filename=self.filename, mol=mol)
             else:
@@ -65,7 +65,7 @@ class Xtable(Data_table):
             kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
             remove_zeros=remove_zeros)
 
-    def read_hdf5(self, filename=None, mol=None):
+    def read_hdf5(self, filename=None, mol=None, wns=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
         Parameters
@@ -100,9 +100,15 @@ class Xtable(Data_table):
                 self.wns=f['bin_centers'][...]
                 if 'units' in f['bin_centers'].attrs:
                     self.wn_unit=f['bin_centers'].attrs['units']
+
+            indices = slice(len(self.wns)) # by default select all indices
+            if wns is not None:
+                indices = np.where((self.wns > min(wns)) & (self.wns < max(wns)))[0]
+                self.wns = self.wns[indices]
+
             self.wnedges=np.concatenate(  \
                 ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-            self.kdata=f['xsecarr'][...]
+            self.kdata=f['xsecarr'][:,:, indices]
             self.kdata_unit=f['xsecarr'].attrs['units']
             self.tgrid=f['t'][...]
             self.pgrid=f['p'][...]
@@ -190,7 +196,7 @@ class Xtable(Data_table):
         self.wns=0.01/tmp_wlgrid[::-1]
         self.wnedges=np.concatenate( \
             ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-        self.p_unit='Pa' 
+        self.p_unit='Pa'
         self.kdata_unit='m^2/molecule'
         if mol is not None:
             self.mol=mol
@@ -211,7 +217,7 @@ class Xtable(Data_table):
 
         see :func:`exo_k.ktable.Ktable.hires_to_ktable` method for details
         on the arguments and options.
-        """        
+        """
         first=True
 
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
@@ -231,7 +237,7 @@ class Xtable(Data_table):
         self.tgrid=np.array(tgrid)
         self.Nt=self.tgrid.size
         if write >= 3 : print(self.Nt,self.tgrid)
-        
+
         if filename_grid is None:
             filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
                 **select_kwargs(kwargs,['suffix','nb_digit']))
@@ -290,7 +296,7 @@ class Xtable(Data_table):
                 wnedges[0] should be greater than self.wnedges[0]
                 wnedges[-1] should be lower than self.wnedges[-1]
             remove_zeros: bool, optional
-                If True, remove zeros in kdata. 
+                If True, remove zeros in kdata.
         """
         wnedges=np.array(wnedges)
         if wnedges.size<2: raise TypeError('wnedges should at least have two values')
@@ -308,7 +314,7 @@ class Xtable(Data_table):
                 tmp=self.kdata[iP,iT,:]
                 newxsec[iP,iT,wngrid_filter[0:-1]]= \
                     [np.dot(tmp[indicestosum[ii]-1:indicestosum[ii+1]],weights[ii]) \
-                        for ii in range(Ntmp)]        
+                        for ii in range(Ntmp)]
         self.kdata=newxsec
         self.wnedges=wnedges
         self.wns=(wnedges[1:]+wnedges[:-1])*0.5
@@ -351,7 +357,7 @@ class Xtable(Data_table):
 
         Parameters
         ----------
-            See sample method for details. 
+            See sample method for details.
 
         Returns
         -------
@@ -386,7 +392,7 @@ class Xtable(Data_table):
         ----------
             cp_kdata: bool, optional
                 If false, the kdata table is not copied and
-                only the structure and metadata are. 
+                only the structure and metadata are.
 
         Returns
         -------
@@ -421,7 +427,7 @@ class Xtable(Data_table):
         pickle_file=open(filename,'rb')
         raw=pickle.load(pickle_file, encoding='latin1')
         pickle_file.close()
-        
+
         self.mol=raw['name']
         if self.mol=='H2OP': self.mol='H2O'
 
