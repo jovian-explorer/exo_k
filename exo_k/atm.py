@@ -456,7 +456,7 @@ class Atm_profile(object):
             ptop=self.plev[0], psurf=self.psurf, tsurf=self.tlay[-1])
         return output
 
-    def write_soundings(self, dirname='.', fmt='%.10e', cp=None, qvap=None):
+    def write_soundings(self, dirname='.', fmt='%.10e', cp=None, qvap=None, p_dry=None):
         """Writes sounding files that can be used to initiate the mesoscale model
         """
         self.compute_altitudes()
@@ -481,8 +481,13 @@ class Atm_profile(object):
         # the last dummy column are q_vap (not used as of 2021, u, and v). We put it to zero.
 
         filename=dirname+'/input_therm'
-        np.savetxt(filename,
-            np.transpose([r[::-1], cp_array[::-1], self.play[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
+        if p_dry is None:
+            np.savetxt(filename,
+                np.transpose([r[::-1], cp_array[::-1], self.play[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
+        else:
+            np.savetxt(filename,
+                np.transpose([r[::-1], cp_array[::-1], self.p_dry[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
+
 
 
 class Atm(Atm_profile):
