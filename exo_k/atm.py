@@ -486,7 +486,7 @@ class Atm_profile(object):
                 np.transpose([r[::-1], cp_array[::-1], self.play[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
         else:
             np.savetxt(filename,
-                np.transpose([r[::-1], cp_array[::-1], self.p_dry[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
+                np.transpose([r[::-1], cp_array[::-1], p_dry[::-1], rho_lay[::-1], self.tlay[::-1]]), fmt=fmt)
 
 
 
