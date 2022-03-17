@@ -67,6 +67,19 @@ class Condensing_species(object):
         #return self.Psat_ref*np.exp( - self.LovR * (1./T - 1/self.T_ref))
         return self.Psat_ref*np.exp( self.c1 + self.c2/T + self.delta_cp_R*np.log(T/self.T_ref))
 
+    def Tsat(self, P):
+        """Boiling temperature for the condensing species
+
+        NOT EXACT IF DELTA CP != 0.
+
+        Parameters
+        ----------
+            P: array
+                Pressure in layers (Pa)
+        """
+        return self.c2/(np.log(P/self.Psat_ref)-self.c1)
+
+
     def qsat(self, psat, p, epsilon):
         """Saturation vapor mass mixing ratio for the condensing species
 
@@ -242,6 +255,19 @@ def Psat_T(T, T_ref, Psat_ref, c1, c2, delta_cp_R):
             Temperature in layers (K)
     """
     return Psat_ref*np.exp( c1 + c2/T + delta_cp_R*np.log(T/T_ref))
+
+@numba.jit(nopython=True, fastmath=True, cache=True)
+def Tsat_P(P, T_ref, Psat_ref, c1, c2, delta_cp_R):
+    """Boiling temperature for the condensing species
+
+    NOT EXACT IF DELTA CP != 0.
+    
+    Parameters
+    ----------
+        P: array
+            Pressure in layers (Pa)
+    """
+    return c2/(np.log(P/Psat_ref)-c1)
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def Qsat(psat, p, epsilon):
