@@ -104,11 +104,11 @@ class Data_table(Spectral_object):
         """Finds zeros in the kdata and set them to (10.**-deltalog_min_value)
         times the minimum positive value in the table (inplace).
 
-        This is to be able to work in logspace. 
+        This is to be able to work in logspace.
 
         Parameters
         ----------
-            deltalog_min_value: float        
+            deltalog_min_value: float
         """
         mask = np.zeros(self.kdata.shape,dtype=bool)
         mask[np.nonzero(self.kdata)] = True
@@ -121,11 +121,11 @@ class Data_table(Spectral_object):
         Parameters
         ----------
             p_unit: str
-                String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar', 
+                String identifying the pressure units to convert to (e.g. 'bar', 'Pa', 'mbar',
                 or any pressure unit recognized by the astropy.units library).
                 If ='unspecified', no conversion is done.
             file_p_unit : str, optional
-                String to specify the current pressure unit if it is unspecified or if 
+                String to specify the current pressure unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the pressure grid and the pressure unit do not correspond)
         """
@@ -152,7 +152,7 @@ class Data_table(Spectral_object):
                 Note that you do not need to specify the '/molec' or
                 '/molecule' in the unit.
             file_kdata_unit : str
-                String to specify the current kdata unit if it is unspecified or if 
+                String to specify the current kdata unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
         """
@@ -164,7 +164,7 @@ class Data_table(Spectral_object):
             'kdata_unit',unit_file=tmp_k_u_file,unit_in=tmp_k_u_in,unit_out=tmp_k_u_out)
         self.kdata_unit=self.kdata_unit+'/molecule'
         self.kdata=self.kdata*conversion_factor
-    
+
     def convert_to_mks(self):
         """Converts units to MKS (inplace).
         """
@@ -238,7 +238,7 @@ class Data_table(Spectral_object):
                 kc_p0t1=np.log(self.kdata[lpind[ii]-1,tind[ii]][wngrid_filter].ravel())
                 kc_p1t0=np.log(self.kdata[lpind[ii],tind[ii]-1][wngrid_filter].ravel())
                 kc_p0t0=np.log(self.kdata[lpind[ii]-1,tind[ii]-1][wngrid_filter].ravel())
-                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0, 
+                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0,
                     kc_p0t1, kc_p1t1, lpweight[ii], tweight[ii]),(Nw,-1)).squeeze()
             return (x_array*np.exp(res).transpose()).transpose()
             # trick for the broadcasting to work whatever the shape of x_array
@@ -248,14 +248,14 @@ class Data_table(Spectral_object):
                 kc_p0t1=self.kdata[lpind[ii]-1,tind[ii]][wngrid_filter].ravel()
                 kc_p1t0=self.kdata[lpind[ii],tind[ii]-1][wngrid_filter].ravel()
                 kc_p0t0=self.kdata[lpind[ii]-1,tind[ii]-1][wngrid_filter].ravel()
-                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0, 
+                res[ii]=np.reshape(bilinear_interpolation(kc_p0t0, kc_p1t0,
                     kc_p0t1, kc_p1t1, lpweight[ii], tweight[ii]),(Nw,-1)).squeeze()
             return (x_array*res.transpose()).transpose()
             # trick for the broadcasting to work whatever the shape of x_array
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array=None):
         """remap_logPT re-interpolates the kdata on a new temperature and log pressure grid
-        (inplace). 
+        (inplace).
 
         Parameters
         ----------
@@ -280,7 +280,7 @@ class Data_table(Spectral_object):
         else:
             tw=tweight[None,:,None,None]    # trick to broadcast over Nw and Ng a few lines below
             pw=lpweight[:,None,None,None]
-        #tw=tweight.reshape((1,tweight.size,1,1))  
+        #tw=tweight.reshape((1,tweight.size,1,1))
         ## trick to broadcast over Nw and Ng a few lines below
         #pw=lpweight.reshape((lpweight.size,1,1,1))
         kc_p1t1=self.kdata[lpindextended,tind]
@@ -386,7 +386,7 @@ class Data_table(Spectral_object):
         ----------
             x_self: float or array of shape (`self.Np,self.Nt`)
                 The volume mixing ratio of the species.
-        
+
         Returns
         -------
             array
@@ -401,7 +401,7 @@ class Data_table(Spectral_object):
         if np.array_equal(x_self.shape,self.kdata.shape[0:2]):
             if self.Ng is None:
                 return x_self[:,:,None]*self.kdata
-            else:                
+            else:
                 return x_self[:,:,None,None]*self.kdata
         else:
             print("""in vmr_normalize:
@@ -443,7 +443,7 @@ class Data_table(Spectral_object):
                 A new table for the mix
         """
         if other.Nx is not None:
-            # if other is a Ktable5d, use the method for this class instead. 
+            # if other is a Ktable5d, use the method for this class instead.
             return other.combine_with(self, x_self=x_other, x_other=x_self, **kwargs)
         if not np.array_equal(self.shape,other.shape):
             raise TypeError("""in combine_with: kdata tables do not have the same dimensions.
@@ -498,13 +498,22 @@ class Data_table(Spectral_object):
             print('shape of new_kdata: ', sh)
             raise RuntimeError('new_kdata does not have the right shape')
 
-    def clip_spectral_range(self, wn_range=None, wl_range=None):
-        """Limits the data to the provided spectral range (inplace):
+    def select_spectral_range(self, wn_range=None, wl_range=None):
+        """Select spectral range, without restricting the data. Should use either wn_range OR wl_range, not both.
 
-           * Wavenumber in cm^-1 if using wn_range argument
-           * Wavelength in micron if using wl_range
+        Parameters
+        ----------
+            wn_range: array
+                Wavenumber range in cm^-1.
+            wl_range: array
+                Wavelength range in micron.
+
+        Returns
+        -------
+            tuple:
+                iw_min, iw_max the boundary indices of the spectral range
         """
-        if (wn_range is None) and (wl_range is None): return
+        if (wn_range is None) and (wl_range is None): return None, None
         if wl_range is not None:
             if wn_range is not None:
                 raise RuntimeError('Should provide either wn_range or wl_range, not both!')
@@ -516,6 +525,15 @@ class Data_table(Spectral_object):
         self.wnedges=self.wnedges[iw_min:iw_max+1]
         self.wns=self.wns[iw_min:iw_max]
         self.Nw=self.wns.size
+        return iw_min, iw_max
+
+    def clip_spectral_range(self, wn_range=None, wl_range=None):
+        """Limits the data to the provided spectral range (inplace):
+
+           * Wavenumber in cm^-1 if using wn_range argument
+           * Wavelength in micron if using wl_range
+        """
+        iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
         if self.Nx is None:
             self.kdata=self.kdata[:,:,iw_min:iw_max]
         else:
@@ -536,7 +554,7 @@ class Data_table(Spectral_object):
 
         .. warning::
             There should not be any overlap between wngrid_left, wngrid_right,
-            and the current wavenumber grid of the table. 
+            and the current wavenumber grid of the table.
 
         Other Parameters
         ----------------
@@ -608,7 +626,7 @@ class Data_table(Spectral_object):
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
 
     def bin_down_cp(self, wnedges=None, **kwargs):
-        """Creates a copy of the instance and bins it down using the methods in 
+        """Creates a copy of the instance and bins it down using the methods in
         Ktable or Xtable.
 
         See :func:`exo_k.ktable.Ktable.bin_down` or :func:`exo_k.xtable.Xtable.bin_down`
@@ -657,7 +675,7 @@ class Data_table(Spectral_object):
                 * If true, the black body is integrated within each wavenumber bin.
                 * If not, only the central value is used.
                   False is faster and should be ok for small bins,
-                  but True is the correct version. 
+                  but True is the correct version.
         Returns
         -------
             Spectrum object
@@ -672,7 +690,7 @@ class Data_table(Spectral_object):
     def write_hdf5_common(self, f, compression="gzip", compression_level=9,
         p_unit=None):
         """Method that writes datasets and attributes that are common to
-        X and Ktables. 
+        X and Ktables.
 
         Parameters
         ----------
@@ -717,7 +735,7 @@ class Data_table(Spectral_object):
             self.logk=True
             self.kdata=np.log10(self.kdata)
         return
-            
+
     def toLinK(self):
         """Changes kdata back from log to linear scale.
         """

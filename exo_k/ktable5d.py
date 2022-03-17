@@ -24,7 +24,7 @@ class Ktable5d(Data_table):
     This class is specifically designed to deal with
     LMDZ type ktable where there is a variable gas.
     """
-    
+
     def __init__(self, *filename_filters, filename=None, path=None,
         p_unit='unspecified', file_p_unit='unspecified',
         kdata_unit='unspecified', file_kdata_unit='unspecified',
@@ -36,7 +36,7 @@ class Ktable5d(Data_table):
         Parameters
         ----------
             filename: str (optional)
-                Relative or absolute name of the file to be loaded. 
+                Relative or absolute name of the file to be loaded.
             path: str
                 If none of the above is specifed,
                 path can point to a directory with a LMDZ type k coeff table.
@@ -53,7 +53,7 @@ class Ktable5d(Data_table):
 
         if filename is not None:
             self.filename=filename
-        elif filename_filters or (mol is not None and path is None): 
+        elif filename_filters or (mol is not None and path is None):
         # a none empty sequence returns a True in a conditional statement
             self.filename=self._settings.list_files(*filename_filters, molecule = mol,
                 only_one=True, search_path=search_path, path_type='ktable')[0]
@@ -65,7 +65,7 @@ class Ktable5d(Data_table):
                     'Requested format not recognized. Should end with .hdf5 or .h5')
         elif path is not None:
             self.read_LMDZ(path=path, mol=mol, **kwargs)
-        else:                  #if there is no input file, just create an empty object 
+        else:                  #if there is no input file, just create an empty object
             self.wnedges=None
             self.weights=None
             self.ggrid=None
@@ -80,7 +80,7 @@ class Ktable5d(Data_table):
         if self.kdata is not None:
             self.setup_interpolation()
 
-    def read_hdf5(self, filename=None, mol=None, wns=None):
+    def read_hdf5(self, filename=None, mol=None, wn_range=None, wl_range=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
         Parameters
@@ -111,17 +111,13 @@ class Ktable5d(Data_table):
                 if isinstance(self.DOI, bytes): self.DOI=self.DOI.decode('UTF-8')
             self.wns=f['bin_centers'][...]
             self.wnedges=f['bin_edges'][...]
-            indices = slice(len(self.wns)) # by default select all indices
-            if wns is not None:
-                indices = np.where((self.wns > min(wns)) & (self.wns < max(wns)))[0]
-                self.wns = self.wns[indices]
-                self.wnedges = self.wnedges[indices]
+            iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
             if 'units' in f['bin_edges'].attrs:
                 self.wn_unit=f['bin_edges'].attrs['units']
             else:
                 if 'units' in f['bin_centers'].attrs:
                     self.wn_unit=f['bin_centers'].attrs['units']
-            self.kdata=f['kcoeff'][:,:, indices]
+            self.kdata=f['kcoeff'][:,:, iw_min:iw_max]
             self.kdata_unit=f['kcoeff'].attrs['units']
             self.tgrid=f['t'][...]
             self.pgrid=f['p'][...]
@@ -136,7 +132,7 @@ class Ktable5d(Data_table):
             self.ggrid=f['samples'][...]
             self.gedges=np.insert(np.cumsum(self.weights),0,0.)
             self.logk=False
-        f.close()  
+        f.close()
         self.Np,self.Nt,self.Nx,self.Nw,self.Ng=self.kdata.shape
 
     def write_hdf5(self, filename, compression="gzip", compression_level=9,
@@ -185,7 +181,7 @@ class Ktable5d(Data_table):
         """Initializes k coeff table and supporting data from a .dat file
         in a gcm friendly format.
 
-        Units are assumed to be cm^2 for kdata and mbar for pressure. 
+        Units are assumed to be cm^2 for kdata and mbar for pressure.
 
         Parameters
         ----------
@@ -196,7 +192,7 @@ class Ktable5d(Data_table):
                 in the infrared and visible of the k table to load.
             band: str
                 "IR" or "VI" to specify which band to load.
-        """        
+        """
         if (path is None) or (res is None): \
             raise TypeError("You should provide an input directory name and a resolution")
 
@@ -228,22 +224,22 @@ class Ktable5d(Data_table):
         self.wnedges=np.append(raw[0],raw[1,-1])
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
-        
+
         self.kdata_unit='cm^2/molecule'
         if band is None:
             file_to_load=os.path.join(path,res,'corrk_gcm.dat')
         else:
-            file_to_load=os.path.join(path,res,'corrk_gcm_'+band+'.dat')        
+            file_to_load=os.path.join(path,res,'corrk_gcm_'+band+'.dat')
         tmp=np.loadtxt(file_to_load) \
             .reshape((self.Nt,self.Np,self.Nx,self.Nw,self.Ng+1),order='F')
-        self.kdata=tmp[:,:,:,:,:-1].transpose((1,0,2,3,4))  
+        self.kdata=tmp[:,:,:,:,:-1].transpose((1,0,2,3,4))
         # also removing the last g point which is equal to 0.
-        self.logk=False        
+        self.logk=False
         return None
 
     def write_LMDZ(self, path, band='IR', fmt='%22.15e', write_only_metadata=False):
         """Saves data in a LMDZ friendly format.
-        
+
         The gcm requires p in mbar and kdata in cm^2/molec.
         The conversion is done automatically.
 
@@ -255,7 +251,7 @@ class Ktable5d(Data_table):
             band: str
                 The band you are computing: 'IR' or 'VI'
             fmt: str
-                Fortran format for the corrk file. 
+                Fortran format for the corrk file.
             write_only_metadata: bool, optional
                 If `True`, only supporting files are written (T.dat, p.dat, etc.)
         """
@@ -327,7 +323,7 @@ class Ktable5d(Data_table):
             By default, log pressures are specified in Pa in logpgrid!!! If you want
             to use another unit, do not forget to specify it with the grid_p_unit keyword.
 
-        """        
+        """
         if path is None: raise TypeError("You should provide an input hires_spectrum directory")
         if wnedges is None: raise TypeError("You should provide an input wavenumber array")
 
@@ -340,7 +336,7 @@ class Ktable5d(Data_table):
         if weights is not None:
             self.weights=weights
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is not None: 
+            if ggrid is not None:
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
@@ -374,7 +370,7 @@ class Ktable5d(Data_table):
         if self.wnedges.size<2: raise TypeError('wnedges should at least have two values')
         self.wns=(self.wnedges[1:]+self.wnedges[:-1])*0.5
         self.Nw=self.wns.size
-        
+
         self.kdata=np.zeros(self.shape)
         if filename_grid is None:
             filename_grid=create_fname_grid_Kspectrum_LMDZ(self.Np, self.Nt,
@@ -455,7 +451,7 @@ class Ktable5d(Data_table):
     def interpolate_kdata(self, logp_array=None, t_array=None, x_array= None,
             log_interp=None, logp_interp=True, wngrid_limit=None, **kwargs):
         """interpolate_kdata interpolates the kdata at on a given temperature and
-        log pressure profile. 
+        log pressure profile.
 
         Parameters
         ----------
@@ -505,8 +501,8 @@ class Ktable5d(Data_table):
 
     def remap_logPT(self, logp_array=None, t_array=None, x_array= None):
         """remap_logPT re-interpolates the kdata on a new temprature and log pressure grid
-        (inplace). If an `x_array` is specified, the interpolation occurs along the 
-        vmr axis as well. 
+        (inplace). If an `x_array` is specified, the interpolation occurs along the
+        vmr axis as well.
 
         Parameters
         ----------
@@ -558,7 +554,7 @@ class Ktable5d(Data_table):
         ----------
             cp_kdata: bool, optional
                 If false, the kdata table is not copied and
-                only the structure and metadata are. 
+                only the structure and metadata are.
 
         Returns
         -------
@@ -617,7 +613,7 @@ class Ktable5d(Data_table):
         """
         wlindex=self.wlindex(wl)
         toplot=self.interpolate_kdata(log10(p),t,x)[0,wlindex]
-        if xscale is not None: 
+        if xscale is not None:
             ax.set_xscale(xscale)
             ax.plot(1.-self.ggrid,toplot,**kwarg)
             ax.set_xlabel('1-g')
@@ -644,18 +640,18 @@ class Ktable5d(Data_table):
         randomly mixed with 'other' (that must be a :class:`Ktable`).
 
         The main purpose is to add the opacity of a trace species to the background gas
-        of the :class:`Ktable5d` instance. 
+        of the :class:`Ktable5d` instance.
 
         .. warning::
             Because:
-            
+
               * the opacity from the background and variable gases cannot be
                 isolated,
               * The values of the array for the vmr of the variable gas (self.xgrid)
                 are not modified (diluted),
 
             the treatment here is valid only if `x_other` << 1.
-            
+
             For this reason, `x_self` should be either left to None, or 1-`x_other` depending
             exactly what you want to do. But if you put `x_self`<<1, you are on your own.
 
@@ -676,7 +672,7 @@ class Ktable5d(Data_table):
         Returns
         -------
             :class:`Ktable5d`
-                A new Ktable5d with the opacity of the new species added. 
+                A new Ktable5d with the opacity of the new species added.
         """
         if not ((self.Np == other.Np) and (self.Nt == other.Nt) and (self.Nw == other.Nw) \
             and (self.Ng == other.Ng)):
@@ -723,7 +719,7 @@ class Ktable5d(Data_table):
         if weights is not None:
             self.weights=np.array(weights)
             self.gedges=np.concatenate(([0],np.cumsum(self.weights)))
-            if ggrid is not None: 
+            if ggrid is not None:
                 self.ggrid=np.array(ggrid)
             else:
                 self.ggrid=(self.gedges[1:]+self.gedges[:-1])*0.5
@@ -747,7 +743,7 @@ class Ktable5d(Data_table):
         self.Nw=self.wns.size
         if remove_zeros : self.remove_zeros(deltalog_min_value=10.)
         self.setup_interpolation()
-    
+
     def clip_spectral_range(self, wn_range=None, wl_range=None):
         """Limits the data to the provided spectral range (inplace):
 

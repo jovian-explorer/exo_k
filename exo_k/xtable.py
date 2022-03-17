@@ -65,7 +65,7 @@ class Xtable(Data_table):
             kdata_unit=kdata_unit, file_kdata_unit=file_kdata_unit,
             remove_zeros=remove_zeros)
 
-    def read_hdf5(self, filename=None, mol=None, wns=None):
+    def read_hdf5(self, filename=None, mol=None, wn_range=None, wl_range=None):
         """Initializes k coeff table and supporting data from an Exomol hdf5 file
 
         Parameters
@@ -101,14 +101,10 @@ class Xtable(Data_table):
                 if 'units' in f['bin_centers'].attrs:
                     self.wn_unit=f['bin_centers'].attrs['units']
 
-            indices = slice(len(self.wns)) # by default select all indices
-            if wns is not None:
-                indices = np.where((self.wns > min(wns)) & (self.wns < max(wns)))[0]
-                self.wns = self.wns[indices]
-
             self.wnedges=np.concatenate(  \
                 ([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
-            self.kdata=f['xsecarr'][:,:, indices]
+            iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
+            self.kdata=f['xsecarr'][:,:, iw_min:iw_max]
             self.kdata_unit=f['xsecarr'].attrs['units']
             self.tgrid=f['t'][...]
             self.pgrid=f['p'][...]
