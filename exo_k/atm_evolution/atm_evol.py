@@ -16,7 +16,7 @@ class Atm_evolution(object):
     Uses exo_k.Atm class to compute radiative transfer
     """
 
-    def __init__(self, bg_vmr={}, verbose=False, **kwargs):
+    def __init__(self, bg_vmr=None, verbose=False, **kwargs):
         """Initializes atmospheric profiles.
 
         Most arguments are passed directly to exo_k.Atm class through **kwargs
@@ -29,7 +29,10 @@ class Atm_evolution(object):
         self.settings.set_parameters(**kwargs)
         self.header={'rad':0,'conv':1,'cond':2,'madj':3,'rain':4,'tot':5}
 
-        self.bg_vmr=bg_vmr
+        if bg_vmr is None:
+            self.bg_vmr={}
+        else:
+            self.bg_vmr=bg_vmr
         self.bg_gas = xk.Gas_mix(self.bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
         self.M_bg = self.settings.pop('M_bg', self.M_bg)
@@ -636,6 +639,7 @@ class Tracers(object):
             self.Nlay = Nlay
         else:
             raise RuntimeError("We need to know Nlay to initialize Tracers")
+        self.bg_vmr = bg_vmr.copy()
         self.gas_vmr = bg_vmr.copy()
         self.var_gas_idx = list()
         self.var_gas_names = list()
@@ -689,10 +693,19 @@ class Tracers(object):
         ovMbg=1./self.M_bg
         self.Mgas = 1./((1.-qvar)*ovMbg + ovMvar)
         if update_vmr:
+            var_vmr_tot = 0.
             for ii, idx in enumerate(self.var_gas_idx):
-                self.gas_vmr[self.var_gas_names[ii]] = np.core.umath.maximum(
+                vmr_tmp = np.core.umath.maximum(
                     self.Mgas * self.qarray[idx] / self.gas_molar_masses[ii], 0.)
                     #conversion to vmr
+                self.gas_vmr[self.var_gas_names[ii]] = vmr_tmp
+                var_vmr_tot += vmr_tmp
+                #print(vmr_tmp, var_vmr_tot, isinstance(vmr_tmp, (np.ndarray)))
+            var_vmr_tot = 1. - var_vmr_tot    
+            #print(var_vmr_tot)
+            for mol, vmr in self.bg_vmr.items():
+                #print(mol, vmr, var_vmr_tot, isinstance(var_vmr_tot, (np.ndarray)))
+                self.gas_vmr[mol] = vmr * var_vmr_tot
 
     def compute_turbulent_diffusion(self, timestep, Htot, atm, cp):
         """Mixes tracers following a diffusion equation

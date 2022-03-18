@@ -106,6 +106,19 @@ class Gas_mix(Spectral_object):
         #    I hope you know what you are doing.""")
         self.composition[self.bg_gas]=1.-other_vmr
 
+    def normalize(self):
+        """Renormalizes the vmr of all the gases so that
+        the total be equal to 1.
+
+        This works only if the vmr of 'inactive_gas' is not 0.
+        """
+        vmr_inac = self.composition['inactive_gas']
+        for mol,vmr in self.composition.items():
+            if mol!='inactive_gas':
+                self.composition[mol]=vmr/(1.-vmr_inac)
+            else:
+                self.composition[mol]=0.
+
     def molar_mass(self):
         """Computes and returns the molar mass of a mix of gases
 
@@ -154,6 +167,42 @@ class Gas_mix(Spectral_object):
                     print('requested shape:',sh,', molecule shape:',vmr_array[mol].shape)
                     raise RuntimeError('Wrong shape in get_vmr_array')
         return vmr_array, cst_array
+
+    def get_q_array(self, sh=None):
+        """Returns a dictionary with an array of specific concentrations for each species. 
+
+        Parameters
+        ----------
+            sh: set or list
+                shape of the array wanted if all the vmr are floats.
+                If some are already arrays, check whether the shape is the correct one. 
+
+        Returns
+        -------
+            q_array: dict
+                A dictionary with the an array of specific concentration per species.
+            cst_array: boolean
+                Is True if all the values in the arrays are constant.
+        """
+        q_array=dict()
+        cst_array=True
+        Mg = self.molar_mass()
+        for mol,vmr in self.composition.items():
+            if mol!='inactive_gas':
+                mmol=Molar_mass().fetch(mol)
+            else:
+                mmol=0.
+            if isinstance(vmr,(float,int)):
+                q_array[mol]=np.ones(sh)*vmr*mmol/Mg
+            else:
+                cst_array=False
+                q_array[mol]=np.array(vmr)*mmol/Mg # this np.array could probably go because vmr should be an array at this stage. 
+                if not np.array_equal(q_array[mol].shape, sh):
+                    print('molecule:',mol)
+                    print('requested shape:',sh,', molecule shape:',q_array[mol].shape)
+                    raise RuntimeError('Wrong shape in get_vmr_array')
+        return q_array, cst_array
+
 
     def get_vmr_array_basic_molecules(self, sh=None):
         """Returns a dictionary with an array of vol. mix. ratios for each and decomposes
