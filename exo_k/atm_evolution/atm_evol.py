@@ -29,11 +29,7 @@ class Atm_evolution(object):
         self.settings.set_parameters(**kwargs)
         self.header={'rad':0,'conv':1,'cond':2,'madj':3,'rain':4,'tot':5}
 
-        if bg_vmr is None:
-            self.bg_vmr={}
-        else:
-            self.bg_vmr=bg_vmr
-        self.bg_gas = xk.Gas_mix(self.bg_vmr)
+        self.bg_gas = xk.Gas_mix(bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
         self.M_bg = self.settings.pop('M_bg', self.M_bg)
         self.cp = self.settings['cp']
@@ -42,11 +38,11 @@ class Atm_evolution(object):
         if verbose: print('cp, M_bg, rcp:', self.cp, self.M_bg, self.rcp)
 
 
-        self.tracers=Tracers(self.settings, bg_vmr=self.bg_vmr,
-            M_bg=self.M_bg, **self.settings.parameters)
+        self.tracers=Tracers(self.settings, bg_vmr = self.bg_gas.composition,
+            M_bg = self.M_bg, **self.settings.parameters)
         self.initialize_condensation(**self.settings.parameters)
 
-        self.setup_radiative_model(rcp = self.rcp, gas_vmr=self.tracers.gas_vmr,
+        self.setup_radiative_model(rcp = self.rcp, gas_vmr = self.tracers.gas_vmr,
             **self.settings.parameters)
         self.Nlay = self.atm.Nlay
         self.tlay = self.atm.tlay
@@ -715,7 +711,7 @@ class Tracers(object):
         ----------
             timestep: float
                 physical timestep of the current step (in s/cp).
-                (needs to be converted before it is sent to `turbulent diffusion)
+                (needs to be converted before it is sent to `turbulent diffusion`)
             Htot: array
                 Total heating rate (in W/kg) of all physical processes
                 already computed

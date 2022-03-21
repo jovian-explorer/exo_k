@@ -16,11 +16,12 @@ class Gas_mix(Spectral_object):
     can be used to compute the opacity of the gas
     """
 
-    def __init__(self, composition={}, logp_array=None, t_array=None,
+    def __init__(self, composition=None, logp_array=None, t_array=None,
         k_database=None, cia_database=None):
         """__init_ Instantiates
         a Gas_mix object and computes the vmr of the 'background' gas.
         """
+        if composition is None: composition=dict()
         self.Narray=None
         self._wn_range=None
         self.iw_min=None
