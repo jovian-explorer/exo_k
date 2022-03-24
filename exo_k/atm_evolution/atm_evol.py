@@ -32,7 +32,8 @@ class Atm_evolution(object):
         self.bg_gas = xk.Gas_mix(bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
         self.M_bg = self.settings.pop('M_bg', self.M_bg)
-        self.cp = self.settings['cp']
+        self.cp = self.bg_gas.cp()
+        self.cp = self.settings.pop('cp', self.cp)
         self.rcp = xk.RGP/(self.M_bg*self.cp)
         self.rcp = self.settings.pop('rcp', self.rcp)
         if verbose: print('cp, M_bg, rcp:', self.cp, self.M_bg, self.rcp)
