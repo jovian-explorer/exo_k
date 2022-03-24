@@ -7,7 +7,7 @@ import numba
 import exo_k as xk
 from .settings import Settings
 from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion
-from .condensation import Condensing_species, moist_adiabat, compute_condensation,\
+from .condensation import Condensing_species, moist_adiabat, compute_condensation, Tsat_P,\
                 Condensation_Thermodynamical_Parameters 
 
 class Atm_evolution(object):
@@ -576,7 +576,9 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
             thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
             thermo_parameters[5], thermo_parameters[6], thermo_parameters[7], thermo_parameters[8],
             thermo_parameters[9])
-    #compute_condensation(tlay, play, Mgas, *thermo_parameters[1:])
+
+    Tsat_p = Tsat_P(play, thermo_parameters[5], thermo_parameters[8], thermo_parameters[9])
+
     mass_cond = 0.
     for i_lay in range(Nlay):
         #  if evap_coeff =1, rain vaporisation in an undersaturated layer can fill the layer up to the (estimated) saturation
@@ -601,7 +603,7 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
             mass_cond -= dqvap*dmass[i_lay]               
         else: # evaporation of rain
             mass_dvap = dqvap*dmass[i_lay]     
-            if mass_dvap > mass_cond: # evaporate everything
+            if (mass_dvap > mass_cond) or (tlay[i_lay] >= Tsat_p[i_lay]): # evaporate everything
                 qarray[idx_vap,i_lay] += mass_cond/dmass[i_lay]
                 H_rain[i_lay] = - Lvap[i_lay] * mass_cond / (dmass[i_lay]*cp*timestep)
                 mass_cond = 0.

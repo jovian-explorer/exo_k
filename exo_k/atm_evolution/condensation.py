@@ -257,7 +257,7 @@ def Psat_T(T, T_ref, Psat_ref, c1, c2, delta_cp_R):
     return Psat_ref*np.exp( c1 + c2/T + delta_cp_R*np.log(T/T_ref))
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
-def Tsat_P(P, T_ref, Psat_ref, c1, c2, delta_cp_R):
+def Tsat_P(P, Psat_ref, c1, c2):
     """Boiling temperature for the condensing species
 
     NOT EXACT IF DELTA CP != 0.
