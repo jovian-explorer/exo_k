@@ -274,12 +274,12 @@ class Gas_mix(Spectral_object):
             k_database: :class:`~exo_k.kdatabase.Kdatabase` object
                 New Kdatabase to use.
         """
-        self.kdatabase=k_database
-        if self.kdatabase is None:
+        self.k_database=k_database
+        if self.k_database is None:
             self.Ng=None
         else:
-            self.Ng=self.kdatabase.Ng
-            if self.kdatabase.p_unit != 'Pa' or rm_molec(self.kdatabase.kdata_unit) != 'm^2':
+            self.Ng=self.k_database.Ng
+            if self.k_database.p_unit != 'Pa' or rm_molec(self.k_database.kdata_unit) != 'm^2':
                 print("""You're being Bad!!! You are trying *NOT* to use MKS units!!!
                 You can convert to mks using convert_to_mks on your Kdatabase.
                 More generally, you can specify exo_k.Settings().set_mks(True) 
@@ -289,8 +289,8 @@ class Gas_mix(Spectral_object):
                 You will have to reload all your data though.
                 (A good thing it does not take so long). """)
                 raise RuntimeError("Bad units in the Kdatabase used with Gas_mix.")
-            if (not self.kdatabase.consolidated_p_unit) \
-                or (not self.kdatabase.consolidated_kdata_unit):
+            if (not self.k_database.consolidated_p_unit) \
+                or (not self.k_database.consolidated_kdata_unit):
                 raise RuntimeError( \
                     """All tables in the database should have the same units to proceed.
                     You should probably use convert_to_mks().""")
@@ -363,10 +363,10 @@ class Gas_mix(Spectral_object):
             local_wn_range=wn_range
         if local_wn_range is None:
             self.iw_min=0
-            self.iw_max=self.kdatabase.Nw
+            self.iw_max=self.k_database.Nw
         else:
-            self.iw_min, self.iw_max = np.where((self.kdatabase.wnedges > local_wn_range[0]) \
-                & (self.kdatabase.wnedges <= local_wn_range[1]))[0][[0,-1]]
+            self.iw_min, self.iw_max = np.where((self.k_database.wnedges > local_wn_range[0]) \
+                & (self.k_database.wnedges <= local_wn_range[1]))[0][[0,-1]]
             # to be consistent with interpolate_kdata
 
     def cross_section(self, composition=None, logp_array=None, t_array=None,
@@ -399,13 +399,13 @@ class Gas_mix(Spectral_object):
           * self.wns, Wavenumber array
           * self.wnedges, Wavenumber of the edges of the bins
         """
-        if self.kdatabase is None: raise RuntimeError("""k_database not provided. 
+        if self.k_database is None: raise RuntimeError("""k_database not provided. 
         Use the k_database keyword during initialization or use the set_k_database method.""")
-        if not self.kdatabase.consolidated_wn_grid: raise RuntimeError("""
+        if not self.k_database.consolidated_wn_grid: raise RuntimeError("""
             All tables in the database should have the same wavenumber grid to proceed.
             You should probably use bin_down().""")
         if self.cia_database is not None and \
-            (not np.array_equal(self.cia_database.wns,self.kdatabase.wns)):
+            (not np.array_equal(self.cia_database.wns,self.k_database.wns)):
             raise RuntimeError("""CIAdatabase not sampled on the right wavenumber grid.
             You should probably run something like CIAdatabase.sample(Kdatabase.wns).""")
         
@@ -427,9 +427,9 @@ class Gas_mix(Spectral_object):
             molecs=self.vmr_arr.keys()
         if write>6 :
             print('molecs:', molecs) 
-        mol_to_be_done=list(set(molecs).intersection(self.kdatabase.molecules))
+        mol_to_be_done=list(set(molecs).intersection(self.k_database.molecules))
         if not mol_to_be_done:
-            if 'total' in self.kdatabase.molecules:
+            if 'total' in self.k_database.molecules:
                 #special case where you have one ktable that describes the whole gas.
                 mol_to_be_done=['total']
                 use_basic_molecules=False
@@ -438,7 +438,7 @@ class Gas_mix(Spectral_object):
                 raise RuntimeError("""The k_database you provided 
                     should contain at least one molecule in your atm,
                     or a ktable with the 'total' key.""")
-        if all(elem in self.kdatabase.molecules for elem in molecs):
+        if all(elem in self.k_database.molecules for elem in molecs):
             if write>3 : print("""I have all the molecules present in the atmosphere
               in ktables provided:""")
         else:
@@ -449,9 +449,9 @@ class Gas_mix(Spectral_object):
         # does what needs to be done to reduce the spectral range
         local_wn_range=self._compute_spectral_range(wl_range=wl_range, wn_range=wn_range)
         self._compute_wn_range_indices(wn_range=local_wn_range)
-        self.wnedges=np.copy(self.kdatabase.wnedges[self.iw_min:self.iw_max+1])
+        self.wnedges=np.copy(self.k_database.wnedges[self.iw_min:self.iw_max+1])
         self.dwnedges=np.diff(self.wnedges)
-        self.wns=np.copy(self.kdatabase.wns[self.iw_min:self.iw_max]) # 2021: are these copy needed?
+        self.wns=np.copy(self.k_database.wns[self.iw_min:self.iw_max]) # 2021: are these copy needed?
         self.Nw=self.wns.size
 
         first_mol=True
@@ -460,7 +460,7 @@ class Gas_mix(Spectral_object):
         else:
             vmr_arr_to_use = self.vmr_arr
         for mol in mol_to_be_done:
-            tmp_kdata=self.kdatabase[mol].interpolate_kdata(logp_array=self.logp_array,
+            tmp_kdata=self.k_database[mol].interpolate_kdata(logp_array=self.logp_array,
                 t_array=self.t_array, x_array=vmr_arr_to_use[mol], wngrid_limit=local_wn_range,
                 logp_interp=logp_interp,
                 **kwargs)
@@ -468,11 +468,11 @@ class Gas_mix(Spectral_object):
                 kdata_array=tmp_kdata
                 first_mol=False
             else:
-                if random_overlap and (self.kdatabase.Ng is not None):
+                if random_overlap and (self.k_database.Ng is not None):
                     kdata_array=RandOverlap_2_kdata_prof(self.Narray,
-                        self.Nw, self.kdatabase.Ng, 
-                        kdata_array,tmp_kdata, self.kdatabase.weights,
-                        self.kdatabase.ggrid)
+                        self.Nw, self.k_database.Ng, 
+                        kdata_array,tmp_kdata, self.k_database.weights,
+                        self.k_database.ggrid)
                 else:
                     kdata_array+=tmp_kdata
 
@@ -488,7 +488,7 @@ class Gas_mix(Spectral_object):
             if self.cia_database is not None:
                 cont_sig+=self.cia_database.cia_cross_section(self.logp_array,
                     self.t_array, self.vmr_arr_base_mol, wngrid_limit=local_wn_range, Nw=self.Nw)
-            if self.kdatabase.Ng is None:
+            if self.k_database.Ng is None:
                 kdata_array+=cont_sig
             else:
                 kdata_array+=cont_sig[:,:,None]
@@ -543,7 +543,7 @@ class Gas_mix(Spectral_object):
         The databases are not deep copied. 
         """
         res=Gas_mix(self.composition, bg_gas=self.bg_gas,
-            k_database=self.kdatabase, cia_database=self.cia_database)
+            k_database=self.k_database, cia_database=self.cia_database)
         res.logp_array=np.copy(self.logp_array)
         res.t_array=np.copy(self.t_array)
         res.Narray=self.Narray

@@ -523,12 +523,12 @@ class Atm(Atm_profile):
                 New Kdatabase to use.
         """
         self.gas_mix.set_k_database(k_database=k_database)
-        self.kdatabase=self.gas_mix.kdatabase
+        self.k_database=self.gas_mix.k_database
         self.Ng=self.gas_mix.Ng
         # to know whether we are dealing with corr-k or not and access some attributes. 
-        if self.kdatabase is not None:
-            self.Nw = self.kdatabase.Nw
-            self.wnedges = self.kdatabase.wnedges
+        if self.k_database is not None:
+            self.Nw = self.k_database.Nw
+            self.wnedges = self.k_database.wnedges
             self.dwnedges = np.diff(self.wnedges)
             self.flux_top_dw_nu = np.zeros((self.Nw))
 
@@ -712,7 +712,7 @@ class Atm(Atm_profile):
         else:
             self.tau, self.dtau=rad_prop_corrk(self.dcol_density_rad,
                 self.kdata, mu_eff)
-            self.weights=self.kdatabase.weights
+            self.weights=self.k_database.weights
 
     def emission_spectrum(self, integral=True, mu0=0.5, mu_quad_order=None,
             dtau_min=1.e-13, **kwargs):
@@ -1005,7 +1005,7 @@ class Atm(Atm_profile):
         self.compute_tangent_path()
         self.compute_density()
         if self.Ng is not None:
-            self.weights=self.kdatabase.weights
+            self.weights=self.k_database.weights
             transmittance=path_integral_corrk( \
                 self.Nlay-1,self.Nw,self.Ng,self.tangent_path,self.density,self.kdata,self.weights)
         else:
@@ -1073,7 +1073,7 @@ class Atm(Atm_profile):
     k_database      :
         {kdatab}
     cia_database    :
-        {cdatab}""".format(kdatab=self.kdatabase, cdatab=self.gas_mix.cia_database)
+        {cdatab}""".format(kdatab=self.k_database, cdatab=self.gas_mix.cia_database)
         if self.gas_mix._wn_range is not None:
             output+='    wn range        : '+ self.gas_mix._wn_range +'\n'
 
@@ -1082,7 +1082,7 @@ class Atm(Atm_profile):
     def exp_minus_tau(self):
         """Sums Exp(-tau) over gauss points
         """
-        weights=self.kdatabase.weights
+        weights=self.k_database.weights
         return np.sum(np.exp(-self.tau[1:])*weights,axis=2)
 
     def exp_minus_tau_g(self, g_index):
