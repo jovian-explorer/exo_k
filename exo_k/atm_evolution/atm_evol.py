@@ -395,7 +395,7 @@ class Atm_evolution(object):
             net = self.Fnet_top - self.atm.internal_flux
             if verbose:
                 print('iter: {iter}, N_timestep: {Nt}'.format(iter = iter, Nt = N_timestep))
-                print('Fnet mean: {fme:.3g W/m^2, (min:{fmi:.3g}, max:{fma:.3g})'.format( \
+                print('Fnet mean: {fme:.3g} W/m^2, (min:{fmi:.3g}, max:{fma:.3g})'.format( \
                     fme = net.mean(), fmi = net.min(), fma = net.max()))   
                 print('timestep: {ts1:.3g} d | {ts2:.3g} s, total time: {ev_t:.3g} yr'.format( \
                     ts1 = self.timestep*self.cp/(DAY), ts2 = self.timestep*self.cp,
@@ -473,9 +473,9 @@ class Atm_evolution(object):
         ----------
             filename: str
                 Path to pickle file
-            save_space: int
+            data_reduction_level: int
                 Level of data to delete.
-                0: keep everything.
+                0: keep everything (results in big files).
                 1: removes some arrays, should not affect subsequent evolution.
                 2: removes the k and cia databases. The radiative model will need to be reset.
                 This can be done with

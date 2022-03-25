@@ -9,7 +9,8 @@ import exo_k.util.cst as cst
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
-def dry_convective_adjustment(timestep, Nlay, t_lay, exner, dmass, tracer_array, Mgas, verbose = False):
+def dry_convective_adjustment(timestep, Nlay, t_lay, exner, dmass,
+    tracer_array, Mgas, verbose = False):
     r"""Computes the heating rates needed to adjust unstable regions 
     of a given atmosphere to a convectively neutral T profile on
     a given timestep.
