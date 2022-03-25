@@ -2,9 +2,12 @@
 """
 @author: jeremy leconte
 """
+import pickle
+import copy
 import numpy as np
 import numba
 import exo_k as xk
+from exo_k.util.cst import DAY
 from .settings import Settings
 from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion
 from .condensation import Condensing_species, moist_adiabat, compute_condensation, Tsat_P,\
@@ -31,11 +34,11 @@ class Atm_evolution(object):
 
         self.bg_gas = xk.Gas_mix(bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
-        self.M_bg = self.settings.pop('M_bg', self.M_bg)
+        self.M_bg = self.settings.get('M_bg', self.M_bg)
         self.cp = self.bg_gas.cp()
-        self.cp = self.settings.pop('cp', self.cp)
+        self.cp = self.settings.get('cp', self.cp)
         self.rcp = xk.RGP/(self.M_bg*self.cp)
-        self.rcp = self.settings.pop('rcp', self.rcp)
+        self.rcp = self.settings.get('rcp', self.rcp)
         if verbose: print('cp, M_bg, rcp:', self.cp, self.M_bg, self.rcp)
 
 
@@ -43,7 +46,7 @@ class Atm_evolution(object):
             M_bg = self.M_bg, **self.settings.parameters)
         self.initialize_condensation(**self.settings.parameters)
 
-        self.setup_radiative_model(rcp = self.rcp, gas_vmr = self.tracers.gas_vmr,
+        self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
             **self.settings.parameters)
         self.Nlay = self.atm.Nlay
         self.tlay = self.atm.tlay
@@ -66,7 +69,8 @@ class Atm_evolution(object):
             self.settings.set_parameters(**kwargs)
         if 'Kzz' in kwargs.keys():
             self.tracers.Kzz = np.ones(self.Nlay)*kwargs['Kzz']
-        if reset_rad_model: self.setup_radiative_model(**self.settings.parameters)
+        if reset_rad_model: self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
+                **self.settings.parameters)
 
     def initialize_condensation(self, condensing_species={}, **kwargs):
         """This method initializes the condensation module by
@@ -238,7 +242,7 @@ class Atm_evolution(object):
         self.Fnet[-1] = np.sum(self.Fnet, axis=0)
 
 
-    def evolve(self, Niter=1, N_kernel=10000., alpha=1., dT_max = 50., verbose = False, **kwargs):
+    def evolve(self, N_timestep=1, N_kernel=10000, timestep_factor=1., dT_max = 100., verbose = False, **kwargs):
         r"""The time variable used in the model is tau=t/cp. 
         The equation we are solving in each layer is thus
 
@@ -249,22 +253,35 @@ class Atm_evolution(object):
 
         To work, the heating rates (H) must be computed in W/kg. 
 
-        THis also means that if one needs the physical rate of change of another quantity (like dq/dt)
+        This also means that if one needs the physical rate of change of another quantity (like dq/dt)
         from the delta q over a time step,
         one needs to do `dq/dt = delta q / (timestep * cp)`
+
+        Parameters
+        ----------
+            N_timestep: int
+                Number of timesteps to perform.
+            N_kernel: int
+                Maximal number of timesteps between two computations of the radiative kernel.
+            timestep_factor: float
+                Multiplicative factor applied to timestep computed automatically by
+                the radiative module.
+                timestep_factor > 1 can lead to unstabilities.
+            dT_max: float
+                Maximum temperature increment in a single timestep.
+            
         """
-        self.H_hist = np.zeros((6, Niter, self.Nlay))
         self.H_ave = np.zeros((6, self.Nlay))
 
-        self.tlay_hist = np.zeros((Niter,self.Nlay))
-        self.Fnet_top = np.zeros((Niter))
-        self.timestep_hist = np.zeros((Niter))
+        self.tlay_hist = np.zeros((N_timestep,self.Nlay))
+        self.Fnet_top = np.zeros((N_timestep))
+        self.timestep_hist = np.zeros((N_timestep))
         tau0 = self.evol_time
         self.N_last_ker = 0
         compute_kernel = False
         dTlay_max = 2. * self.settings['dTmax_use_kernel']
         self.tracers.update_gas_composition(update_vmr=True)
-        for ii in range(Niter):
+        for ii in range(N_timestep):
             if np.amax(np.abs(self.tlay-self.atm.tlay_kernel)) < self.settings['dTmax_use_kernel']:
                 self.N_last_ker +=1
                 if verbose: print(self.N_last_ker, self.N_last_ker%N_kernel)
@@ -276,7 +293,7 @@ class Atm_evolution(object):
                 else:
                     compute_kernel = False
                     self.N_last_ker +=1
-            if ii == Niter-1:
+            if ii == N_timestep-1:
                 if ii != 0:
                     compute_kernel=True
             self.H_tot=np.zeros(self.Nlay)
@@ -292,7 +309,7 @@ class Atm_evolution(object):
             if self.settings['radiative_acceleration']:
                 self.H_rad =  self.H_rad * self.atm.tau_rads / self.atm.tau_rad
             self.H_tot += self.H_rad
-            self.timestep = alpha * self.atm.tau_rad
+            self.timestep = timestep_factor * self.atm.tau_rad
             #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
             self.evol_time += self.timestep
             if self.settings['convection']:
@@ -325,18 +342,17 @@ class Atm_evolution(object):
                 self.H_rain = np.zeros(self.Nlay)
             dTlay= self.H_tot * self.timestep
             dTlay_max = np.amax(np.abs(dTlay))
-            if verbose: print('heat rates (rad, dry conv), dTmax:', 
-                np.sum(self.H_rad*self.atm.dmass), np.sum(self.H_conv*self.atm.dmass), dTlay_max)
-            #if dTlay_max > dT_max:
-            #    print("got a big T step at iteration:", ii)
-            #    print(dTlay)
-            #    break
+            if dTlay_max > dT_max:
+                print('dT > dTmax:',dTlay_max,' at k=',np.argmax(np.abs(dTlay))) 
+            if verbose:
+                print('heat rates (rad, dry conv), dTmax:', 
+                    np.sum(self.H_rad*self.atm.dmass), np.sum(self.H_conv*self.atm.dmass),
+                    dTlay_max)
             dTlay=np.clip(dTlay,-dT_max,dT_max)
             self.tlay = self.tlay + dTlay
             self.tlay_hist[ii] = self.tlay
             for jj, H in enumerate([self.H_rad, self.H_conv, self.H_cond, self.H_madj,
                   self.H_rain, self.H_tot]):
-                self.H_hist[jj,ii] = H
                 self.H_ave[jj] += H * self.timestep
             self.Fnet_top[ii] = self.Fnet_rad[0]
             self.timestep_hist[ii] = self.timestep
@@ -346,6 +362,50 @@ class Atm_evolution(object):
         self.H_ave *= inv_delta_t
         self.compute_average_fluxes()
 
+    def equilibrate(self, Fnet_tolerance = None, N_iter_max = 10,
+        N_timestep_ini = 100, N_timestep_max = 1000000, verbose = False, **kwargs):
+        """Evolves an atmosphere until it is at equilibrium.
+        
+        Equilibrium is assumed to be reached when the net top of atmosphere
+        flux remains within +-Fnet_tolerance of the internal flux
+        for a whole evolution step.
+
+        The number of timesteps per evolution step in multiplied by two 
+        at each iteration, starting from N_timestep_ini, until the limit of
+        N_timestep_max is reached.
+
+        Parameters
+        ----------
+            Fnet_tolerance: float
+                Tolerance on net flux in W/m^2 to identify convergence.
+            N_iter_max: int
+                Max number of successive calls to evolve
+            N_timestep_ini: int
+                Initial number of timesteps in a single evolution step
+            N_timestep_max: int
+                Max number of timesteps in a single evolution step
+        """
+        iter=1
+        if Fnet_tolerance is None:
+            raise RuntimeError('You should provide the maximum tolerance on the net flux: Fnet_tolerance (in W/m^2)') 
+        N_timestep = N_timestep_ini
+        while iter <= N_iter_max:
+            time_init = self.evol_time
+            self.evolve(N_timestep = N_timestep, **kwargs)
+            net = self.Fnet_top - self.atm.internal_flux
+            if verbose:
+                print('iter: {iter}, N_timestep: {Nt}'.format(iter = iter, Nt = N_timestep))
+                print('Fnet mean: {fme:.3g W/m^2, (min:{fmi:.3g}, max:{fma:.3g})'.format( \
+                    fme = net.mean(), fmi = net.min(), fma = net.max()))   
+                print('timestep: {ts1:.3g} d | {ts2:.3g} s, total time: {ev_t:.3g} yr'.format( \
+                    ts1 = self.timestep*self.cp/(DAY), ts2 = self.timestep*self.cp,
+                    ev_t = (self.evol_time-time_init)*self.cp/(DAY*365.)))   
+                #print('timestep:',self.timestep*self.cp/(DAY),'days, ',
+                #    self.timestep*self.cp,'s, evol_time(yr):',(self.evol_time-time_init)*self.cp/(DAY*365.))
+            if np.all(np.abs(net) < Fnet_tolerance): break
+            N_timestep = min( N_timestep * 2, N_timestep_max)
+            iter += 1
+            
     def moist_convective_adjustment(self, timestep, Htot, moist_inhibition = True,
             verbose = False):
         """This method computes the vapor and temperature tendencies do to
@@ -405,6 +465,47 @@ class Atm_evolution(object):
                     atm.dmass, new_t, self.tracers.Mgas,
                     atm.grav, self.tracers.Dmol)
         return H_diff
+
+    def write_pickle(self, filename, data_reduction_level = 1):
+        """Saves the instance in a pickle file
+
+        Parameters
+        ----------
+            filename: str
+                Path to pickle file
+            save_space: int
+                Level of data to delete.
+                0: keep everything.
+                1: removes some arrays, should not affect subsequent evolution.
+                2: removes the k and cia databases. The radiative model will need to be reset.
+                This can be done with
+                `set_options(k_database=, cia_database=, reset_rad_model=True)` after
+                re-loading the `Atm_evolution` instance.
+        """
+        other = copy.deepcopy(self)
+        if data_reduction_level >=1 :
+            other.tlay_hist = None
+            other.atm.asym_param = None
+            other.atm.kdata = None
+            other.atm.tau = None
+            other.atm.dtau = None
+            other.atm.flux_down_nu = None
+            other.atm.flux_net_nu = None
+            other.atm.flux_up_nu = None
+            other.atm.piBatm = None
+            other.atm.single_scat_albedo = None
+            other.atm.gas_mix.kdata_scat = None
+        if data_reduction_level >=2 :
+            other.settings['k_database'] = None
+            other.settings['cia_database'] = None
+            other.atm.k_database = None
+            other.atm.gas_mix.k_database = None
+            other.atm.gas_mix.cia_database = None
+            other.atm.kernel = None
+            other.atm.tlay_kernel = None
+            other.atm.H_kernel = None
+        with open(filename, 'wb') as filehandler:
+            pickle.dump(other, filehandler)
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)

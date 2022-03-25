@@ -8,12 +8,14 @@ Functions here CANNOT be called into the library itself: importing this module i
 lead to recursive import problems.
 """
 import os
+import pickle
 import numpy as np
 from exo_k.ktable import Ktable
 from exo_k.ktable5d import Ktable5d
 from exo_k.xtable import Xtable
 from exo_k.hires_spectrum import Hires_spectrum
 from exo_k.util.cst import PI
+from exo_k.atm_evolution.atm_evol import Atm_evolution
 
 def create_table(logpgrid=None, tgrid=None, xgrid=None, wngrid=None, wnedges=None,
         ggrid=None, weights=None, p_unit='Pa', kdata_unit='m^2/molecule',
@@ -258,4 +260,15 @@ def mmr_to_number_density(mmr, gas_density, r_eff, condensate_density):
     """
     particle_mass=4.*PI*r_eff**3*condensate_density/3.
     return mmr*gas_density/particle_mass
-    
+
+def load_atm_evolution(pickle_filename):
+    """Load an Atm_evolution instance from a pickle file
+
+    Parameters
+    ----------
+        pickle_filename: str
+            name of pickle file
+    """
+    with  open(pickle_filename, 'rb') as filehandler:
+        atm_evol = pickle.load(filehandler)
+    return atm_evol

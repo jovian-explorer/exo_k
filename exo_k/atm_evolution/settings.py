@@ -43,6 +43,8 @@ class Settings(object):
     def pop(self, key, default):
         return self.parameters.pop(key, default)
 
+    def get(self, key, default):
+        return self.parameters.get(key, default)
 
     def __repr__(self):
         """Method to output parameters
