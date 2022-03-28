@@ -115,7 +115,7 @@ class Atm_evolution(object):
                             idx+=1
         self.Ncond=idx
 
-    def compute_condensation(self, timestep, Htot):
+    def condensation(self, timestep, Htot):
         """This method computes the vapor and temperature tendencies do to
         large scale condensation in saturated layers.
 
@@ -318,10 +318,10 @@ class Atm_evolution(object):
             else:
                 self.H_conv = np.zeros(self.Nlay)
             if self.settings['diffusion']:
-                self.tracers.compute_turbulent_diffusion(self.timestep, self.H_tot, self.atm, self.cp)
+                self.tracers.turbulent_diffusion(self.timestep, self.H_tot, self.atm, self.cp)
                 self.tracers.update_gas_composition(update_vmr=False)
             if self.settings['molecular_diffusion']:
-                self.H_diff = self.compute_molecular_diffusion(self.timestep,
+                self.H_diff = self.molecular_diffusion(self.timestep,
                     self.H_tot, self.atm, self.cp)
                 self.H_tot += self.H_diff
             if self.settings['moist_convection']:
@@ -331,7 +331,7 @@ class Atm_evolution(object):
             else:
                 self.H_madj = np.zeros(self.Nlay)
             if self.settings['condensation']:
-                self.H_cond = self.compute_condensation(self.timestep, self.H_tot)
+                self.H_cond = self.condensation(self.timestep, self.H_tot)
                 self.H_tot += self.H_cond
             else:
                 self.H_cond = np.zeros(self.Nlay)
@@ -443,7 +443,7 @@ class Atm_evolution(object):
             if verbose: print(qarray[idx_cond])
         return H_madj
 
-    def compute_molecular_diffusion(self, timestep, Htot, atm, cp):
+    def molecular_diffusion(self, timestep, Htot, atm, cp):
         """Mixes energy following a diffusion equation
         with a constant Dmol parameter (self.Dmol in m^2/s).
 
@@ -807,7 +807,7 @@ class Tracers(object):
                 #print(mol, vmr, var_vmr_tot, isinstance(var_vmr_tot, (np.ndarray)))
                 self.gas_vmr[mol] = vmr * var_vmr_tot
 
-    def compute_turbulent_diffusion(self, timestep, Htot, atm, cp):
+    def turbulent_diffusion(self, timestep, Htot, atm, cp):
         """Mixes tracers following a diffusion equation
         with a constant Kzz parameter (self.Kzz in m^2/s).
 
@@ -824,9 +824,14 @@ class Tracers(object):
                 contains many state variables. 
         """
         new_t = atm.tlay + timestep * Htot
+        if self.settings['moist_inhibition']:
+            Mgas_tmp = self.Mgas
+        else:
+            Mgas_tmp = np.mean(self.Mgas)
+            Mgas_tmp = np.full_like(self.Mgas, Mgas_tmp)
         qarray = turbulent_diffusion(timestep*cp, self.Nlay,
                     atm.play, atm.plev,
-                    atm.dmass, new_t/self.Mgas,
+                    atm.dmass, new_t/Mgas_tmp,
                     atm.grav, self.Kzz, self.qarray)
         #self.dm_trac = (qarray - self.qarray) * atm.dmass / (timestep*cp)
         self.qarray = qarray
@@ -848,8 +853,13 @@ class Tracers(object):
                 contains many state variables. 
         """
         new_t = atm.tlay + timestep * Htot
+        if self.settings['moist_inhibition']:
+            Mgas_tmp = self.Mgas
+        else:
+            Mgas_tmp = np.mean(self.Mgas)
+            Mgas_tmp = np.full_like(self.Mgas, Mgas_tmp)
         H_conv, q_array = dry_convective_adjustment(timestep, self.Nlay, new_t,
-                    atm.exner, atm.dmass, self.qarray, self.Mgas, verbose=verbose)
+                    atm.exner, atm.dmass, self.qarray, Mgas_tmp, verbose=verbose)
         if self.settings['convective_transport']:
             self.qarray=q_array
         return H_conv
