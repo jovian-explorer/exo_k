@@ -306,8 +306,6 @@ class Atm_evolution(object):
                 rayleigh = self.settings['rayleigh'], dTmax_use_kernel=self.settings['dTmax_use_kernel'],
                 gas_vmr = gas_vmr_rad, **kwargs)
 #            if verbose and compute_kernel: print('H_rad', self.H_rad)
-            if self.settings['radiative_acceleration']:
-                self.H_rad =  self.H_rad * self.atm.tau_rads / self.atm.tau_rad
             self.H_tot += self.H_rad
             self.timestep = timestep_factor * self.atm.tau_rad
             #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
@@ -340,6 +338,9 @@ class Atm_evolution(object):
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
+            if self.settings['radiative_acceleration']:
+                self.acceleration_factor = self.radiative_acceleration()
+                self.H_tot *= self.acceleration_factor
             dTlay= self.H_tot * self.timestep
             dTlay_max = np.amax(np.abs(dTlay))
             if dTlay_max > dT_max:
@@ -465,6 +466,22 @@ class Atm_evolution(object):
                     atm.dmass, new_t, self.tracers.Mgas,
                     atm.grav, self.tracers.Dmol)
         return H_diff
+
+    def radiative_acceleration(self):
+        """"Computes an acceleration factor to speed up convergence in
+        layers where only radiation plays a role.
+        """
+        acceleration_factor = np.ones_like(self.H_tot)
+        rad_layers =  np.isclose(self.H_tot, self.H_rad, atol=0.e0, rtol=1.e-10)
+        if np.all(rad_layers):
+            self.base_timescale = self.atm.tau_rad
+        else:
+            self.base_timescale = np.amax(self.atm.tau_rads[np.logical_not(rad_layers)])
+        acceleration_factor[rad_layers] = np.core.umath.maximum(
+            self.atm.tau_rads[rad_layers] \
+            / self.base_timescale * self.settings['radiative_acceleration_reducer'],
+            1.)
+        return acceleration_factor
 
     def write_pickle(self, filename, data_reduction_level = 1):
         """Saves the instance in a pickle file
