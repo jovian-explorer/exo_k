@@ -64,7 +64,7 @@ class Atm_evolution(object):
         one should set `reset_rad_model=True`
         """
         if 'tlay' not in kwargs.keys():
-            self.settings.set_parameters(tlay=self.tlay, **kwargs)
+            self.settings.set_parameters(tlay=self.tlay, logplay=self.atm.logplay, **kwargs)
         else:
             self.settings.set_parameters(**kwargs)
         if 'Kzz' in kwargs.keys():
