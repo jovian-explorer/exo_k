@@ -9,8 +9,9 @@ import numba
 import exo_k as xk
 from exo_k.util.cst import DAY
 from .settings import Settings
-from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion
-from .condensation import Condensing_species, moist_adiabat, compute_condensation, Tsat_P,\
+from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion, \
+                convective_acceleration
+from .condensation import Condensing_species, moist_adiabat, compute_condensation, Tsat_P, \
                 Condensation_Thermodynamical_Parameters 
 
 class Atm_evolution(object):
@@ -69,6 +70,11 @@ class Atm_evolution(object):
             self.settings.set_parameters(**kwargs)
         if 'Kzz' in kwargs.keys():
             self.tracers.Kzz = np.ones(self.Nlay)*kwargs['Kzz']
+        if 'radiative_acceleration' in kwargs.keys():
+            print("'radiative_acceleration' is deprecated. Please use accleration_mode instead.")
+            print("accleration_mode = 1 will emulate the previous behavior but other modes exist.")
+            print("In particular accleration_mode = 1 will also accelerate convergence in convective zones")
+            raise DeprecationWarning('radiative_acceleration is deprecated. Remove radiative_acceleration from the options to get rid of this message')
         if reset_rad_model: self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
                 **self.settings.parameters)
 
@@ -338,9 +344,10 @@ class Atm_evolution(object):
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
-            if self.settings['radiative_acceleration']:
-                self.acceleration_factor = self.radiative_acceleration()
-                self.H_tot *= self.acceleration_factor
+            if self.settings['acceleration_mode'] > 0:
+                self.radiative_acceleration(timestep = self.timestep, \
+                    acceleration_mode = self.settings['acceleration_mode'], verbose=verbose)
+                #self.H_tot *= self.acceleration_factor
             dTlay= self.H_tot * self.timestep
             dTlay_max = np.amax(np.abs(dTlay))
             if dTlay_max > dT_max:
@@ -467,21 +474,48 @@ class Atm_evolution(object):
                     atm.grav, self.tracers.Dmol)
         return H_diff
 
-    def radiative_acceleration(self):
-        """"Computes an acceleration factor to speed up convergence in
-        layers where only radiation plays a role.
+    def radiative_acceleration(self, timestep = 0., acceleration_mode = 0, verbose = False, **kwargs):
+        """"Computes an acceleration factor and a new heating rate to speed up convergence
+
+        Parameters
+        ----------
+            acceleration_mode: int
+                0: no acceleration
+                1 or 3: acceleration limited to radiative zones.
+                2 or 4: acceleration in convective zones as well. 
         """
-        acceleration_factor = np.ones_like(self.H_tot)
+        self.acceleration_factor = np.ones_like(self.H_tot)
         rad_layers =  np.isclose(self.H_tot, self.H_rad, atol=0.e0, rtol=1.e-10)
+        if verbose: 
+            print('in acc rad_layers, H_tot, H_rad')
+            print(rad_layers)
+            print(np.transpose([rad_layers, self.H_tot,self.H_rad]))
         if np.all(rad_layers):
-            self.base_timescale = self.atm.tau_rad
+            self.base_timescale = timestep
         else:
-            self.base_timescale = np.amax(self.atm.tau_rads[np.logical_not(rad_layers)])
-        acceleration_factor[rad_layers] = np.core.umath.maximum(
+            if acceleration_mode <= 2:
+                self.base_timescale = np.amax(self.atm.tau_rads[np.logical_not(rad_layers)])
+            elif acceleration_mode <= 4:
+                self.base_timescale = np.amin(self.atm.tau_rads[rad_layers])
+            else:
+                raise NotImplementedError('Only acceleration_mode <= 4 is supported for the moment')
+
+        self.acceleration_factor[rad_layers] = np.core.umath.maximum(
             self.atm.tau_rads[rad_layers] \
             / self.base_timescale * self.settings['radiative_acceleration_reducer'],
             1.)
-        return acceleration_factor
+
+        if (acceleration_mode == 2) or (acceleration_mode == 4):
+            self.H_acc = convective_acceleration(timestep, self.Nlay, self.H_rad,
+                    rad_layers, self.atm.tau_rads, self.atm.dmass, verbose = verbose)
+        else:
+            self.H_acc = np.zeros(self.Nlay)
+        
+        if verbose: 
+            print('in acc acceleration_factor, H_tot, H_acc')
+            print(np.transpose([self.acceleration_factor, self.H_tot, self.H_acc]))
+        self.H_tot = self.H_tot * self.acceleration_factor + self.H_acc
+
 
     def write_pickle(self, filename, data_reduction_level = 1):
         """Saves the instance in a pickle file

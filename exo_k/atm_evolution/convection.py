@@ -120,6 +120,75 @@ def dry_convective_adjustment(timestep, Nlay, t_lay, exner, dmass,
     return H_conv, new_tracers # we exit through here only when we exceed the max number of iteration
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
+def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rads, dmass,
+    verbose = False):
+    r"""Computes the heating rates needed to adjust unstable regions 
+    of a given atmosphere to a convectively neutral T profile on
+    a given timestep.
+    
+    Parameters
+    ----------
+        timestep: float
+            Duration of the adjustment.
+            If given in seconds, H=dT/timestep is in K/s.
+            In the current model, timestep is in second over cp.
+            This ensures that H=dT/timestep is in W/kg.
+        Nlay: int
+            Number of atmospheric layers
+        H_rad: array
+            Radiative heating rate
+        rad_layers: array of bool
+            Elements in the array are true if layer is purely radiative
+        tau_rads: array
+            Radiative timescale for each layer. Should use the same units as timestep.
+        dmass: array
+            Mass of gas in each layer (kg/m^2)
+
+    Returns
+    -------
+        array
+            Heating rate in each atmospheric layer (W/kg).  
+    """
+    H_acc = np.zeros(Nlay)
+    n_iter=0
+    # find convective layers
+    conv=np.nonzero(np.invert(rad_layers))[0]
+    if verbose: print('in conv acc:',conv)
+    N_conv=conv.size
+    i_conv=-1
+    while True:
+        #if verbose:
+        #    print('start at, end at:',conv[0]-4,conv[-1]+3)
+        #    print(theta_ov_mu[conv[0]-4:conv[-1]+4])
+        i_conv += 1
+        if i_conv == N_conv: # no more convective regions, normal exit
+            if verbose: print('normal exit')
+            return H_acc
+        i_top=conv[i_conv] #upper unstable layer
+        while i_conv<N_conv-1: #search from the top of the 1st unstable layer for its bottom
+            if conv[i_conv+1]==conv[i_conv]+1:
+                i_conv+=1
+                continue
+            else:
+                break
+        i_bot=conv[i_conv]
+        if verbose: print('it,ib,:',i_top,i_bot,i_conv)
+        mass_conv=0.
+        H_rad_mean=0.
+        for ii in range(i_top,i_bot+1): # computeaverage radiative heating
+            mass_conv += dmass[ii]
+            H_rad_mean += dmass[ii] * (H_rad[ii] - H_rad_mean) / mass_conv
+        tau = np.amin(tau_rads[i_top:i_bot+1])
+        # compute heating and adjust before looking for a new potential unstable layer
+        H_acc[i_top:i_bot+1] += H_rad_mean * tau / timestep
+        n_iter+=1
+        if n_iter>Nlay+1:
+            if verbose : print('oops, went crazy in convadj')
+            break
+    return H_acc # we exit through here only when we exceed the max number of iteration
+
+
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def turbulent_diffusion(timestep, Nlay, p_lay, p_lev, dmass,
         t_lay_ov_mu, g, Kzz, tracer_array, verbose = False):
     r"""Solves turbulent diffusion equation:

@@ -11,7 +11,6 @@ class Settings(object):
         self.parameters={'rayleigh': True,
                         'internal_flux': 0.,
                         'convection': False,
-                        'radiative_acceleration': False,
                         'radiative_acceleration_reducer': 1.,
                         'convective_transport': True,
                         'diffusion': False,
@@ -24,6 +23,7 @@ class Settings(object):
                         'dTmax_use_kernel': 10.,
                         'qvap_deep': -1.,
                         'evap_coeff': 1.,
+                        'acceleration_mode': 0,
                         }
 
     def set_parameters(self, **kwargs):
