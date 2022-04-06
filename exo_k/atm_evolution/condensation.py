@@ -164,7 +164,7 @@ class Condensing_species(object):
         q_crit = epsilon / ((epsilon - 1.) * dlnPsat_dlnT)
         return ( (1.-qsat) * cst.RGP / Mgas + qLvt ) / fac, Lvap, psat, qsat, dqsat_dt, q_crit # is missing p/p_a terms
     
-    def compute_condensation(self, T, P, Mgas):
+    def compute_condensation_parameters(self, T, P, Mgas):
         """Computes necessary quantities to compute
         large scale condensation.
 
@@ -357,7 +357,7 @@ def moist_adiabat(T, P, cp, Mgas, cp_vap, Mvap, Rvap, Latent_heat_vaporization, 
     return ( (1.-qsat) * cst.RGP / Mgas + qLvt ) / fac, Lvap, psat, qsat, dqsat_dt, q_crit # is missing p/p_a terms
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
-def compute_condensation(T, P, Mgas, Mvap, Rvap, Latent_heat_vaporization, T_ref, Psat_ref, delta_cp, delta_cp_R, c1, c2):
+def compute_condensation_parameters(T, P, Mgas, Mvap, Rvap, Latent_heat_vaporization, T_ref, Psat_ref, delta_cp, delta_cp_R, c1, c2):
     """Computes necessary quantities to compute
     large scale condensation.
 

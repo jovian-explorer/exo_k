@@ -24,6 +24,7 @@ class Settings(object):
                         'qvap_deep': -1.,
                         'evap_coeff': 1.,
                         'acceleration_mode': 0,
+                        'condensation_timestep_reducer': .8,
                         }
 
     def set_parameters(self, **kwargs):

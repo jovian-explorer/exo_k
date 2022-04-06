@@ -11,7 +11,7 @@ from exo_k.util.cst import DAY
 from .settings import Settings
 from .convection import dry_convective_adjustment, turbulent_diffusion, molecular_diffusion, \
                 convective_acceleration
-from .condensation import Condensing_species, moist_adiabat, compute_condensation, Tsat_P, \
+from .condensation import Condensing_species, moist_adiabat, compute_condensation_parameters, Tsat_P, \
                 Condensation_Thermodynamical_Parameters 
 
 class Atm_evolution(object):
@@ -121,52 +121,20 @@ class Atm_evolution(object):
                             idx+=1
         self.Ncond=idx
 
-    def condensation(self, timestep, Htot):
-        """This method computes the vapor and temperature tendencies do to
-        large scale condensation in saturated layers.
-
-        The tracer array in modified in place.
-
-        Parameters
-        ----------
-            timestep: float
-                physical timestep of the current step (in s/cp).
-            Htot: array
-                Total heating rate (in W/kg) of all physical processes
-                already computed
-
-        Return
-        ------
-            H_cond: array
-                Heating rate due to large scale condensation (W/kg)
-        """
-        new_t = self.atm.tlay + timestep * Htot
-        H_cond = np.zeros(self.Nlay)
-        for i_cond in range(self.Ncond): #careful i_cond is a dumy loop index, idx_cond is position of species i_cond in tracers array.
-            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
-            thermo_parameters = self.condensing_species_thermo[i_cond].th_params
-            Lvap, qsat, dqsat_dt = compute_condensation(new_t, self.atm.play, self.tracers.Mgas, *thermo_parameters[1:])
-            qvap=self.tracers.qarray[idx_vap]
-            if self.settings['latent_heating']:
-                H_cond += np.where(qsat <= qvap, Lvap * (qvap-qsat) \
-                    / ((self.cp+Lvap*dqsat_dt)*timestep), 0.)
-                dqvap= np.where(qsat <= qvap, qsat+dqsat_dt*H_cond*timestep-qvap, 0.)
-            else:
-                dqvap= np.where(qsat <= qvap, qsat-qvap, 0.)
-            
-            self.tracers.qarray[idx_vap] += dqvap
-            self.tracers.qarray[idx_cond] -= dqvap
-#            if self.settings['latent_heating']:
-#                H_cond += - cond_species.Lvap(new_t) * dqvap / (timestep *self.cp)
-        return H_cond
-
-    def rainout(self, timestep, Htot):
+    def rainout(self, timestep, Htot, verbose = False):
         """This method computes rainout.
 
-        For the moment, all condensates are taken down and reevaporated in the
-        bottom layer.
+        Condensates are carried down and reevaporated whenever there is
+        "room" in an unsaturated layer. 
 
-        The tracer array in modified in place.
+        The option `evap_coeff` acts has an efficiency factor. `evap_coeff=1`
+        is the efficient evaporation limit. When `evap_coeff<1` the maximum amount of
+        condensates that can be reevaporated in a single layer is multiplied by
+        `evap_coeff`
+
+        All condensates are finaly evaporated in the last layer or when T > Tboil.
+
+        The tracer array is modified in place.
 
         Parameters
         ----------
@@ -189,7 +157,7 @@ class Atm_evolution(object):
             H_rain += compute_rainout(timestep, self.Nlay, new_t, self.atm.play,
                 self.atm.dmass, self.cp, self.tracers.Mgas, self.tracers.qarray,
                 idx_vap, idx_cond, thermo_parameters,
-                self.settings['evap_coeff'], self.settings['qvap_deep'])
+                self.settings['evap_coeff'], self.settings['qvap_deep'], verbose = verbose)
 
         return H_rain
 
@@ -317,7 +285,7 @@ class Atm_evolution(object):
             #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
             self.evol_time += self.timestep
             if self.settings['convection']:
-                self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose=verbose)
+                self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose = verbose)
                 self.H_tot += self.H_conv
             else:
                 self.H_conv = np.zeros(self.Nlay)
@@ -330,23 +298,23 @@ class Atm_evolution(object):
                 self.H_tot += self.H_diff
             if self.settings['moist_convection']:
                 self.H_madj = self.moist_convective_adjustment(self.timestep, self.H_tot,
-                                    moist_inhibition=self.settings['moist_inhibition'], verbose=verbose)                
+                                    moist_inhibition=self.settings['moist_inhibition'], verbose = verbose)                
                 self.H_tot += self.H_madj
             else:
                 self.H_madj = np.zeros(self.Nlay)
             if self.settings['condensation']:
-                self.H_cond = self.condensation(self.timestep, self.H_tot)
+                self.H_cond = self.condensation(self.timestep, self.H_tot, verbose = verbose)
                 self.H_tot += self.H_cond
             else:
                 self.H_cond = np.zeros(self.Nlay)
             if self.settings['rain']:
-                self.H_rain = self.rainout(self.timestep, self.H_tot)
+                self.H_rain = self.rainout(self.timestep, self.H_tot, verbose = verbose)
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
             if self.settings['acceleration_mode'] > 0:
                 self.radiative_acceleration(timestep = self.timestep, \
-                    acceleration_mode = self.settings['acceleration_mode'], verbose=verbose)
+                    acceleration_mode = self.settings['acceleration_mode'], verbose = verbose)
                 #self.H_tot *= self.acceleration_factor
             dTlay= self.H_tot * self.timestep
             dTlay_max = np.amax(np.abs(dTlay))
@@ -474,6 +442,39 @@ class Atm_evolution(object):
                     atm.grav, self.tracers.Dmol)
         return H_diff
 
+    def condensation(self, timestep, Htot, verbose = False):
+        """This method computes the vapor and temperature tendencies do to
+        large scale condensation in saturated layers.
+
+        The tracer array in modified in place.
+
+        Parameters
+        ----------
+            timestep: float
+                physical timestep of the current step (in s/cp).
+            Htot: array
+                Total heating rate (in W/kg) of all physical processes
+                already computed
+
+        Return
+        ------
+            H_cond: array
+                Heating rate due to large scale condensation (W/kg)
+        """
+        new_t = self.atm.tlay + timestep * Htot
+        H_cond = np.zeros(self.Nlay)
+        for i_cond in range(self.Ncond): #careful i_cond is a dumy loop index, idx_cond is position of species i_cond in tracers array.
+            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
+            thermo_parameters = self.condensing_species_thermo[i_cond].th_params
+            H_cond += compute_condensation(timestep, self.Nlay, new_t, self.atm.play,
+                self.cp, self.tracers.Mgas, self.tracers.qarray,
+                idx_vap, idx_cond, thermo_parameters,
+                latent_heating = self.settings['latent_heating'],
+                condensation_timestep_reducer = self.settings['condensation_timestep_reducer'],
+                verbose = verbose)
+        return H_cond
+
+
     def radiative_acceleration(self, timestep = 0., acceleration_mode = 0, verbose = False, **kwargs):
         """"Computes an acceleration factor and a new heating rate to speed up convergence
 
@@ -483,6 +484,11 @@ class Atm_evolution(object):
                 0: no acceleration
                 1 or 3: acceleration limited to radiative zones.
                 2 or 4: acceleration in convective zones as well. 
+
+        1 c’est le mode d’avant (accélération dans les zones radiatives) où le temps de reference pour calculer l’acceleration est calculé comme étant le temps radiatif le plus grand dans les zones non-radiatives
+        2 c’est le mode 1 + acceleration dans les zones convectives
+        3 c’est le mode d’avant où le temps de reference est le temps radiatif le plus *petit* dans les zones radiatives
+        4 c’est 3 + acceleration dans les zones convectives
         """
         self.acceleration_factor = np.ones_like(self.H_tot)
         rad_layers =  np.isclose(self.H_tot, self.H_rad, atol=0.e0, rtol=1.e-10)
@@ -558,6 +564,82 @@ class Atm_evolution(object):
         with open(filename, 'wb') as filehandler:
             pickle.dump(other, filehandler)
 
+#@numba.jit(nopython=True, fastmath=True, cache=True)
+def compute_condensation(timestep, Nlay, tlay, play, cp, Mgas, qarray,
+        idx_vap, idx_cond, thermo_parameters, latent_heating = True,
+        condensation_timestep_reducer = None,
+        verbose = False):
+    r"""Computes the heating rates needed to bring sursaturated 
+    regions back to saturation
+
+    Parameters
+    ----------
+        timestep
+        Nlay: float
+            Number of layers
+        tlay: array
+            Layer temperatures
+        cp: float
+            Specific heat capacity
+        Mgas: array
+            Layer molar mass
+        qarray: array
+            Array of tracer specific concentrations
+        idx_vap, idx_cond: int
+            Indices for condensing species in tracer array
+        thermo_parameters: array
+            Array of thermodynamical paramaters for condensing species.
+            See `:class:`~exo_k.atm_evolution.condensation.Condensation_Thermodynamical_Parameters`
+        latent_heating: bool
+            Whether latent heating should be taken into account
+
+    Returns
+    -------
+        H_cond: array
+            Heating rate in W/kg
+    """
+    itermax = 1000
+    if condensation_timestep_reducer is None:
+        alpha = 1.
+    else:
+        alpha = condensation_timestep_reducer
+    H_cond = np.zeros(Nlay)
+    if latent_heating:
+        for ii in range(Nlay):
+            i_iter = 0
+            T_tmp = tlay[ii]
+            qvap = qarray[idx_vap,ii]
+            qcond = qarray[idx_cond,ii]
+            while i_iter < itermax:
+                Lvap, qsat, dqsat_dt = compute_condensation_parameters(T_tmp, play[ii], Mgas[ii], 
+                        thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
+                        thermo_parameters[5], thermo_parameters[6], thermo_parameters[7], thermo_parameters[8],
+                        thermo_parameters[9])
+                dqvap = alpha * (qsat - qvap) / (1. + Lvap * dqsat_dt / cp)
+                if dqvap > qcond:
+                    dqvap = qcond
+                qcond -= dqvap
+                qvap += dqvap
+                T_tmp -= Lvap * dqvap / cp
+                if np.abs(dqvap/(qvap*alpha)) <= 1.e-9: break
+                i_iter += 1
+            H_cond[ii] = (T_tmp - tlay[ii]) / timestep
+            qarray[idx_vap,ii] = qvap
+            qarray[idx_cond,ii] = qcond
+            if verbose: print('in cond, i, iter:', ii, i_iter+1, dqvap/qvap)
+            if verbose: print('in cond, RH, T:', qvap/qsat, T_tmp, tlay[ii], dqsat_dt)
+
+    else:
+        # here we treat whole arrays at once.
+        Lvap, qsat, dqsat_dt = compute_condensation_parameters(tlay, play, Mgas, 
+                thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
+                thermo_parameters[5], thermo_parameters[6], thermo_parameters[7], thermo_parameters[8],
+                thermo_parameters[9])
+        dqvap= np.where(qsat <= qvap, qsat-qvap, 0.)
+        qarray[idx_vap] += dqvap
+        qarray[idx_cond] -= dqvap
+        if verbose: print('in cond, RH, T:', qarray[idx_vap]/qsat, tlay, dqsat_dt)
+    return H_cond
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def moist_convective_adjustment(timestep, Nlay, tlay, play, dmass, cp, Mgas, q_array,
@@ -724,20 +806,25 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
             Layer temperatures
     """
     H_rain=np.zeros(Nlay)
-    Lvap, qsat, dqsat_dt = compute_condensation(tlay, play, Mgas, 
+    Lvap, qsat, dqsat_dt = compute_condensation_parameters(tlay, play, Mgas, 
             thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
             thermo_parameters[5], thermo_parameters[6], thermo_parameters[7], thermo_parameters[8],
             thermo_parameters[9])
 
     Tsat_p = Tsat_P(play, thermo_parameters[5], thermo_parameters[8], thermo_parameters[9])
 
+    if verbose: print('in rainout, RH, T:', qarray[idx_vap]/qsat, tlay)
     mass_cond = 0.
     for i_lay in range(Nlay):
         #  if evap_coeff =1, rain vaporisation in an undersaturated layer can fill the layer up to the (estimated) saturation
         #  if 0 < evap_coeff < 1, rain vaporisation in one layer is limited to a fraction of the amount that would saturate the layer
         #  This allows not to exceed saturation, to spread rain vaporization in more and denser layers
-        
-        dqvap = evap_coeff*(qsat[i_lay] - qarray[idx_vap,i_lay])/(1 + Lvap[i_lay]*dqsat_dt[i_lay]/cp)
+        qvap = qarray[idx_vap,i_lay]
+        if (tlay[i_lay] >= Tsat_p[i_lay]): # above boiling temperature, try to evaporate everything
+            dqvap = (qsat[i_lay] - qvap) / (1. + Lvap[i_lay]*dqsat_dt[i_lay]/cp)
+        else:
+            dqvap = evap_coeff * (qsat[i_lay] - qvap) / (1. + Lvap[i_lay]*dqsat_dt[i_lay]/cp)
+        dqvap = np.core.umath.minimum(dqvap, 1.- qvap)
         mass_cond += qarray[idx_cond,i_lay]*dmass[i_lay]
         qarray[idx_cond,i_lay] = 0.
         # dqvap is the change in vapor content to reach saturation and accounting for the temperature change.
@@ -753,13 +840,16 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
             qarray[idx_vap][i_lay] += dqvap
             H_rain[i_lay] = -Lvap[i_lay]*dqvap/(cp*timestep)
             mass_cond -= dqvap*dmass[i_lay]               
+            if verbose: print('dqvap < 0:',i_lay, dqvap, qvap, mass_cond, mass_cond/dmass[i_lay])
         else: # evaporation of rain
             mass_dvap = dqvap*dmass[i_lay]     
-            if (mass_dvap > mass_cond) or (tlay[i_lay] >= Tsat_p[i_lay]): # evaporate everything
+            if mass_dvap > mass_cond: # evaporate everything
+                if verbose: print('mass_dvap > mass_cond:', i_lay, dqvap, qvap, mass_cond, mass_cond/dmass[i_lay], mass_dvap, dmass[i_lay],(mass_dvap > mass_cond), (tlay[i_lay] >= Tsat_p[i_lay]))
                 qarray[idx_vap,i_lay] += mass_cond/dmass[i_lay]
                 H_rain[i_lay] = - Lvap[i_lay] * mass_cond / (dmass[i_lay]*cp*timestep)
                 mass_cond = 0.
             else:
+                if verbose: print('mass_dvap < mass_cond:', i_lay, dqvap, qvap, mass_cond, mass_cond/dmass[i_lay])
                 qarray[idx_vap,i_lay] += dqvap
                 H_rain[i_lay] = -Lvap[i_lay]*dqvap/(cp*timestep)
                 mass_cond -= dqvap*dmass[i_lay]

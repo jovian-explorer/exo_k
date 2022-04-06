@@ -52,6 +52,7 @@ Volume mixing ratios are interpolated using a geometric average.
 
 """
 import numpy as np
+import warnings
 import astropy.units as u
 from numba.typed import List
 from .gas_mix import Gas_mix
@@ -64,6 +65,7 @@ from .two_stream import two_stream_lmdz as lmdz
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
+warnings.filterwarnings("error")
 
 class Atm_profile(object):
     """A class defining an atmospheric PT profile with some global data
@@ -283,7 +285,11 @@ class Atm_profile(object):
             if isinstance(vmr,(np.ndarray, list)):
                 tmp_vmr=np.array(vmr)
                 #geometrical average:
-                vmr_midlevel_dict[mol] = np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+                try:
+                    vmr_midlevel_dict[mol] = np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+                except RuntimeWarning:
+                    print('inset_gas, mol, tmp_vmr=',mol,tmp_vmr)
+                    vmr_midlevel_dict[mol] = tmp_vmr[1:]
             else:
                 vmr_midlevel_dict[mol] = vmr
         if self.gas_mix is None:
