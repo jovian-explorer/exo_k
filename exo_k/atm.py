@@ -306,7 +306,7 @@ class Atm_profile(object):
         else:
             self.Mgas_rad=self.gas_mix.molar_mass()
         if not isinstance(self.Mgas_rad, np.ndarray):
-            self.Mgas_rad=self.Mgas_rad*np.ones(self.Nlay-1, dtype=np.float)
+            self.Mgas_rad=self.Mgas_rad*np.ones(self.Nlay-1, dtype=float)
 
     def set_rcp(self,rcp):
         """Sets the adiabatic index of the atmosphere
@@ -392,7 +392,7 @@ class Atm_profile(object):
     def compute_altitudes(self):
         """Compute altitudes of the level surfaces (zlev) and mid layers (zlay).
         """
-        Mgas = np.empty(self.Nlay, dtype=np.float)
+        Mgas = np.empty(self.Nlay, dtype=float)
         Mgas[1:-1] = 0.5*(self.Mgas_rad[:-1]+self.Mgas_rad[1:])
         Mgas[0] = self.Mgas_rad[0]
         Mgas[-1] = self.Mgas_rad[-1]
@@ -644,15 +644,15 @@ class Atm(Atm_profile):
             if rayleigh:
                 kdata_scat_tot = self.gas_mix.kdata_scat
             else:
-                kdata_scat_tot = np.zeros(shape[0:2], dtype=np.float)
+                kdata_scat_tot = np.zeros(shape[0:2], dtype=float)
             if self.aerosols.adatabase is not None:
                 kdata_scat_tot += k_scat_aer
                 self.asym_param = np.where(kdata_scat_tot<=0., 0., k_scat_aer * g_aer / kdata_scat_tot)
                 #the line below is for test. Should be removed
-                #self.asym_param = np.zeros(shape[0:2], dtype=np.float)
-                self.asym_param = np.ones(shape[0:2], dtype=np.float)
+                #self.asym_param = np.zeros(shape[0:2], dtype=float)
+                self.asym_param = np.ones(shape[0:2], dtype=float)
             else:
-                self.asym_param = np.zeros(shape[0:2], dtype=np.float)
+                self.asym_param = np.zeros(shape[0:2], dtype=float)
 
             if self.Ng is None:
                 self.single_scat_albedo = kdata_scat_tot / self.kdata
