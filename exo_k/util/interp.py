@@ -9,7 +9,7 @@ import numba
 from numba.typed import List
 import astropy.units as u
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def bilinear_interpolation(z00, z10, z01, z11, x, y):
     """
     2D interpolation
@@ -36,7 +36,7 @@ def bilinear_interpolation(z00, z10, z01, z11, x, y):
         res[i] = (z11[i]-z01[i]+z00[i]-z10[i])*xy +(z01[i]-z00[i])*y +(z10[i]-z00[i])*x +z00[i]
     return res
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def bilinear_interpolation_array(z00, z10, z01, z11, x, y):
     """
     2D interpolation
@@ -66,7 +66,7 @@ def bilinear_interpolation_array(z00, z10, z01, z11, x, y):
     return res
 
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def linear_interpolation(z00, z10, x):
     """1D interpolation.
 
@@ -128,7 +128,7 @@ def rebin_ind_weights(old_bin_grid, new_bin_grid):
         final_weights.append(weights)
     return indicestosum, final_weights
 
-@numba.njit()
+@numba.njit(cache=True)
 def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
     """Computes the convolution of two kdata tables.
 
@@ -149,7 +149,7 @@ def kdata_conv_loop(kdata1,kdata2,kdataconv,shape):
         for m in range(Ng):
             kdataconv[i,j,k,l*Ng+m]=kdata1[i,j,k,m]+kdata2[i,j,k,l]
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def kdata_conv_loop_profile(kdata1,kdata2,kdataconv,Nlay,Nw,Ng):
     """Computes the convolution of two atmospheric kdata profiles.
 
@@ -236,7 +236,7 @@ def g_sample_5d(new_ggrid, new_kdata, old_ggrid, old_kdata):
             new_kdata[iP,iT,iX,iW,:]=np.interp(new_ggrid, old_ggrid, old_kdata[iP,iT,iX,iW,:])
     return
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def RandOverlap_2_kdata_prof(Nlay, Nw, Ng, kdata1, kdata2, weights, ggrid):
     """Function to randomely mix the opacities of 2 species in an atmospheric profile.
 
@@ -454,7 +454,7 @@ def spectrum_to_kdist(k_hr,wn_hr,dwn_hr,wnedges,ggrid):
 
 
 
-@numba.njit()
+@numba.njit(cache=True)
 def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicestosum, \
         wngrid_filter, wn_weigths, num, use_rebin):
     """bins down a kcoefficient table (see :func:`~exo_k.ktable.Ktable.bin_down` for details)
@@ -514,7 +514,7 @@ def bin_down_corrk_numba(newshape, kdata, old_ggrid, new_ggrid, gedges, indicest
 
 ## OLD FUNCTIONS
 
-@numba.njit()
+@numba.njit(cache=True)
 def kdata_conv(kdata1,kdata2,kdataconv,Ng):
     """Deprecated.
     
@@ -524,7 +524,7 @@ def kdata_conv(kdata1,kdata2,kdataconv,Ng):
         for ii in range(Ng):
             kdataconv[:,:,:,ii*Ng+jj]=kdata1[:,:,:,jj]+kdata2[:,:,:,ii]
 
-@numba.njit()
+@numba.njit(cache=True)
 def kdata_conv_loop_bad(kdata1,kdata2,kdataconv,shape):
     """Deprecated. 
     

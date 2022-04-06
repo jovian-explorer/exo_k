@@ -265,7 +265,7 @@ def DTRIDGL(L,AF,BF,CF,DF):
         XK[I] = DS[I]-AS[I]*XKB
     return XK
     
-#@numba.jit(nopython=True,fastmath=True)
+#@numba.jit(nopython=True,fastmath=True, cache=True)
 def matrix_toon(Nlay, source, dtau, gam_1, gam_2, mu1, flux_top_dw, alb_surf):
     """
     Returns

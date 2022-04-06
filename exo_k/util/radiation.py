@@ -20,7 +20,7 @@ PLANCK_CST1_lamb=1.e-6*2.*PLANCK*C_LUM**2
 
 
 
-@numba.jit(nopython=True,fastmath=True)
+@numba.jit(nopython=True,fastmath=True, cache=True)
 #@numba.vectorize([float64(float64,float64)],fastmath=True)
 def Bnu(nu, T):
     """Computes the Planck law in wavenumber domain.
@@ -190,7 +190,7 @@ def dBnudT_array(nu, T_array, Nw, Nt):
         res[iT]=exp * PLANCK_CST3 * sigma**4 / tmp
     return res
 
-@numba.jit(nopython=True)
+@numba.jit(nopython=True, cache=True)
 def Bmicron(lamb, T):
     """Computes the Planck law in wavelength domain.
 
@@ -212,7 +212,7 @@ def Bmicron(lamb, T):
         *(np.exp(PLANCK_CST2/(lambda_si*T))-1.))
 
 
-@numba.jit(nopython=True)
+@numba.jit(nopython=True, cache=True)
 def BBnu_Stellar_Spectrum(nu, T, Flux):
     """Computes the outgoing spectral flux of a black body at temperature T so that its 
     bolometric flux is equal to the input 'Flux'
@@ -236,7 +236,7 @@ def BBnu_Stellar_Spectrum(nu, T, Flux):
     Scaling_Factor=PI/(SIG_SB*T**4)*Flux
     return Scaling_Factor*Bnu(nu,T)
     
-@numba.jit(nopython=True)
+@numba.jit(nopython=True, cache=True)
 def BBmicron_Stellar_Spectrum(lamb, T, Flux):
     """Computes the outgoing spectral flux of a black body at temperature T so that its 
     bolometric flux is equal to the input 'Flux'
@@ -365,7 +365,7 @@ def rad_prop_xsec(dcol_density, opacity_prof, mu0):
             tau[lay+1,iW]=tau[lay,iW]+dtau_tmp
     return tau,dtau
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def path_integral_corrk(Nlay, Nw, Ng, tangent_path, density_prof, opacity_prof, weights):
     """Computes the transmittance for each layer of the atmosphere for k-coefficients.
 
@@ -409,7 +409,7 @@ def path_integral_corrk(Nlay, Nw, Ng, tangent_path, density_prof, opacity_prof, 
     return transmittance
 
 
-@numba.njit(nogil=True,fastmath=True)
+@numba.njit(nogil=True, fastmath=True, cache=True)
 def path_integral_xsec(Nlay, Nw, tangent_path, density_prof, opacity_prof):
     """Computes the transmittance for each layer of the atmosphere from cross sections.
 
