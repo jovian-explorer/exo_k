@@ -115,13 +115,31 @@ class Rayleigh(Singleton):
                 (6.4982e-5 + 3.0743305e6/(1.44e10-wn2))**2 * 4./9.
                 # 4./9. is approximately ((n+1)/(n**2+2))**2
                 # from eq 12 of caldas et al. 2019
+    #    elif mol=='O2':
+    #        tmp=mult_factor * wn4 * (1.096 + 1.385e-11*wn2 + 1.448e-20*wn4) * \
+    #           (2.1351e-4 + 0.218567e-6/(0.409e10-wn2))**2 * 4./9.
         elif mol=='O2':
             tmp=self._mult_factor * wn4 * (1.096 + 1.385e-11*wn2 + 1.448e-20*wn4) * \
-                (2.1351e-4 + 0.218567e-6/(0.409e10-wn2))**2 * 4./9.
+                (2.05648e-4 + 2.480899e5/(0.409e10-wn2))**2 * 4./9.
         elif mol=='CO2':
-            tmp=self._mult_factor * wn4 * (1.1364 + 2.53e-11*wn2) * \
-                (1.1427e-2 * (5.799e3/(1.6617e10-wn2) + 1.2005e2/(7.960e9-wn2) \
-                    + 5.3334/(5.630e9-wn2)))**2 * 4./9.
+            # Error corrected "by hand" as there was a 1e6 departure between formula and measured value.
+            # The error seems to be in the ref used by Caldas et al.
+            # Also Caldas et al. mistakenly used the (n**2 -1) formula as the formula for
+            # ((n**2 -1)/(n**2 +2))**2 hence a 4./9. error
+            tmp=self._mult_factor * wn4 * (1.1364+2.53e-11*wn2)* 1.e-6*\
+                (1.1427e6 * (5.799e3/(1.661750e10-wn2) + 1.2005e2/(7.960886e9-wn2) \
+                + 5.3334/(5.630626e9-wn2)  + 4.3244/(4.601954e9-wn2)  + 1.218145e-5/(5.847382e6-wn2)))**2 * 4./9.   
+        elif mol=='H2O':
+            # this formula is only valid for wavelengths > 0.23 microns
+            # Caldas+2019 includes another formula for shorter wavelengths
+            tmp=self._mult_factor * wn4 * (4.92303e6/(2.380185e10-wn2) + 1.42723e5/(5.73262e9-wn2))**2 * 4./9.
+        elif mol=='CH4':
+            tmp=self._mult_factor * wn4 * (4.6662e-4+4.02e-14*wn2)**2 *  4./9.
+        elif mol=='CO':
+            # The present formula does not reproduce measured values by a factor of ~2
+            # The reason is not yet understood.
+            # All formula (except for H2 and He) come from Sneep and Ubachs JQSRT 2005.
+            tmp=self._mult_factor * wn4 * (2.2851e-4 + 0.456e4/(5.101816e9 - wn2))**2 *  4./9.
         else:
             to_add=False
         return to_add, tmp
