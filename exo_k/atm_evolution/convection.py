@@ -120,8 +120,8 @@ def dry_convective_adjustment(timestep, Nlay, t_lay, exner, dmass,
     return H_conv, new_tracers # we exit through here only when we exceed the max number of iteration
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
-def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rads, dmass,
-    verbose = False):
+def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rad, tau_rads, dmass,
+    convective_acceleration_mode = 0, verbose = False):
     r"""Computes the heating rates needed to adjust unstable regions 
     of a given atmosphere to a convectively neutral T profile on
     a given timestep.
@@ -139,6 +139,9 @@ def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rads, dmass,
             Radiative heating rate
         rad_layers: array of bool
             Elements in the array are true if layer is purely radiative
+        tau_rad: array
+            Baseline radiative timescale for the atmosphere. (e.g. the min of tau_rads)
+            Should use the same units as timestep.
         tau_rads: array
             Radiative timescale for each layer. Should use the same units as timestep.
         dmass: array
@@ -180,10 +183,13 @@ def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rads, dmass,
             H_rad_mean += dmass[ii] * (H_rad[ii] - H_rad_mean) / mass_conv
         tau = np.amin(tau_rads[i_top:i_bot+1])
         # compute heating and adjust before looking for a new potential unstable layer
-        H_acc[i_top:i_bot+1] += H_rad_mean * tau / timestep
+        if convective_acceleration_mode == 0:
+            H_acc[i_top:i_bot+1] += H_rad_mean * tau / tau_rad
+        else:
+            H_acc[i_top:i_bot+1] += H_rad_mean * tau / timestep
         n_iter+=1
         if n_iter>Nlay+1:
-            if verbose : print('oops, went crazy in convadj')
+            if verbose : print('oops, went crazy in convective_acceleration')
             break
     return H_acc # we exit through here only when we exceed the max number of iteration
 

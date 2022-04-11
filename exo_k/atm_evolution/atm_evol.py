@@ -492,12 +492,14 @@ class Atm_evolution(object):
         """
         self.acceleration_factor = np.ones_like(self.H_tot)
         rad_layers =  np.isclose(self.H_tot, self.H_rad, atol=0.e0, rtol=1.e-10)
+        # determines which layer is purely radiative
         if verbose: 
             print('in acc rad_layers, H_tot, H_rad')
             print(rad_layers)
             print(np.transpose([rad_layers, self.H_tot,self.H_rad]))
-        if np.all(rad_layers):
-            self.base_timescale = timestep
+        if (np.all(rad_layers)) or (not(np.any(rad_layers))):
+            self.base_timescale = self.atm.tau_rad
+            # we do not use timestep to avoid including the timestep_factor
         else:
             if acceleration_mode <= 2:
                 self.base_timescale = np.amax(self.atm.tau_rads[np.logical_not(rad_layers)])
@@ -513,7 +515,9 @@ class Atm_evolution(object):
 
         if (acceleration_mode == 2) or (acceleration_mode == 4):
             self.H_acc = convective_acceleration(timestep, self.Nlay, self.H_rad,
-                    rad_layers, self.atm.tau_rads, self.atm.dmass, verbose = verbose)
+                    rad_layers, self.atm.tau_rad, self.atm.tau_rads, self.atm.dmass,
+                    convective_acceleration_mode = self.settings['convective_acceleration_mode'],
+                    verbose = verbose)
         else:
             self.H_acc = np.zeros(self.Nlay)
         
@@ -610,6 +614,7 @@ def compute_condensation(timestep, Nlay, tlay, play, cp, Mgas, qarray,
             T_tmp = tlay[ii]
             qvap = qarray[idx_vap,ii]
             qcond = qarray[idx_cond,ii]
+            if qvap == 0.: continue
             while i_iter < itermax:
                 Lvap, qsat, dqsat_dt = compute_condensation_parameters(T_tmp, play[ii], Mgas[ii], 
                         thermo_parameters[1], thermo_parameters[2], thermo_parameters[3], thermo_parameters[4],
