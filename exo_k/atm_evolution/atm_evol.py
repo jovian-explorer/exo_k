@@ -72,8 +72,8 @@ class Atm_evolution(object):
             self.tracers.Kzz = np.ones(self.Nlay)*kwargs['Kzz']
         if 'radiative_acceleration' in kwargs.keys():
             print("'radiative_acceleration' is deprecated. Please use accleration_mode instead.")
-            print("accleration_mode = 1 will emulate the previous behavior but other modes exist.")
-            print("In particular accleration_mode = 1 will also accelerate convergence in convective zones")
+            print("acceleration_mode = 1 will emulate the previous behavior but other modes exist.")
+            print("In particular acceleration_mode = 4 will also accelerate convergence in convective zones")
             raise DeprecationWarning('radiative_acceleration is deprecated. Remove radiative_acceleration from the options to get rid of this message')
         if reset_rad_model: self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
                 **self.settings.parameters)
