@@ -626,6 +626,25 @@ class Atm(Atm_profile):
             var=np.sum(np.sum(spectral_var*self.weights,axis=-1)*self.dwnedges,axis=-1)
         return var
 
+    def g_integration(self, spectral_var):
+        """Integrate an array along the g direction (only for corrk)
+
+        Parameters
+        ----------
+            spectral_var: array
+                array to integrate
+
+        Returns
+        -------
+            var: array
+                array integrated over g-space if relevant
+        """
+        if self.Ng is None:
+            var = spectral_var
+        else:
+            var = np.sum(spectral_var*self.weights,axis=-1)
+        return var
+
     def opacity(self, rayleigh = False, compute_all_opt_prop = False, **kwargs):
         """Computes the opacity of each of the radiative layers (m^2/molecule).
 
@@ -961,7 +980,7 @@ class Atm(Atm_profile):
         return H, net
 
     def bolometric_fluxes_2band(self, **kwargs):
-        """Computes the bolometric fluxes at levels an dheating rates using `bolometric_fluxes`.
+        """Computes the bolometric fluxes at levels and heating rates using `bolometric_fluxes`.
 
         However, the (up, down, net) fluxes are separated in two contributions:
           - the part emitted directly by the atmosphere (_emis).
@@ -978,6 +997,27 @@ class Atm(Atm_profile):
         Fup_stel, Fdw_stel, Fnet_stel, H_stel = self.bolometric_fluxes(**kwargs)
         self.internal_flux = save_internal_flux
         return Fup_emis, Fdw_emis, Fnet_emis, H_emis, Fup_stel, Fdw_stel, Fnet_stel, H_stel
+
+    def spectral_fluxes_2band(self, **kwargs):
+        """Computes the spectral fluxes at levels and heating rates using `bolometric_fluxes`.
+
+        However, the (up, down, net) fluxes are separated in two contributions:
+          - the part emitted directly by the atmosphere (_emis).
+          - the part due to the incoming stellar light (_stell),
+            that can be used to compute the absorbed stellar radiation and the bond_albedo.
+        """
+        save_stellar_flux = np.copy(self.flux_top_dw_nu)
+        self.flux_top_dw_nu = self.flux_top_dw_nu * 0.
+        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, **kwargs)
+        Fup_emis = self.g_integration(self.flux_up_nu)
+        Fdw_emis = self.g_integration(self.flux_down_nu)
+        Fnet_emis = self.g_integration(self.flux_net_nu)
+        self.flux_top_dw_nu = save_stellar_flux
+        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, source=False, **kwargs)
+        Fup_stel = self.g_integration(self.flux_up_nu)
+        Fdw_stel = self.g_integration(self.flux_down_nu)
+        Fnet_stel = self.g_integration(self.flux_net_nu)
+        return Fup_emis, Fdw_emis, Fnet_emis, Fup_stel, Fdw_stel, Fnet_stel
 
     def bolometric_fluxes(self, per_unit_mass = True, **kwargs):
         """Computes the bolometric fluxes at levels and the divergence of the net flux in the layers
