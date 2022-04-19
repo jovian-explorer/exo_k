@@ -35,7 +35,10 @@ class Atm_evolution(object):
 
         self.bg_gas = xk.Gas_mix(bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
-        self.M_bg = self.settings.get('M_bg', self.M_bg)
+        if 'M_bg' in self.settings.keys():
+            self.M_bg = self.settings['M_bg']
+        else:
+            self.settings['M_bg'] = self.M_bg
         self.cp = self.bg_gas.cp()
         self.cp = self.settings.get('cp', self.cp)
         self.rcp = xk.RGP/(self.M_bg*self.cp)
@@ -44,7 +47,7 @@ class Atm_evolution(object):
 
 
         self.tracers=Tracers(self.settings, bg_vmr = self.bg_gas.composition,
-            M_bg = self.M_bg, **self.settings.parameters)
+            **self.settings.parameters)
         self.initialize_condensation(**self.settings.parameters)
 
         self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
@@ -568,7 +571,7 @@ class Atm_evolution(object):
         with open(filename, 'wb') as filehandler:
             pickle.dump(other, filehandler)
 
-#@numba.jit(nopython=True, fastmath=True, cache=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def compute_condensation(timestep, Nlay, tlay, play, cp, Mgas, qarray,
         idx_vap, idx_cond, thermo_parameters, latent_heating = True,
         condensation_timestep_reducer = None,

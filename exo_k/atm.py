@@ -703,12 +703,12 @@ class Atm(Atm_profile):
             piBatm=np.zeros((self.Nlay,self.Nw))
         return piBatm
 
-    def setup_emission_caculation(self, mu_eff=0.5, rayleigh=False, integral=True,
-            source=True, gas_vmr=None, **kwargs):
+    def setup_emission_caculation(self, mu_eff = 0.5, rayleigh = False, integral = True,
+            source = True, gas_vmr = None, Mgas = None, **kwargs):
         """Computes all necessary quantities for emission calculations
         (opacity, source, etc.)
         """
-        if gas_vmr is not None: self.set_gas(gas_vmr)
+        if gas_vmr is not None: self.set_gas(gas_vmr, Mgas = Mgas)
         self.opacity(rayleigh=rayleigh, **kwargs)
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
@@ -961,6 +961,13 @@ class Atm(Atm_profile):
         return H, net
 
     def bolometric_fluxes_2band(self, **kwargs):
+        """Computes the bolometric fluxes at levels an dheating rates using `bolometric_fluxes`.
+
+        However, the (up, down, net) fluxes are separated in two contributions:
+          - the part emitted directly by the atmosphere (_emis).
+          - the part due to the incoming stellar light (_stell),
+            that can be used to compute the absorbed stellar radiation and the bond_albedo.
+        """
         save_stellar_flux = np.copy(self.flux_top_dw_nu)
         self.flux_top_dw_nu = self.flux_top_dw_nu * 0.
         _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, **kwargs)
