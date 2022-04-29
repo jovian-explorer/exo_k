@@ -54,7 +54,7 @@ class Condensing_species(object):
             T: array
                 Temperature in layers (K)
         """
-        return self.Latent_heat_vaporization + self.delta_cp * (T-self.T_ref)
+        return Lvap_T(T, self.Latent_heat_vaporization, self.T_ref, self.delta_cp)
 
     def Psat(self, T):
         """Saturation vapor pressure for the condensing species
@@ -64,8 +64,7 @@ class Condensing_species(object):
             T: array
                 Temperature in layers (K)
         """
-        #return self.Psat_ref*np.exp( - self.LovR * (1./T - 1/self.T_ref))
-        return self.Psat_ref*np.exp( self.c1 + self.c2/T + self.delta_cp_R*np.log(T/self.T_ref))
+        return Psat_T(T, self.T_ref, self.Psat_ref, self.c1, self.c2, self.delta_cp_R)
 
     def Tsat(self, P):
         """Boiling temperature for the condensing species
@@ -77,7 +76,7 @@ class Condensing_species(object):
             P: array
                 Pressure in layers (Pa)
         """
-        return self.c2/(np.log(P/self.Psat_ref)-self.c1)
+        return Tsat_P(P, self.Psat_ref, self.c1, self.c2)
 
 
     def qsat(self, psat, p, epsilon):
@@ -92,10 +91,7 @@ class Condensing_species(object):
             epsilon: float or array
                 Ratio of the molar mass of the vapor over the background molar mass
         """
-        psat_tmp = np.core.umath.minimum(psat,p)
-        fac =  p + (epsilon -1.) * psat_tmp
-        qsat = epsilon * psat_tmp / fac
-        return qsat
+        return Qsat(psat, p, epsilon)
 
     def dPsat_dT(self, T):
         """Saturation vapor pressure derivative for the condensing species 
@@ -105,10 +101,9 @@ class Condensing_species(object):
             T: array
                 Temperature in layers (K)
         """
-        RT2 = self.Rvap * T * T
-        Lvap = self.Lvap(T)
-        psat = self.Psat(T)
-        return psat * Lvap / RT2, psat, Lvap
+        return dPsat_dT(T, self.Latent_heat_vaporization, self.T_ref,
+            self.Psat_ref, self.Rvap, self.delta_cp, self.delta_cp_R, self.c1, self.c2)
+
 
     def dlnPsat_dlnT(self, T):
         """Saturation vapor pressure for the condensing species and its derivative 
@@ -118,9 +113,9 @@ class Condensing_species(object):
             T: array
                 Temperature in layers (K)
         """
-        RT = self.Rvap * T
-        Lvap = self.Lvap(T)
-        return Lvap / RT, Lvap
+        return dlnPsat_dlnT(T, self.Latent_heat_vaporization, self.T_ref,
+            self.delta_cp, self.Rvap)
+
 
     def moist_adiabat(self, T, P, cp, Mgas):
         """Computes the threshold thermal gradient (d ln T / d ln P) for a moist atmosphere.
@@ -153,17 +148,11 @@ class Condensing_species(object):
                 (Eq. 17 of Leconte et al. 2017)
 
         """
-        epsilon = self.Mvap / Mgas
-        psat = self.Psat(T)
-        qsat = self.qsat(psat, P, epsilon)
-        dlnPsat_dlnT, Lvap = self.dlnPsat_dlnT(T)
-        dqsat_dt = qsat**2 * P * dlnPsat_dlnT / (epsilon*psat*T)
-        qa=1.-qsat
-        qLvt = qsat * Lvap / T 
-        fac = qsat * self.cp_vap + qa * cp + qLvt * dlnPsat_dlnT
-        q_crit = epsilon / ((epsilon - 1.) * dlnPsat_dlnT)
-        return ( (1.-qsat) * cst.RGP / Mgas + qLvt ) / fac, Lvap, psat, qsat, dqsat_dt, q_crit # is missing p/p_a terms
-    
+        return moist_adiabat(T, P, cp, Mgas, self.cp_vap, self.Mvap, self.Rvap,
+            self.Latent_heat_vaporization, self.T_ref, self.Psat_ref,
+            self.delta_cp, self.delta_cp_R, self.c1, self.c2)
+
+
     def compute_condensation_parameters(self, T, P, Mgas):
         """Computes necessary quantities to compute
         large scale condensation.
@@ -177,12 +166,9 @@ class Condensing_species(object):
             Mgas: float or array
                 Molar mass of the background atmosphere
         """
-        epsilon = self.Mvap / Mgas
-        psat = self.Psat(T)
-        qsat = self.qsat(psat, P, epsilon)
-        dlnPsat_dlnT, Lvap = self.dlnPsat_dlnT(T)
-        dqsat_dt = qsat**2 * P * dlnPsat_dlnT / (epsilon*psat*T)
-        return Lvap, qsat, dqsat_dt
+        return compute_condensation_parameters(T, P, Mgas, self.Mvap,
+            self.Rvap, self.Latent_heat_vaporization, self.T_ref,
+            self.Psat_ref, self.delta_cp, self.delta_cp_R, self.c1, self.c2)
 
 
 
