@@ -590,6 +590,9 @@ class Atm(Atm_profile):
             Tstar: float
                 Stellar temperature (in K) used to compute the spectral distribution
                 of incoming flux using a blackbody.
+            stellar_spectrum: :class:`exo_k.util.spectrum.Spectrum`
+                Spectrum of the star in units of per wavenumber. The specific units do not matter as
+                the overall flux will be renormalized.
 
         """
         if stellar_spectrum:

@@ -122,9 +122,7 @@ def dry_convective_adjustment(timestep, Nlay, t_lay, exner, dmass,
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rad, tau_rads, dmass,
     convective_acceleration_mode = 0, verbose = False):
-    r"""Computes the heating rates needed to adjust unstable regions 
-    of a given atmosphere to a convectively neutral T profile on
-    a given timestep.
+    r"""Computes a heating rate for the whole convective region to accelerate convergence
     
     Parameters
     ----------
@@ -146,6 +144,9 @@ def convective_acceleration(timestep, Nlay, H_rad, rad_layers, tau_rad, tau_rads
             Radiative timescale for each layer. Should use the same units as timestep.
         dmass: array
             Mass of gas in each layer (kg/m^2)
+        convective_acceleration_mode: int
+            convective_acceleration_mode=0 is the default mode
+            =1 emulates an old (and bad) behavior.
 
     Returns
     -------
