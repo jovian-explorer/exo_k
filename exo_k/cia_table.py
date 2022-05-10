@@ -8,31 +8,32 @@ A class to handle continuum absorption (CIA)
 import os.path
 import h5py
 import numpy as np
+from exo_k.data_table import Data_table
 from exo_k.util.filenames import EndOfFile
 from .util.interp import linear_interpolation, interp_ind_weights, unit_convert
 from .util.cst import KBOLTZ
 from .settings import Settings
-from .util.spectral_object import Spectral_object
 
-class Cia_table(Spectral_object):
+class Cia_table(Data_table):
     """A class to handle CIA opacity data tables.
 
     .. important::
         In the 2018 release of Hitran, some CIA files can contain data for multiple
         wavenumber range but for different temperatures in each range.
         This is not yet supported so only the first wavenumber range is used.
-        For H2-H2 cia files, one should manually replace all the `n-H2 -- n-H2` in 
-        `H2-H2` for the format to be readable. 
+        For H2-H2 cia files, one should manually replace all the `n-H2 -- n-H2` in
+        `H2-H2` for the format to be readable.
     """
 
     def __init__(self, *filename_filters, filename=None, molecule_pair=None, search_path=None,
-            mks=False, remove_zeros=False, old_cia_unit='cm^5', deltalog_min_value=0.):
+            mks=False, remove_zeros=False, old_cia_unit='cm^5',
+            wn_range=None, wl_range=None):
         """Initialization for Cia_tables.
 
         Parameters
         ----------
             filename: str, optional
-                Relative or absolute name of the file to be loaded. 
+                Relative or absolute name of the file to be loaded.
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define
                 a file in the global search path defined with
@@ -41,14 +42,14 @@ class Cia_table(Spectral_object):
                 with all the filename_filters in the name.
                 The filename_filters can contain '*'.
             molecule_pair: list of size 2, optional
-                The molecule pair we want to consider, 
+                The molecule pair we want to consider,
                 specified as an array with two strings (like ['H2','H2'] or ['N2','H2O']).
-                The order of the molecules in the pair is irrelevant. 
+                The order of the molecules in the pair is irrelevant.
 
         Other Parameters
         ----------------
             old_cia_unit : str, optional
-                String to specify the current cia unit if it is unspecified or if 
+                String to specify the current cia unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the cia grid and the cia unit do not correspond).
                 Available units are: 'cm^5', 'cm^2' that stand for cm^2/amagat,
@@ -73,7 +74,7 @@ class Cia_table(Spectral_object):
 
         if self.filename is not None:
             if self.filename.lower().endswith(('h5','hdf5')):
-                self.read_hdf5(self.filename)
+                self.read_hdf5(self.filename, wn_range=wn_range, wl_range=wl_range)
             elif self.filename.lower().endswith('cia'):
                 self.read_hitran_cia(self.filename, old_cia_unit=old_cia_unit)
             elif self.filename.lower().endswith('.dat'):
@@ -130,7 +131,7 @@ class Cia_table(Spectral_object):
                     """)
                     raise RuntimeError('Bad .cia file format.')
                 tmp_abs_coeff2 = list()
-                if First: 
+                if First:
                     tmp_wns=[]
                     for _ in range(Nw): #as iterator not used, can be replaced by _
                         line=file.readline()
@@ -177,7 +178,7 @@ class Cia_table(Spectral_object):
 
         return Nw, Temp
 
-    def read_hdf5(self, filename):
+    def read_hdf5(self, filename, wn_range=None, wl_range=None):
         """Reads hdf5 cia files and load temperature, wavenumber, and absorption coefficient grid.
 
         Parameters
@@ -187,7 +188,9 @@ class Cia_table(Spectral_object):
         """
         f = h5py.File(filename, 'r')
         self.wns=f['bin_centers'][...]
-        self.abs_coeff=f['abs_coeff'][...]
+        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+        iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
+        self.abs_coeff=f['abs_coeff'][..., iw_min:iw_max]
         self.abs_coeff_unit=f['abs_coeff'].attrs['units']
         self.tgrid=f['t'][...]
         if 'cia_pair' in f:
@@ -196,11 +199,9 @@ class Cia_table(Spectral_object):
             self.mol1,self.mol2=tmp.split('-')
         elif 'cia_pair' in f.attrs:
             self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
-        f.close()  
-        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+        f.close()
         self.Nt=self.tgrid.size
-        self.Nw=self.wns.size
-          
+
     def write_hdf5(self, filename):
         """Writes hdf5 cia files.
 
@@ -217,7 +218,7 @@ class Cia_table(Spectral_object):
         f.create_dataset("abs_coeff", data=self.abs_coeff,compression="gzip")
         f["abs_coeff"].attrs["units"] = self.abs_coeff_unit
         f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
-        f.close() 
+        f.close()
 
     def write_cia(self, filename):
         """Writes simplified .cia files.
@@ -241,11 +242,11 @@ class Cia_table(Spectral_object):
                 header="""       {m1}-{m2}   {w1}  {w2}  {Nw}  {T}\n""".format(
                     m1=self.mol1, m2=self.mol2, w1=self.wns[0],
                     w2=self.wns[-1], Nw=self.Nw, T=t)
-                f.write(header) 
+                f.write(header)
                 for i_w, wn in enumerate(self.wns):
                     line=str(wn)+' '+str(to_write[i_t,i_w])+'\n'
-                    f.write(line) 
-   
+                    f.write(line)
+
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False, **kwargs):
         """Method to re sample a cia table to a new grid of wavenumbers (inplace).
@@ -283,7 +284,7 @@ class Cia_table(Spectral_object):
 
         Parameters
         ----------
-            See sample method for details. 
+            See sample method for details.
 
         Returns
         -------
@@ -295,7 +296,7 @@ class Cia_table(Spectral_object):
         return res
 
     def interpolate_cia(self, t_array=None, log_interp=None, wngrid_limit=None):
-        """interpolate_cia interpolates the kdata at on a given temperature profile. 
+        """interpolate_cia interpolates the kdata at on a given temperature profile.
 
         Parameters
         ----------
@@ -359,8 +360,8 @@ class Cia_table(Spectral_object):
                 Temperature (K).
             x_mol1/2: float or array
                 Volume mixing ratio of the 1st and 2nd molecule of the pair.
-            wngrid_limit: array, optional  
-                If an array is given, interpolates only within this array. 
+            wngrid_limit: array, optional
+                If an array is given, interpolates only within this array.
 
         Returns
         -------
@@ -371,7 +372,7 @@ class Cia_table(Spectral_object):
         #return self.interpolate_cia( \
         # T,wngrid_limit=wngrid_limit)*n_density[:,None]*n_density[:,None]*x_mol1*x_mol2
         tmp=self.interpolate_cia(t_array=T, wngrid_limit=wngrid_limit)
-        return (x_x_n_density*tmp.transpose()).transpose() 
+        return (x_x_n_density*tmp.transpose()).transpose()
         # trick for the broadcasting to work whether x_x_n_density is a float or an array
 
     def plot_spectrum(self, ax, t=200., x_axis='wls', xscale=None, yscale=None, **kwarg):
@@ -406,10 +407,10 @@ class Cia_table(Spectral_object):
         ----------
             abs_coeff_unit: str
                 String to identify the units to convert to.
-                Accepts 'cm^5', 'm^5'. or any length^5 unit recognized by the 
+                Accepts 'cm^5', 'm^5'. or any length^5 unit recognized by the
                 astropy.units library. If ='unspecified', no conversion is done.
             old_abs_coeff_unit : str, optional
-                String to specify the current kdata unit if it is unspecified or if 
+                String to specify the current kdata unit if it is unspecified or if
                 you have reasons to believe it is wrong (e.g. you just read a file where
                 you know that the kdata grid and the kdata unit do not correspond)
         """
@@ -448,13 +449,13 @@ class Cia_table(Spectral_object):
     def remove_zeros(self, deltalog_min_value=0., **kwargs):
         """Finds zeros in the abs_coeff and set them to (10.^-deltalog_min_value)
         times the minimum positive value in the table (inplace).
-        This is to be able to work in logspace. 
+        This is to be able to work in logspace.
         """
         mask = np.zeros(self.abs_coeff.shape,dtype=bool)
         mask[np.nonzero(self.abs_coeff)] = True
         minvalue=np.amin(self.abs_coeff[mask])
         self.abs_coeff[~mask]=minvalue/(10.**deltalog_min_value)
-        
+
     def __repr__(self):
         """Method to output header
         """
@@ -527,7 +528,7 @@ class Cia_table(Spectral_object):
 
     def effective_cross_section2(self, logP, T, x_mol1, x_mol2, wngrid_limit=None):
         """Obsolete.
-        
+
         Computes the total cross section for a molecule pair
         (in m^2 per total number of molecules; assumes data in MKS).
         """
