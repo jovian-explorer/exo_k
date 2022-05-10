@@ -54,7 +54,7 @@ class Atable(Spectral_object):
 
         if self.filename is not None:
             if self.filename.lower().endswith(('h5','hdf5')):
-                self.read_hdf5(self.filename, aerosol_name=aerosol_name)
+                self.read_hdf5(self.filename, aerosol_name=aerosol_name, wn_range=wn_range, wl_range=wl_range)
             elif self.filename.lower().endswith('.dat'):
                 self.read_LMDZ(self.filename, aerosol_name=aerosol_name, N_per_line=N_per_line)
             else:
@@ -143,7 +143,7 @@ class Atable(Spectral_object):
             new_array[ii]=_read_array(file, Nvalue, N_per_line=N_per_line, Nline=Nline, revert=True)
         return new_array
 
-    def read_hdf5(self, filename, aerosol_name=None):
+    def read_hdf5(self, filename, aerosol_name=None, wn_range=None, wl_range=None):
         """Reads hdf5 cia files and load temperature, wavenumber, and absorption coefficient grid.
 
         Parameters
@@ -159,18 +159,18 @@ class Atable(Spectral_object):
         if isinstance(self.aerosol_name, bytes):
             self.aerosol_name=self.aerosol_name.decode('UTF-8')
         self.wns=f['bin_centers'][...]
+        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+        iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
         if 'units' in f['bin_centers'].attrs:
             self.wn_unit=f['bin_centers'].attrs['units']
-        self.ext_coeff=f['ext_coeff'][...]
-        self.single_scat_alb=f['single_scat_alb'][...]
-        self.asymmetry_factor=f['asymmetry_factor'][...]
+        self.ext_coeff=f['ext_coeff'][..., iw_min:iw_max]
+        self.single_scat_alb=f['single_scat_alb'][..., iw_min:iw_max]
+        self.asymmetry_factor=f['asymmetry_factor'][..., iw_min:iw_max]
         self.r_eff_grid=f['r_eff'][...]
         self.r_eff_unit=f['r_eff'].attrs['units']
-        f.close()  
-        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+        f.close()
         self.Nr=self.r_eff_grid.size
-        self.Nw=self.wns.size
-          
+
     def write_hdf5(self, filename):
         """Writes hdf5 cia files.
 
