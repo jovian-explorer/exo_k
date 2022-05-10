@@ -20,13 +20,14 @@ class Atable(Spectral_object):
     """
 
     def __init__(self, *filename_filters, filename=None, aerosol_name=None, search_path=None,
-            mks=False, remove_zeros=False, N_per_line=5):
+            mks=False, remove_zeros=False, N_per_line=5,
+            wn_range=None, wl_range=None):
         """Initialization for Atables.
 
         Parameters
         ----------
             filename: str, optional
-                Relative or absolute name of the file to be loaded. 
+                Relative or absolute name of the file to be loaded.
             filename_filters: sequence of string
                 As many strings as necessary to uniquely define
                 a file in the global search path defined in
@@ -114,17 +115,17 @@ class Atable(Spectral_object):
             self.aerosol_name=os.path.basename(filename).split('.')[0]
 
     def _read_arrays(self, file, Nvalue, Narray, N_per_line=5):
-        """Reads an array in a optical property LMDZ file. 
-        Assumes that the arrays are arranged 5 values per line. 
+        """Reads an array in a optical property LMDZ file.
+        Assumes that the arrays are arranged 5 values per line.
 
         Parameters
         ----------
             file: file stream
                 File to be read.
             Nvalue: int
-                Number of values to be read in each array. 
+                Number of values to be read in each array.
             Narray: int
-                Number of arrays to be read. 
+                Number of arrays to be read.
             N_per_line: int
                 Number of values per lines
 
@@ -133,7 +134,7 @@ class Atable(Spectral_object):
             Array
                 A numpy array with the values.
         """
-        
+
         Nline=Nvalue//N_per_line
         if Nvalue%N_per_line != 0:
             Nline+=1
@@ -191,7 +192,7 @@ class Atable(Spectral_object):
         f.create_dataset("asymmetry_factor", data=self.asymmetry_factor, compression=compression)
         f["bin_centers"].attrs["units"] = self.wn_unit
         f["r_eff"].attrs["units"] = self.r_eff_unit
-        f.close()    
+        f.close()
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False,
             sample_all_vars=True, **kwargs):
@@ -207,7 +208,7 @@ class Atable(Spectral_object):
                 (except if remove_zeros is set to True).
                 If false, the values at the boundaries are used when sampling outside the grid.
             sample_all_vars: boolean, optional
-                Whether to sample the single_scattering albedo and asymmetry_factor as well. 
+                Whether to sample the single_scattering albedo and asymmetry_factor as well.
         """
         wngrid=np.array(wngrid)
         Nnew=wngrid.size
@@ -240,7 +241,7 @@ class Atable(Spectral_object):
 
         Parameters
         ----------
-            See sample method for details. 
+            See sample method for details.
 
         Returns
         -------
@@ -251,9 +252,9 @@ class Atable(Spectral_object):
         res.sample(wngrid, **kwargs)
         return res
 
-    def interpolate_optical_properties(self, r_array=None, var_type=0, 
+    def interpolate_optical_properties(self, r_array=None, var_type=0,
             log_interp=None, wngrid_limit=None):
-        """interpolate_cia interpolates the kdata at on a given temperature profile. 
+        """interpolate_cia interpolates the kdata at on a given temperature profile.
 
         Parameters
         ----------
@@ -379,12 +380,12 @@ class Atable(Spectral_object):
             return [kdata, kdata*omeg, g]
         else:
             Q = self.interpolate_optical_properties(r_array=r_array,
-                var_type=0, wngrid_limit=wngrid_limit, log_interp=log_interp) 
+                var_type=0, wngrid_limit=wngrid_limit, log_interp=log_interp)
             kdata = (factor*Q.transpose()).transpose()
             return [kdata, 0., 0.]
 
 
-    def plot_spectrum(self, ax, r=1.e-6, x_axis='wls', xscale=None, yscale=None, 
+    def plot_spectrum(self, ax, r=1.e-6, x_axis='wls', xscale=None, yscale=None,
             var_type=0, **kwarg):
         """Plot the spectrum for a given point
 
@@ -429,13 +430,13 @@ class Atable(Spectral_object):
     def remove_zeros(self, deltalog_min_value=0.):
         """Finds zeros in the ext_coeff and set them to (10.^-deltalog_min_value)
         times the minimum positive value in the table.
-        This is to be able to work in logspace. 
+        This is to be able to work in logspace.
         """
         mask = np.zeros(self.ext_coeff.shape,dtype=bool)
         mask[np.nonzero(self.ext_coeff)] = True
         minvalue=np.amin(self.ext_coeff[mask])
         self.ext_coeff[~mask]=minvalue/(10.**deltalog_min_value)
-        
+
     def __repr__(self):
         """Method to output header
         """
