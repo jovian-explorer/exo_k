@@ -112,7 +112,7 @@ Spectral units
 
 The basic quantity used for the spectral dimension in the code is wavenumber.
 As much as it pains me to write this, the community of infrared spectroscopists seems
-very attached to inverse cemtimeters (cm^-1), so this is the unit used in `exo_k`. 
+very attached to inverse centimeters (cm^-1), so this is the unit used in `exo_k`. 
 
 While all the computations in the library use wavenumbers, some functions and methods can be
 given wavelengths as arguments.

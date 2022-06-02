@@ -1,0 +1,1 @@
+/Users/jleconte/article/Equations/exo_k_evol/exo_k_evol.rst

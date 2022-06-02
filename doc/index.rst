@@ -74,6 +74,7 @@ Doc Contents
    getting_started
    where_to_find_data
    neat_examples
+   exo_k_evol
    API reference <autoapi/index>
    genindex
    how_to_contribute
