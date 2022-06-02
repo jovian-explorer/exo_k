@@ -26,7 +26,7 @@ class Cia_table(Spectral_object):
     """
 
     def __init__(self, *filename_filters, filename=None, molecule_pair=None, search_path=None,
-            mks=False, remove_zeros=False, old_cia_unit='cm^5'):
+            mks=False, remove_zeros=False, old_cia_unit='cm^5', deltalog_min_value=0.):
         """Initialization for Cia_tables.
 
         Parameters
@@ -82,7 +82,7 @@ class Cia_table(Spectral_object):
                 raise RuntimeError('Cia file extension not known.')
         if self.abs_coeff is not None:
             if self._settings._convert_to_mks or mks: self.convert_to_mks()
-            if remove_zeros : self.remove_zeros()
+            if remove_zeros : self.remove_zeros(deltalog_min_value = deltalog_min_value)
 
     def _init_empty(self):
         """Initializes attributes to none.
@@ -445,7 +445,7 @@ class Cia_table(Spectral_object):
         self.abs_coeff_unit='m^5'
         return
 
-    def remove_zeros(self, deltalog_min_value=0.):
+    def remove_zeros(self, deltalog_min_value=0., **kwargs):
         """Finds zeros in the abs_coeff and set them to (10.^-deltalog_min_value)
         times the minimum positive value in the table (inplace).
         This is to be able to work in logspace. 
