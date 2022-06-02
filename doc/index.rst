@@ -73,8 +73,9 @@ Doc Contents
    units
    getting_started
    where_to_find_data
-   neat_examples
+   practical_guide_to_atm
    exo_k_evol
+   neat_examples
    API reference <autoapi/index>
    genindex
    how_to_contribute
