@@ -462,6 +462,30 @@ class Atm_profile(object):
             ptop=self.plev[0], psurf=self.psurf, tsurf=self.tlay[-1])
         return output
 
+    def plot_profile(self, ax, invert_p = True, use_altitudes = False,
+            xscale=None, yscale=None, **kwarg):
+        """Plot the T P profile
+        
+        Parameters
+        ----------
+            ax : :class:`pyplot.Axes`
+                A pyplot axes instance where to put the plot.
+            x/yscale: str, optional
+                If 'log' log axes are used.
+        """
+        if use_altitudes:
+            self.compute_altitudes()
+            ax.plot(self.tlay,self.zlay,**kwarg)
+            ax.set_ylabel('Altitude (m)')
+        else:
+            ax.plot(self.tlay,self.play,**kwarg)
+            if invert_p: ax.invert_yaxis()
+            ax.set_ylabel('Pressure (Pa)')
+        ax.set_xlabel('Temperature (K)')
+        if xscale is not None: ax.set_xscale(xscale)
+        if yscale is not None: ax.set_yscale(yscale)
+
+
     def write_soundings(self, dirname='.', fmt='%.10e', cp=None, qvap=None, p_dry=None):
         """Writes sounding files that can be used to initiate the mesoscale model
         """
@@ -502,17 +526,21 @@ class Atm(Atm_profile):
     Radiative data are accessed through the :any:`gas_mix.Gas_mix` class.
     """
 
-    def __init__(self, k_database=None, cia_database=None, a_database=None,
-        wn_range=None, wl_range=None, internal_flux=0., **kwargs):
+    def __init__(self, k_database = None, cia_database = None, a_database = None,
+        wn_range = None, wl_range = None, internal_flux = 0., 
+        flux_top_dw = None, **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
+        self.Nw = None
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_a_database(a_database)
         self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
         self.set_internal_flux(internal_flux)
+        if flux_top_dw is not None:
+            self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)
         self.flux_net_nu=None
         self.kernel=None
 
@@ -579,7 +607,8 @@ class Atm(Atm_profile):
         channel.
 
         .. important::
-            If your simulated range does not include the whole spectral range
+            If you are not using a stellar black body
+            and if your simulated range does not include the whole spectral range
             where the star emits, the flux seen by the model will be smaller
             than the input one. 
 
@@ -595,6 +624,11 @@ class Atm(Atm_profile):
                 the overall flux will be renormalized.
 
         """
+        if self.Nw is None:
+            raise RuntimeError("""
+            You must have set a k_database before calling set_incoming_stellar_flux
+            or using the flux_top_dw keyword.
+            """)
         if stellar_spectrum:
             binned_spec = stellar_spectrum.bin_down_cp(self.wnedges)
             self.flux_top_dw_nu = binned_spec.value

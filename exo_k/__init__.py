@@ -27,3 +27,5 @@ from .chemistry import EquChemTable, InterpolationChemistry
 from .gas_mix import Gas_mix, Known_composite_species
 from .settings import Settings
 from .rayleigh import Rayleigh
+from exo_k.atm_evolution.atm_evol import Atm_evolution
+from exo_k.atm_evolution.condensation import Condensation_Thermodynamical_Parameters, Condensing_species
