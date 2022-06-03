@@ -528,12 +528,13 @@ class Atm(Atm_profile):
 
     def __init__(self, k_database = None, cia_database = None, a_database = None,
         wn_range = None, wl_range = None, internal_flux = 0., 
-        flux_top_dw = None, **kwargs):
+        flux_top_dw = None, albedo_surf = 0., wn_albedo_cutoff = 5000., **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
         self.Nw = None
+        self.albedo_surf_nu = None
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_a_database(a_database)
@@ -541,6 +542,8 @@ class Atm(Atm_profile):
         self.set_internal_flux(internal_flux)
         if flux_top_dw is not None:
             self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)
+        self.set_surface_albedo(albedo_surf = albedo_surf,
+                        wn_albedo_cutoff = wn_albedo_cutoff)
         self.flux_net_nu=None
         self.kernel=None
 
@@ -563,6 +566,7 @@ class Atm(Atm_profile):
         if self.k_database is not None:
             self.Nw = self.k_database.Nw
             self.wnedges = self.k_database.wnedges
+            self.wns = self.k_database.wns
             self.dwnedges = np.diff(self.wnedges)
             self.flux_top_dw_nu = np.zeros((self.Nw))
 
@@ -642,6 +646,38 @@ class Atm(Atm_profile):
         """Sets internal flux from the subsurface in W/m^2
         """
         self.internal_flux = internal_flux
+
+    def set_surface_albedo(self, albedo_surf = None, wn_albedo_cutoff = None, **kwargs):
+        """Sets the value of the mean surface albedo.
+        
+        Parameters
+        ----------
+            albedo_surf: float
+                Effective visible surface albedo.
+             wn_albedo_cutoff: float
+                wavenumber value in cm-1 dividing the visible range from the IR range, 
+                where the albedo goes from a given value 'albedo_surf' to 0.
+        """
+        recompute_albedo = False
+        if albedo_surf is not None:
+            self.albedo_surf = albedo_surf
+            recompute_albedo = True
+        if wn_albedo_cutoff is not None:
+            self.wn_albedo_cutoff = wn_albedo_cutoff
+            recompute_albedo = True
+        if self.albedo_surf_nu is None:
+                recompute_albedo = True
+        if recompute_albedo: self._setup_albedo_surf_nu()
+
+    def _setup_albedo_surf_nu(self):
+        """Compute the value of the mean surface albedo for each wavenumber in an array.
+        If the albedo value is modified, this method needs to be called again.
+        For now, only available with wavenumbers
+        """
+        if self.Nw is not None:
+            self.albedo_surf_nu = np.where(self.wns >= self.wn_albedo_cutoff, self.albedo_surf, 0.)
+        else:
+            self.albedo_surf_nu = None
 
     def spectral_integration(self, spectral_var):
         """Spectrally integrate an array, taking care of whether
@@ -766,6 +802,7 @@ class Atm(Atm_profile):
         """
         if gas_vmr is not None: self.set_gas(gas_vmr, Mgas = Mgas)
         self.opacity(rayleigh=rayleigh, **kwargs)
+        self.set_surface_albedo(**kwargs)
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
@@ -954,7 +991,7 @@ class Atm(Atm_profile):
 
         self.flux_up_nu, self.flux_down_nu, self.flux_net_nu = \
             solve_2stream_nu(self.piBatm, self.dtau, self.single_scat_albedo, self.asym_param,
-                self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
+                self.flux_top_dw_nu, self.albedo_surf_nu, mu0 = mu0, flux_at_level=flux_at_level)
         if compute_kernel: self.compute_kernel(solve_2stream_nu, mu0=mu0, flux_at_level=flux_at_level,
                     per_unit_mass=True, integral=True, **kwargs)
 
@@ -1008,7 +1045,7 @@ class Atm(Atm_profile):
             pibatm[ilay] = newpiBatm[ilay]
             _, _, flux_net_tmp = \
                 solve_2stream_nu(pibatm, self.dtau, self.single_scat_albedo, self.asym_param,
-                    self.flux_top_dw_nu, mu0 = mu0, flux_at_level=flux_at_level)
+                    self.flux_top_dw_nu, self.albedo_surf_nu, mu0 = mu0, flux_at_level=flux_at_level)
             net_tmp = self.spectral_integration(flux_net_tmp)
             self.kernel[ilay]=(net-net_tmp)/dT[ilay]
         self.kernel[:,:-1]-=self.kernel[:,1:]

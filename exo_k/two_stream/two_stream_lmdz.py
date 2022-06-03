@@ -8,7 +8,7 @@ import numpy as np
 import numba
 
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-        flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
+        flux_top_dw_nu, alb_surf_nu, mu0=0.5, flux_at_level=False):
     """Deals with the spectral axis
     """
       
@@ -37,7 +37,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             
         FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW],
                 omega0_nu[:,NW], g_asym_nu[:,NW], mu0=mu0,
-                flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf,
+                flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf_nu[NW],
                 flux_at_level=flux_at_level)
         FLUXUPI_nu[:,NW] = FMUPI
         FLUXDWI_nu[:,NW] = FMDI
@@ -47,7 +47,7 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-        flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
+        flux_top_dw_nu, alb_surf_nu, mu0=0.5, flux_at_level=False):
     """Deals with the spectral axis
     """
       
@@ -77,7 +77,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             
             FMUPI, FMDI, FNETI = solve_2stream(source_nu[:,NW], dtau_nu[:,NW,iG],
                     omega0_nu[:,NW,iG], g_asym_nu[:,NW,iG], mu0=mu0,
-                    flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf,
+                    flux_top_dw=flux_top_dw_nu[NW], alb_surf=alb_surf_nu[NW],
                     flux_at_level=flux_at_level)
             FLUXUPI_nu[:,NW,iG] = FMUPI
             FLUXDWI_nu[:,NW,iG] = FMDI

@@ -10,7 +10,7 @@ import numba
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
+                flux_top_dw_nu, alb_surf_nu, mu0=0.5, flux_at_level=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -22,12 +22,12 @@ def solve_2stream_nu_xsec(source_nu, dtau_nu, omega0_nu, g_asym_nu,
             solve_2stream(source_nu[:,iW], dtau_nu[:,iW],
                 omega0_nu[:,iW], g_asym_nu[:,iW],
                 mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
-                alb_surf=alb_surf, flux_at_level=flux_at_level)
+                alb_surf=alb_surf_nu[iW], flux_at_level=flux_at_level)
     return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
 def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
-                flux_top_dw_nu, mu0=0.5, alb_surf=0., flux_at_level=False):
+                flux_top_dw_nu, alb_surf_nu, mu0=0.5, flux_at_level=False):
     """Deals with the spectral axis
     """
     NLEV, NW = source_nu.shape
@@ -41,7 +41,7 @@ def solve_2stream_nu_corrk(source_nu, dtau_nu, omega0_nu, g_asym_nu,
                 solve_2stream(source_nu[:,iW], dtau_nu[:,iW,iG], 
                     omega0_nu[:,iW,iG], g_asym_nu[:,iW,iG],
                     mu0=mu0, flux_top_dw=flux_top_dw_nu[iW],
-                    alb_surf=alb_surf, flux_at_level=flux_at_level)
+                    alb_surf=alb_surf_nu[iW], flux_at_level=flux_at_level)
     return flux_up, flux_dw, flux_net
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
