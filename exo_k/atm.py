@@ -895,10 +895,14 @@ class Atm(Atm_profile):
         Parameters
         ----------
             integral: boolean, optional
-                * If true, the black body is integrated within each wavenumber bin.
-                * If not, only the central value is used.
-                  False is faster and should be ok for small bins,
-                  but True is the correct version. 
+                * If True, the source function (black body)
+                  is integrated within each wavenumber bin.
+                * If False, only the central value is used.
+                  False is faster and should be ok for small bins
+                  (e.g. used with `Xtable`),
+                  but True is the most accurate mode. 
+            rayleigh: bool
+                Whether to account for rayleigh scattering or not. 
 
         Other Parameters
         ----------------
@@ -908,6 +912,21 @@ class Atm(Atm_profile):
                 If the optical depth in a layer is smaller than dtau_min,
                 dtau_min is used in that layer instead. Important as too
                 transparent layers can cause important numerical rounding errors.
+            flux_at_level: bool
+                Whether the fluxes are computed at the levels (True) or
+                in the middle of the layers (False). e.g. this needs to 
+                be True to be able to use the kernel with the evolution model.
+            source: bool
+                Whether to include the self emission of the gas in the computation.
+            compute_kernel: bool
+                Whether we want to recompute the kernel of the heating rates along
+                with the fluxes.
+            method: str
+                What method to use to computed the 2 stream fluxes. 
+                'toon' (default) uses Toon et al. (1989).
+                'lmdz' is based on the same equation, but the implementation
+                is closer to the actual method used in the LMDZ GCM. This mode
+                is not supported anymore and might be broken!
 
         Returns
         -------
@@ -946,7 +965,36 @@ class Atm(Atm_profile):
 
     def compute_kernel(self, solve_2stream_nu, epsilon=0.01, flux_at_level=False, mu0 = 0.5,
             per_unit_mass=True, integral=True, **kwargs):
-        """Compute the Jacobian matrix d Heating[lay=i] / d T[lay=j]
+        """Computes the Jacobian matrix d Heating[lay=i] / d T[lay=j]
+
+        This method should not be called by the user directly. The recompute the
+        kernel, call emission_spectrum_2stream with the option compute_kernel=True.
+
+        After the computation, the kernel is stored in self.kernel and the
+        temperature array at wich the kernel has been computed in 
+        self.tlay_kernel.
+
+        Parameters
+        ----------
+            solve_2stream_nu: function
+                Name of the function that will be used to compute the
+                fluxes. e.g.: two_stream_toon or two_stream_lmdz 
+            epsilon: float
+                The temperature increment used to compute the derivative
+                will be epsilon*self.tlay
+            flux_at_level: bool
+                Whether the fluxes are computed at the levels (True) or
+                in the middle of the layers (False). e.g. this needs to 
+                be True to be able to use the kernel with the evolution model.
+            mu0: float
+                Cosine of the effective zenith angle used in the flux computations.
+            per_unit_mass: bool
+                Whether the heating rates will be normalized per unit of mass (i.e.
+                the kernel values will have units of W/kg/K).
+                If False, kernel in W/layer/K.
+            integral: bool
+                Whether the integral mode is used in flux computations. e.g. this needs to 
+                be True to be able to use the kernel with the evolution model. 
         """
         net=self.spectral_integration(self.flux_net_nu)
         self.kernel=np.empty((self.Nlay,self.Nlay))
@@ -998,6 +1046,25 @@ class Atm(Atm_profile):
         return H, net
 
     def heating_rate(self, compute_kernel=False, dTmax_use_kernel=None, **kwargs):
+        """Computes the heating rates and net fluxes in the atmosphere.
+
+        Parameters
+        ----------
+            compute_kernel: bool
+                If True, the kernel (jacobian of the heat rates) is recomputed
+            dTmax_use_kernel: float
+                Maximum temperature difference between the current temperature
+                and the temperature of the last kernel computation before
+                a new kernel is recomputed.
+
+        Returns
+        -------
+            H: array
+                Heating rate in each layer (Difference of the net fluxes). Positive means heating.
+                The last value is the net flux impinging on the surface + the internal flux.
+            net: array
+                Net fluxes at level surfaces
+        """
         if (not compute_kernel) and (dTmax_use_kernel is not None):
             dT=self.tlay-self.tlay_kernel
             if np.amax(np.abs(dT)) < dTmax_use_kernel:
@@ -1016,29 +1083,34 @@ class Atm(Atm_profile):
             self.tau_rad = np.amin(self.tau_rads)
         return H, net
 
-    def bolometric_fluxes_2band(self, **kwargs):
+    def bolometric_fluxes_2band(self, flux_top_dw = None, **kwargs):
         """Computes the bolometric fluxes at levels and heating rates using `bolometric_fluxes`.
 
         However, the (up, down, net) fluxes are separated in two contributions:
           - the part emitted directly by the atmosphere (_emis).
           - the part due to the incoming stellar light (_stell),
             that can be used to compute the absorbed stellar radiation and the bond_albedo.
+
+        We also provide the associated heating rates (H in W/kg)
         """
         save_stellar_flux = np.copy(self.flux_top_dw_nu)
         self.flux_top_dw_nu = self.flux_top_dw_nu * 0.
-        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, **kwargs)
+        _ = self.emission_spectrum_2stream(flux_at_level = True, integral = True, **kwargs)
         Fup_emis, Fdw_emis, Fnet_emis, H_emis = self.bolometric_fluxes(**kwargs)
         self.flux_top_dw_nu = save_stellar_flux
+
         save_internal_flux = np.copy(self.internal_flux)
-        _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, source=False, **kwargs)
+        _ = self.emission_spectrum_2stream(flux_at_level = True, integral = True,
+        flux_top_dw = flux_top_dw, source = False, **kwargs)
         Fup_stel, Fdw_stel, Fnet_stel, H_stel = self.bolometric_fluxes(**kwargs)
         self.internal_flux = save_internal_flux
+
         return Fup_emis, Fdw_emis, Fnet_emis, H_emis, Fup_stel, Fdw_stel, Fnet_stel, H_stel
 
     def spectral_fluxes_2band(self, **kwargs):
-        """Computes the spectral fluxes at levels and heating rates using `bolometric_fluxes`.
+        """Computes the spectral fluxes at levels.
 
-        However, the (up, down, net) fluxes are separated in two contributions:
+        The (up, down, net) fluxes are separated in two contributions:
           - the part emitted directly by the atmosphere (_emis).
           - the part due to the incoming stellar light (_stell),
             that can be used to compute the absorbed stellar radiation and the bond_albedo.
@@ -1050,10 +1122,12 @@ class Atm(Atm_profile):
         Fdw_emis = self.g_integration(self.flux_down_nu)
         Fnet_emis = self.g_integration(self.flux_net_nu)
         self.flux_top_dw_nu = save_stellar_flux
+
         _ = self.emission_spectrum_2stream(flux_at_level=True, integral=True, source=False, **kwargs)
         Fup_stel = self.g_integration(self.flux_up_nu)
         Fdw_stel = self.g_integration(self.flux_down_nu)
         Fnet_stel = self.g_integration(self.flux_net_nu)
+
         return Fup_emis, Fdw_emis, Fnet_emis, Fup_stel, Fdw_stel, Fnet_stel
 
     def bolometric_fluxes(self, per_unit_mass = True, **kwargs):
