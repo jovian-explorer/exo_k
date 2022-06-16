@@ -7,8 +7,10 @@ from .util.molar_mass import Molar_mass
 from .util.molar_heat_capacity import Molar_heat_capacity
 from .util.interp import RandOverlap_2_kdata_prof, rm_molec
 from .rayleigh import Rayleigh
+from .util.cst import N_A
 from .util.spectral_object import Spectral_object
 from .util.singleton import Singleton
+from .util.radiation import dBnudT_array, Bnu_integral_num
 
 class Gas_mix(Spectral_object):
     """Dict-like class to handle gas composition (with background gas) and molar mass.
@@ -495,6 +497,46 @@ class Gas_mix(Spectral_object):
 
         return kdata_array
     
+    def rosseland_mean_opacity(self, per_unit_mass = True, **kwargs):
+        """Computes Rosseland mean opacities in area per unit of mass of matter. 
+
+        The unit for area is determined by the data used. In MKS,it will be m^2.
+        """
+        kdata_array = self.cross_section(**kwargs)
+        if self.Ng is not None:
+            inv_kdata_array = np.sum(1./kdata_array * self.k_database.weights, axis=-1)
+        else:
+            inv_kdata_array = 1./kdata_array
+
+        if per_unit_mass:
+            mean_molecular_mass = self.molar_mass() / N_A
+        else:
+            mean_molecular_mass = 1.
+
+        dBnudT = dBnudT_array(self.wns, self.t_array, self.Nw, self.Narray)
+        norm = np.sum(dBnudT * self.dwnedges, axis=-1)
+        norm /= mean_molecular_mass
+        ovkappa = np.sum(dBnudT * inv_kdata_array * self.dwnedges, axis=-1)
+        return norm / ovkappa
+
+    def planck_mean_opacity(self, t_blackbody, per_unit_mass = True, **kwargs):
+        """Computes Plank mean opacities in area per unit of mass of matter. 
+
+        The unit for area is determined by the data used. In MKS,it will be m^2.
+        """
+        kdata_array = self.cross_section(**kwargs)
+        if self.Ng is not None:
+            kdata_array = np.sum(kdata_array * self.k_database.weights, axis=-1)
+
+        if per_unit_mass:
+            mean_molecular_mass = self.molar_mass() / N_A
+        else:
+            mean_molecular_mass = 1.
+
+        Bnu = Bnu_integral_num(self.wnedges, t_blackbody)
+        norm = np.sum(Bnu)
+        return np.sum(kdata_array * Bnu, axis=-1) / mean_molecular_mass / norm
+
     def __getitem__(self, molecule):
         """Overrides getitem
         """
