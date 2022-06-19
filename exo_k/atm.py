@@ -462,7 +462,7 @@ class Atm_profile(object):
             ptop=self.plev[0], psurf=self.psurf, tsurf=self.tlay[-1])
         return output
 
-    def plot_profile(self, ax, invert_p = True, use_altitudes = False,
+    def plot_T_profile(self, ax, invert_p = True, use_altitudes = False,
             xscale=None, yscale=None, **kwarg):
         """Plot the T P profile
         

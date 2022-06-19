@@ -55,7 +55,7 @@ class Atm_evolution(object):
         self.Nlay = self.atm.Nlay
         self.tlay = self.atm.tlay
         if verbose: print(self.settings.parameters)
-        self.evol_time = 0.
+        self.evol_tau = 0.
 
     def set_options(self, reset_rad_model=False, **kwargs):
         """This method is used to store the global options
@@ -248,12 +248,16 @@ class Atm_evolution(object):
                 Maximum temperature increment in a single timestep.
             
         """
+        if self.atm.k_database is None:
+            print('This Atm_evolution instance is not linked to any k_database')
+            print('Use self.set_options(k_database=, ..., reset_rad_model=True)')
+            raise RuntimeError('No k_database provided.')
         self.H_ave = np.zeros((6, self.Nlay))
 
         self.tlay_hist = np.zeros((N_timestep,self.Nlay))
         self.Fnet_top = np.zeros((N_timestep))
         self.timestep_hist = np.zeros((N_timestep))
-        tau0 = self.evol_time
+        tau0 = self.evol_tau
         self.N_last_ker = 0
         compute_kernel = False
         dTlay_max = 2. * self.settings['dTmax_use_kernel']
@@ -286,7 +290,7 @@ class Atm_evolution(object):
             self.H_tot += self.H_rad
             self.timestep = timestep_factor * self.atm.tau_rad
             #if verbose: print('tau_rad, dt:', self.atm.tau_rad, self.timestep)
-            self.evol_time += self.timestep
+            self.evol_tau += self.timestep
             if self.settings['convection']:
                 self.H_conv = self.tracers.dry_convective_adjustment(self.timestep, self.H_tot, self.atm, verbose = verbose)
                 self.H_tot += self.H_conv
@@ -337,7 +341,7 @@ class Atm_evolution(object):
             self.timestep_hist[ii] = self.timestep
             self.atm.set_T_profile(self.tlay)
             self.tracers.update_gas_composition(update_vmr=True)
-        inv_delta_t = 1./(self.evol_time-tau0)
+        inv_delta_t = 1./(self.evol_tau-tau0)
         self.H_ave *= inv_delta_t
         self.compute_average_fluxes()
 
@@ -369,7 +373,7 @@ class Atm_evolution(object):
             raise RuntimeError('You should provide the maximum tolerance on the net flux: Fnet_tolerance (in W/m^2)') 
         N_timestep = N_timestep_ini
         while iter <= N_iter_max:
-            time_init = self.evol_time
+            time_init = self.evol_tau
             self.evolve(N_timestep = N_timestep, **kwargs)
             net = self.Fnet_top - self.atm.internal_flux
             if verbose:
@@ -378,9 +382,9 @@ class Atm_evolution(object):
                     fme = net.mean(), fmi = net.min(), fma = net.max()))   
                 print('timestep: {ts1:.3g} d | {ts2:.3g} s, total time: {ev_t:.3g} yr'.format( \
                     ts1 = self.timestep*self.cp/(DAY), ts2 = self.timestep*self.cp,
-                    ev_t = (self.evol_time-time_init)*self.cp/(DAY*365.)))   
+                    ev_t = (self.evol_tau-time_init)*self.cp/(DAY*365.)))   
                 #print('timestep:',self.timestep*self.cp/(DAY),'days, ',
-                #    self.timestep*self.cp,'s, evol_time(yr):',(self.evol_time-time_init)*self.cp/(DAY*365.))
+                #    self.timestep*self.cp,'s, evol_time(yr):',(self.evol_tau-time_init)*self.cp/(DAY*365.))
             if np.all(np.abs(net) < Fnet_tolerance): break
             N_timestep = min( N_timestep * 2, N_timestep_max)
             iter += 1
@@ -488,10 +492,14 @@ class Atm_evolution(object):
                 1 or 3: acceleration limited to radiative zones.
                 2 or 4: acceleration in convective zones as well. 
 
-        1 c’est le mode d’avant (accélération dans les zones radiatives) où le temps de reference pour calculer l’acceleration est calculé comme étant le temps radiatif le plus grand dans les zones non-radiatives
-        2 c’est le mode 1 + acceleration dans les zones convectives
-        3 c’est le mode d’avant où le temps de reference est le temps radiatif le plus *petit* dans les zones radiatives
-        4 c’est 3 + acceleration dans les zones convectives
+        * 1: acceleration limited to radiative zones. 
+          The largest radiative timescale in non-radiative zones is 
+          used as reference radiative timsescale to compute acceleration.
+        * 2: Same as mode 1 + acceleration in convective zones
+        * 3 acceleration limited to radiative zones.
+          The smallest radiative timescale in radiative zones is 
+          used as reference radiative timsescale to compute acceleration.
+        * 4: Same as mode 3 + acceleration in convective zones
         """
         self.acceleration_factor = np.ones_like(self.H_tot)
         rad_layers =  np.isclose(self.H_tot, self.H_rad, atol=0.e0, rtol=1.e-10)
@@ -529,6 +537,17 @@ class Atm_evolution(object):
             print(np.transpose([self.acceleration_factor, self.H_tot, self.H_acc]))
         self.H_tot = self.H_tot * self.acceleration_factor + self.H_acc
 
+    @property
+    def time(self):
+        """Yields current time in seconds
+        """
+        return self.evol_tau * self.cp
+
+    @property
+    def time_hist(self):
+        """Yields the array of the times for the last call to evolve (in seconds)
+        """
+        return np.cumsum(self.timestep_hist) * self.cp
 
     def write_pickle(self, filename, data_reduction_level = 1):
         """Saves the instance in a pickle file
