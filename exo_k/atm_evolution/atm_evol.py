@@ -46,7 +46,7 @@ class Atm_evolution(object):
         if verbose: print('cp, M_bg, rcp:', self.cp, self.M_bg, self.rcp)
 
 
-        self.tracers=Tracers(self.settings, bg_vmr = self.bg_gas.composition,
+        self.tracers = Tracers(self.settings, bg_vmr = self.bg_gas.composition,
             **self.settings.parameters)
         self.initialize_condensation(**self.settings.parameters)
 
@@ -81,7 +81,7 @@ class Atm_evolution(object):
         if reset_rad_model: self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
                 **self.settings.parameters)
 
-    def initialize_condensation(self, condensing_species={}, **kwargs):
+    def initialize_condensation(self, condensing_species = None, **kwargs):
         """This method initializes the condensation module by
         listing all the condensing vapors and linking them to their
         condensed form. 
@@ -89,12 +89,14 @@ class Atm_evolution(object):
         For each vapor-condensate pair, a :class:`Condensible_species` object is created
         with the thermodynamical data provided. 
 
-        Here is an example of dictinoary to provide as input to include CH4 condensation
+        Here is an example of dictionary to provide as input to include CH4 condensation
         ```
         condensing_species={'ch4':{'Latent_heat_vaporization': 5.25e5, 'cp_vap': 2.232e3, 'Mvap': 16.e-3,
             'T_ref': 90., 'Psat_ref': 0.11696e5}}
         ```
         """
+        if condensing_species is None:
+            condensing_species = {}
         self.condensing_pairs = list()
         self.condensing_pairs_idx = list()
         self.condensing_species_idx = dict()
@@ -110,18 +112,21 @@ class Atm_evolution(object):
                     elif self.tracers.dico[name]['condensed_form'] not in self.tracers.namelist:
                         print("The condensed form of a vapor should be a tracer.")
                         raise RuntimeError()
-                    else:
-                        if name in condensing_species.keys():
-                            cond_name = self.tracers.dico[name]['condensed_form']
-                            self.condensing_species_idx[name]=idx
-                            self.condensing_pairs.append([name, cond_name])
-                            self.condensing_pairs_idx.append(\
-                                [self.tracers.idx[name], self.tracers.idx[cond_name]])
-                            self.condensing_species_params.append(\
-                                Condensing_species(**condensing_species[name]))
-                            self.condensing_species_thermo.append(\
-                                Condensation_Thermodynamical_Parameters(**condensing_species[name]))
-                            idx+=1
+                    elif name in condensing_species.keys():
+                        cond_name = self.tracers.dico[name]['condensed_form']
+                        self.condensing_species_idx[name]=idx
+                        self.condensing_pairs.append([name, cond_name])
+                        self.condensing_pairs_idx.append(\
+                            [self.tracers.idx[name], self.tracers.idx[cond_name]])
+                        self.condensing_species_params.append(\
+                            Condensing_species(**condensing_species[name]))
+                        self.condensing_species_thermo.append(\
+                            Condensation_Thermodynamical_Parameters(**condensing_species[name]))
+                        idx+=1
+                    else: 
+                        print("The thermodynamic parameters for:", name,'were not provided')
+                        print('through condensing_species = \{\}.')
+                        raise RuntimeError()
         self.Ncond=idx
 
     def rainout(self, timestep, Htot, verbose = False):
@@ -319,6 +324,9 @@ class Atm_evolution(object):
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
+            if self.settings['surface_reservoir']:
+                self.tracers.update_surface_reservoir(condensing_pairs_idx = self.condensing_pairs_idx,
+                    surf_layer_mass = self.atm.dmass[-1])
             if self.settings['acceleration_mode'] > 0:
                 self.radiative_acceleration(timestep = self.timestep, \
                     acceleration_mode = self.settings['acceleration_mode'], verbose = verbose)
@@ -548,6 +556,16 @@ class Atm_evolution(object):
         """Yields the array of the times for the last call to evolve (in seconds)
         """
         return np.cumsum(self.timestep_hist) * self.cp
+    
+    def heating_rate(self, physical_process):
+        """return heating rates in W/kg per layer averaged over last call to evolve.
+        Possible physical_processes are rad, cond, conv, rain, madj, tot"""
+        return self.H_ave[self.header[physical_process]]
+
+    def net_flux(self, physical_process):
+        """return net_flux in W/m^2 averaged over last call to evolve.
+        Possible physical_processes are rad, cond, conv, rain, madj, tot"""
+        return self.Fnet[self.header[physical_process]]
 
     def write_pickle(self, filename, data_reduction_level = 1):
         """Saves the instance in a pickle file
@@ -891,7 +909,7 @@ def compute_rainout(timestep, Nlay, tlay, play, dmass, cp, Mgas, qarray,
 
 class Tracers(object):
 
-    def __init__(self, settings, tracers={}, tracer_values={}, Kzz=0., Dmol=0.,
+    def __init__(self, settings, tracers=None, tracer_values=None, Kzz=0., Dmol=0.,
             bg_vmr=None, M_bg=None, Nlay=None, **kwargs):
         """Deals with tracers. 
 
@@ -899,10 +917,13 @@ class Tracers(object):
         between tracer names and indices in tracers.qarray.
         """
         self.settings=settings
-        self.Ntrac = len(tracers)
-        if self.Ntrac == 0:
+        if tracers is None:
             self.Ntrac=1
-            tracers={'inactive_tracer':{}}
+            tracers = {'inactive_tracer':{}}
+        else:
+            self.Ntrac = len(tracers)
+        if tracer_values is None:
+            tracer_values = {}
         if Nlay is not None:
             self.Nlay = Nlay
         else:
@@ -917,6 +938,7 @@ class Tracers(object):
         self.namelist = list(tracers.keys())
         self.idx = dict()
         self.qarray = np.empty((self.Ntrac, self.Nlay))
+        self.qsurf = np.zeros(self.Ntrac)
         for ii, name in enumerate(self.namelist):
             self.idx[name]=ii
             if name in tracer_values.keys():
@@ -931,6 +953,9 @@ class Tracers(object):
                     self.var_gas_idx.append(ii)
                     self.var_gas_names.append(name)
                     self.gas_molar_masses.append(xk.Molar_mass().fetch(name))
+            if 'surface_reservoir' in self.dico[name]:
+                self.qsurf[ii] = np.copy(self.dico[name]['surface_reservoir'])
+                self.settings.set_parameters(surface_reservoir = True)
         self.var_gas_idx = np.array(self.var_gas_idx)
         self.var_gas_names = np.array(self.var_gas_names)
         self.gas_molar_masses = np.array(self.gas_molar_masses)
@@ -1031,6 +1056,24 @@ class Tracers(object):
         if self.settings['convective_transport']:
             self.qarray=q_array
         return H_conv
+
+    def update_surface_reservoir(self, condensing_pairs_idx = False,
+            surf_layer_mass = 0.):
+        """Update surface reservoirs of tracers.
+
+        E.g. deals with removing excess condensates from the first layer or
+        putting more when everything as been evaporated. 
+        """
+        if condensing_pairs_idx: # an empty list is False
+            qcond_surf_layer = self.settings['qcond_surf_layer']
+            for idx_vap, idx_cond in condensing_pairs_idx:
+                dm_surf_layer = (qcond_surf_layer - self.qarray[idx_cond, -1]) * surf_layer_mass
+                if dm_surf_layer > self.qsurf[idx_cond]: #empties surface reservoir
+                    self.qarray[idx_cond, -1] += self.qsurf[idx_cond] / surf_layer_mass
+                    self.qsurf[idx_cond] = 0.
+                else:  # general case
+                    self.qarray[idx_cond, -1] = qcond_surf_layer
+                    self.qsurf[idx_cond] -= dm_surf_layer
 
     def __getitem__(self, key):
         return self.qarray[self.idx[key]]

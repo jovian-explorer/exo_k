@@ -21,6 +21,7 @@ class Settings(object):
                         'latent_heating': True,
                         'moist_convection': False,
                         'moist_inhibition': False,
+                        'surface_reservoir': False,
                         'dTmax_use_kernel': 10.,
                         'qvap_deep': -1.,
                         'evap_coeff': 1.,
@@ -28,6 +29,7 @@ class Settings(object):
                         'radiative_acceleration_reducer': 1.,
                         'condensation_timestep_reducer': .8,
                         'convective_acceleration_mode': 0,
+                        'qcond_surf_layer': 0.1,
                         }
 
     def set_parameters(self, **kwargs):
