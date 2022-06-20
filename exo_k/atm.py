@@ -528,20 +528,25 @@ class Atm(Atm_profile):
 
     def __init__(self, k_database = None, cia_database = None, a_database = None,
         wn_range = None, wl_range = None, internal_flux = 0., rayleigh = False,
-        flux_top_dw = None, albedo_surf = 0., wn_albedo_cutoff = 5000., **kwargs):
+        flux_top_dw = 0., Tstar = 5570., albedo_surf = 0., wn_albedo_cutoff = 5000.,
+        **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
-        self.Nw = None
-        self.albedo_surf_nu = None
+        self.known_spectral_axis = False
+        self.number_computation_albedo_surf_nu = 0
+        self.number_computation_flux_top_dw_nu = 0
         self.set_k_database(k_database)
         self.set_cia_database(cia_database)
         self.set_a_database(a_database)
-        self.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
+        self.set_spectral_range(wn_range = wn_range, wl_range = wl_range)
         self.set_internal_flux(internal_flux)
-        if flux_top_dw is not None:
-            self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)
+
+        self.compute_flux_top_dw_nu = True
+        self.set_incoming_stellar_flux(flux_top_dw = flux_top_dw, Tstar = Tstar, **kwargs)
+
+        self.compute_albedo_surf_nu = True
         self.set_surface_albedo(albedo_surf = albedo_surf,
                         wn_albedo_cutoff = wn_albedo_cutoff)
         self.set_rayleigh(rayleigh = rayleigh)
@@ -565,11 +570,15 @@ class Atm(Atm_profile):
         self.Ng=self.gas_mix.Ng
         # to know whether we are dealing with corr-k or not and access some attributes. 
         if self.k_database is not None:
-            self.Nw = self.k_database.Nw
-            self.wnedges = self.k_database.wnedges
-            self.wns = self.k_database.wns
-            self.dwnedges = np.diff(self.wnedges)
-            self.flux_top_dw_nu = np.zeros((self.Nw))
+            #self.Nw = self.k_database.Nw
+            #self.wnedges = self.k_database.wnedges
+            #self.wns = self.k_database.wns
+            #self.dwnedges = np.diff(self.wnedges)
+            self.compute_albedo_surf_nu = True
+            self.number_computation_albedo_surf_nu = 0
+            self.compute_flux_top_dw_nu = True
+            self.number_computation_flux_top_dw_nu = 0
+            self.known_spectral_axis = False
 
     def set_cia_database(self, cia_database=None):
         """Change the CIA database used by the
@@ -598,15 +607,18 @@ class Atm(Atm_profile):
         """    
         self.aerosols.set_a_database(a_database=a_database)
 
-    def set_spectral_range(self, wn_range=None, wl_range=None):
+    def set_spectral_range(self, wn_range = None, wl_range = None):
         """Sets the spectral range in which computations will be done by specifying
         either the wavenumber (in cm^-1) or the wavelength (in micron) range.
 
         See :any:`gas_mix.Gas_mix.set_spectral_range` for details.
         """
-        self.gas_mix.set_spectral_range(wn_range=wn_range, wl_range=wl_range)
+        self.gas_mix.set_spectral_range(wn_range = wn_range, wl_range = wl_range)
+        self.compute_albedo_surf_nu = True
+        self.compute_flux_top_dw_nu = True
+        self.known_spectral_axis = False
 
-    def set_incoming_stellar_flux(self, flux=0., Tstar=5778.,
+    def set_incoming_stellar_flux(self, flux_top_dw = None, Tstar = None,
             stellar_spectrum = None, **kwargs):
         """Sets the stellar incoming flux integrated in each wavenumber
         channel.
@@ -629,19 +641,34 @@ class Atm(Atm_profile):
                 the overall flux will be renormalized.
 
         """
-        if self.Nw is None:
-            raise RuntimeError("""
-            You must have set a k_database before calling set_incoming_stellar_flux
-            or using the flux_top_dw keyword.
-            """)
-        if stellar_spectrum:
-            binned_spec = stellar_spectrum.bin_down_cp(self.wnedges)
-            self.flux_top_dw_nu = binned_spec.value
-            factor = flux / (binned_spec.total)
-        else:
-            self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, Tstar)
-            factor = flux * PI / (SIG_SB*Tstar**4 * self.dwnedges)
-        self.flux_top_dw_nu = self.flux_top_dw_nu * factor
+        if flux_top_dw is not None:
+            self.flux_top_dw = flux_top_dw
+            self.compute_flux_top_dw_nu = True
+        if (Tstar is not None) and (stellar_spectrum is not None):
+            print('Carefull, both Tstar and stellar_spectrum in set_incoming_stellar_flux')
+            print('Tstar will not be used.')
+        if Tstar is not None:
+            self.Tstar = Tstar
+            self.stellar_spectrum = None
+            self.compute_flux_top_dw_nu = True
+        if stellar_spectrum is not None:
+            self.stellar_spectrum = stellar_spectrum
+            self.Tstar = None
+            self.compute_flux_top_dw_nu = True
+
+        if (self.compute_flux_top_dw_nu) and (self.known_spectral_axis):
+            if self.stellar_spectrum is not None:
+                binned_spec = self.stellar_spectrum.bin_down_cp(self.wnedges)
+                self.flux_top_dw_nu = binned_spec.value
+                factor = self.flux_top_dw / (binned_spec.total)
+            elif self.Tstar is not None:
+                self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, self.Tstar)
+                factor = self.flux_top_dw * PI / (SIG_SB*self.Tstar**4 * self.dwnedges)
+            else:
+                raise RuntimeError('Something went wrong, Tstar and stellar_spectrum cannot be both None')
+            self.flux_top_dw_nu = self.flux_top_dw_nu * factor
+            self.compute_flux_top_dw_nu = False
+            self.number_computation_flux_top_dw_nu += 1
     
     def set_internal_flux(self, internal_flux):
         """Sets internal flux from the subsurface in W/m^2
@@ -659,26 +686,23 @@ class Atm(Atm_profile):
                 wavenumber value in cm-1 dividing the visible range from the IR range, 
                 where the albedo goes from a given value 'albedo_surf' to 0.
         """
-        recompute_albedo = False
         if albedo_surf is not None:
             self.albedo_surf = albedo_surf
-            recompute_albedo = True
+            self.compute_albedo_surf_nu = True
         if wn_albedo_cutoff is not None:
             self.wn_albedo_cutoff = wn_albedo_cutoff
-            recompute_albedo = True
-        if self.albedo_surf_nu is None:
-            recompute_albedo = True
-        if recompute_albedo: self._setup_albedo_surf_nu()
+            self.compute_albedo_surf_nu = True
+        if ((self.compute_albedo_surf_nu) and (self.known_spectral_axis)):
+            self._setup_albedo_surf_nu()
+            self.compute_albedo_surf_nu = False
+            self.number_computation_albedo_surf_nu += 1
 
     def _setup_albedo_surf_nu(self):
         """Compute the value of the mean surface albedo for each wavenumber in an array.
         If the albedo value is modified, this method needs to be called again.
         For now, only available with wavenumbers
         """
-        if self.Nw is not None:
-            self.albedo_surf_nu = np.where(self.wns >= self.wn_albedo_cutoff, self.albedo_surf, 0.)
-        else:
-            self.albedo_surf_nu = None
+        self.albedo_surf_nu = np.where(self.wns >= self.wn_albedo_cutoff, self.albedo_surf, 0.)
     
     def set_rayleigh(self, rayleigh = False):
         """Sets whether or not Rayleigh scattering is included."""
@@ -720,10 +744,11 @@ class Atm(Atm_profile):
         if self.Ng is None:
             var = spectral_var
         else:
-            var = np.sum(spectral_var*self.weights,axis=-1)
+            var = np.sum(spectral_var * self.k_database.weights, axis=-1)
         return var
 
-    def opacity(self, rayleigh = None, compute_all_opt_prop = False, **kwargs):
+    def opacity(self, rayleigh = None, compute_all_opt_prop = False,
+            wn_range = None, wl_range = None, **kwargs):
         """Computes the opacity of each of the radiative layers (m^2/molecule).
 
         Parameters
@@ -739,7 +764,12 @@ class Atm(Atm_profile):
             local_rayleigh = self.rayleigh
         else:
             local_rayleigh = rayleigh
-        self.kdata = self.gas_mix.cross_section(rayleigh = local_rayleigh, **kwargs)    
+        self.kdata = self.gas_mix.cross_section(rayleigh = local_rayleigh,
+                        wn_range = wn_range, wl_range = wl_range, **kwargs)
+        if ((wn_range is not None) or (wl_range is not None)):
+            self.compute_albedo_surf_nu = True
+            self.compute_flux_top_dw_nu = True
+            self.known_spectral_axis = False
         shape = self.kdata.shape
         if self.aerosols.adatabase is not None:
             [kdata_aer, k_scat_aer, g_aer] = self.aerosols.optical_properties(
@@ -776,6 +806,7 @@ class Atm(Atm_profile):
         self.wns=self.gas_mix.wns
         self.wnedges=self.gas_mix.wnedges
         self.dwnedges=self.gas_mix.dwnedges
+        self.known_spectral_axis = True
 
     def source_function(self, integral=True, source=True):
         """Compute the blackbody source function (Pi*Bnu) for each layer of the atmosphere.
@@ -813,6 +844,7 @@ class Atm(Atm_profile):
         if gas_vmr is not None: self.set_gas(gas_vmr, Mgas = Mgas)
         self.opacity(rayleigh = rayleigh, **kwargs)
         self.set_surface_albedo(**kwargs)
+        self.set_incoming_stellar_flux(**kwargs)
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
         if self.Ng is None:
@@ -1320,8 +1352,10 @@ class Atm(Atm_profile):
             Spectrum object
                 Spectral flux in W/m^2/cm^-1
         """
+        if not self.known_spectral_axis:
+            self.opacity(integral = integral)
         if integral:
-            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[layer_idx])/np.diff(self.wnedges)
+            piBatm=PI*Bnu_integral_num(self.wnedges,self.tlay[layer_idx])/self.dwnedges
         else:
             piBatm=PI*Bnu(self.wns[:],self.tlay[layer_idx])
         return Spectrum(piBatm,self.wns,self.wnedges)
