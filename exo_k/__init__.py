@@ -20,9 +20,9 @@ from .adatabase import Adatabase
 from .cia_table import Cia_table
 from .ciadatabase import CIAdatabase
 from .hires_spectrum import Hires_spectrum
-from .atm import Atm_profile, Atm
+from .atm_profile import Atm_profile
+from .atm import Atm
 from .atm_2band import Atm_2band
-#from .atm2 import Atm_profile2, Atm2
 from .chemistry import EquChemTable, InterpolationChemistry
 from .gas_mix import Gas_mix, Known_composite_species
 from .settings import Settings
