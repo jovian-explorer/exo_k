@@ -527,7 +527,7 @@ class Atm(Atm_profile):
     """
 
     def __init__(self, k_database = None, cia_database = None, a_database = None,
-        wn_range = None, wl_range = None, internal_flux = 0., 
+        wn_range = None, wl_range = None, internal_flux = 0., rayleigh = False,
         flux_top_dw = None, albedo_surf = 0., wn_albedo_cutoff = 5000., **kwargs):
         """Initialization method that calls Atm_Profile().__init__() and links
         to Kdatabase and other radiative data. 
@@ -544,6 +544,7 @@ class Atm(Atm_profile):
             self.set_incoming_stellar_flux(flux=flux_top_dw, **kwargs)
         self.set_surface_albedo(albedo_surf = albedo_surf,
                         wn_albedo_cutoff = wn_albedo_cutoff)
+        self.set_rayleigh(rayleigh = rayleigh)
         self.flux_net_nu=None
         self.kernel=None
 
@@ -666,7 +667,7 @@ class Atm(Atm_profile):
             self.wn_albedo_cutoff = wn_albedo_cutoff
             recompute_albedo = True
         if self.albedo_surf_nu is None:
-                recompute_albedo = True
+            recompute_albedo = True
         if recompute_albedo: self._setup_albedo_surf_nu()
 
     def _setup_albedo_surf_nu(self):
@@ -678,6 +679,10 @@ class Atm(Atm_profile):
             self.albedo_surf_nu = np.where(self.wns >= self.wn_albedo_cutoff, self.albedo_surf, 0.)
         else:
             self.albedo_surf_nu = None
+    
+    def set_rayleigh(self, rayleigh = False):
+        """Sets whether or not Rayleigh scattering is included."""
+        self.rayleigh = rayleigh
 
     def spectral_integration(self, spectral_var):
         """Spectrally integrate an array, taking care of whether
@@ -718,7 +723,7 @@ class Atm(Atm_profile):
             var = np.sum(spectral_var*self.weights,axis=-1)
         return var
 
-    def opacity(self, rayleigh = False, compute_all_opt_prop = False, **kwargs):
+    def opacity(self, rayleigh = None, compute_all_opt_prop = False, **kwargs):
         """Computes the opacity of each of the radiative layers (m^2/molecule).
 
         Parameters
@@ -726,10 +731,15 @@ class Atm(Atm_profile):
             rayleigh: bool
                 If true, the rayleigh cross section is computed in
                 self.kdata_scat and added to kdata(total extinction cross section)
+                If None, the global attribute self.rayleigh is used.
 
         See :any:`gas_mix.Gas_mix.cross_section` for details.
         """
-        self.kdata = self.gas_mix.cross_section(rayleigh=rayleigh, **kwargs)
+        if rayleigh is None:
+            local_rayleigh = self.rayleigh
+        else:
+            local_rayleigh = rayleigh
+        self.kdata = self.gas_mix.cross_section(rayleigh = local_rayleigh, **kwargs)    
         shape = self.kdata.shape
         if self.aerosols.adatabase is not None:
             [kdata_aer, k_scat_aer, g_aer] = self.aerosols.optical_properties(
@@ -739,7 +749,7 @@ class Atm(Atm_profile):
             else:
                 self.kdata += kdata_aer[:,:,None]
         if compute_all_opt_prop:
-            if rayleigh:
+            if local_rayleigh:
                 kdata_scat_tot = self.gas_mix.kdata_scat
             else:
                 kdata_scat_tot = np.zeros(shape[0:2], dtype=float)
@@ -795,13 +805,13 @@ class Atm(Atm_profile):
             piBatm=np.zeros((self.Nlay,self.Nw))
         return piBatm
 
-    def setup_emission_caculation(self, mu_eff = 0.5, rayleigh = False, integral = True,
+    def setup_emission_caculation(self, mu_eff = 0.5, rayleigh = None, integral = True,
             source = True, gas_vmr = None, Mgas = None, **kwargs):
         """Computes all necessary quantities for emission calculations
         (opacity, source, etc.)
         """
         if gas_vmr is not None: self.set_gas(gas_vmr, Mgas = Mgas)
-        self.opacity(rayleigh=rayleigh, **kwargs)
+        self.opacity(rayleigh = rayleigh, **kwargs)
         self.set_surface_albedo(**kwargs)
         self.piBatm = self.source_function(integral=integral, source=source)
         self.compute_layer_col_density()
@@ -849,7 +859,7 @@ class Atm(Atm_profile):
                 mu_quad_order=mu_quad_order, dtau_min=dtau_min, **kwargs)
 
         try:
-            self.setup_emission_caculation(mu_eff=mu0, rayleigh=False, integral=integral, **kwargs)
+            self.setup_emission_caculation(mu_eff=mu0, rayleigh = False, integral=integral, **kwargs)
         except TypeError:
             raise RuntimeError("""
             Cannot use rayleigh option with emission_spectrum.
@@ -895,7 +905,7 @@ class Atm(Atm_profile):
             Spectrum object 
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
-        self.setup_emission_caculation(mu_eff=1., rayleigh=False, integral=integral, **kwargs)
+        self.setup_emission_caculation(mu_eff=1., rayleigh = False, integral=integral, **kwargs)
         # angle effect dealt with later
 
         IpTop=np.zeros(self.kdata.shape[1])
@@ -925,7 +935,7 @@ class Atm(Atm_profile):
         return Spectrum(IpTop,self.wns,self.wnedges)
 
     def emission_spectrum_2stream(self, integral=True, mu0=0.5,
-            method='toon', dtau_min=1.e-10, flux_at_level=False, rayleigh=False,
+            method='toon', dtau_min=1.e-10, flux_at_level=False, rayleigh = None,
             flux_top_dw=None, source=True, compute_kernel=False, **kwargs):
         """Returns the emission flux at the top of the atmosphere (in W/m^2/cm^-1)
 
@@ -940,6 +950,7 @@ class Atm(Atm_profile):
                   but True is the most accurate mode. 
             rayleigh: bool
                 Whether to account for rayleigh scattering or not. 
+                If None, the global attribute self.rayleigh is used.
 
         Other Parameters
         ----------------
@@ -970,7 +981,7 @@ class Atm(Atm_profile):
             Spectrum object 
                 A spectrum with the Spectral flux at the top of the atmosphere (in W/m^2/cm^-1)
         """
-        self.setup_emission_caculation(mu_eff=1., rayleigh=rayleigh, integral=integral,
+        self.setup_emission_caculation(mu_eff=1., rayleigh = rayleigh, integral=integral,
             source=source, flux_top_dw=flux_top_dw, compute_all_opt_prop=True, **kwargs)
         # mu_eff=1. because the mu effect is taken into account in solve_2stream_nu
                  # we must compute the vertical optical depth here.

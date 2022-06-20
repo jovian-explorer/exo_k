@@ -202,6 +202,7 @@ class Atm_evolution(object):
         if k_database_stellar is None:
             self.atm=xk.Atm(k_database=k_database, cia_database=cia_database, composition=gas_vmr, **kwargs)
         else:
+            raise DeprecationWarning("k_database_stellar is deprecated. Proceed at your own risk.")
             self.atm=xk.Atm_2band(k_database=k_database, cia_database=cia_database,
                 k_database_stellar=k_database_stellar, cia_database_stellar=cia_database_stellar,
                 composition=gas_vmr, **kwargs)
