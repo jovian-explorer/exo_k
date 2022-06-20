@@ -4,6 +4,7 @@
 """
 import numpy as np
 from .convection import dry_convective_adjustment_numba, turbulent_diffusion_numba
+from exo_k.util.molar_mass import Molar_mass
 
 class Tracers(object):
 
@@ -50,7 +51,7 @@ class Tracers(object):
                     self.some_var_gases = True
                     self.var_gas_idx.append(ii)
                     self.var_gas_names.append(name)
-                    self.gas_molar_masses.append(xk.Molar_mass().fetch(name))
+                    self.gas_molar_masses.append(Molar_mass().fetch(name))
             if 'surface_reservoir' in self.dico[name]:
                 self.qsurf[ii] = np.copy(self.dico[name]['surface_reservoir'])
                 self.settings.set_parameters(surface_reservoir = True)
