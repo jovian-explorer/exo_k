@@ -22,6 +22,8 @@ class Settings(object):
                         'moist_convection': False,
                         'moist_inhibition': False,
                         'surface_reservoir': False,
+                        'mass_redistribution': False,
+                        'compute_mass_fluxes': True,
                         'dTmax_use_kernel': 10.,
                         'qvap_deep': -1.,
                         'evap_coeff': 1.,

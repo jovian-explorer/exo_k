@@ -56,6 +56,8 @@ class Atm_evolution(object):
             **self.settings.parameters)
         self.Nlay = self.atm.Nlay
         self.tlay = self.atm.tlay
+        self.compute_hybrid_coordinates()
+
         if verbose: print(self.settings.parameters)
         self.evol_tau = 0.
 
@@ -130,47 +132,6 @@ class Atm_evolution(object):
                         print('through condensing_species = \{\}.')
                         raise RuntimeError()
         self.Ncond=idx
-
-    def rainout(self, timestep, Htot, verbose = False):
-        """This method computes rainout.
-
-        Condensates are carried down and reevaporated whenever there is
-        "room" in an unsaturated layer. 
-
-        The option `evap_coeff` acts has an efficiency factor. `evap_coeff=1`
-        is the efficient evaporation limit. When `evap_coeff<1` the maximum amount of
-        condensates that can be reevaporated in a single layer is multiplied by
-        `evap_coeff`
-
-        All condensates are finaly evaporated in the last layer or when T > Tboil.
-
-        The tracer array is modified in place.
-
-        Parameters
-        ----------
-            timestep: float
-                physical timestep of the current step (in s/cp).
-            Htot: array
-                Total heating rate (in W/kg) of all physical processes
-                already computed
-
-        Return
-        ------
-            H_rain: array
-                Heating rate due to re evaporation (W/kg)
-        """
-        new_t = self.atm.tlay + timestep * Htot
-        H_rain=np.zeros(self.Nlay)
-        for i_cond in range(self.Ncond):
-            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
-            thermo_parameters = self.condensing_species_thermo[i_cond].th_params
-            H_rain += compute_rainout_numba(timestep, self.Nlay, new_t, self.atm.play,
-                self.atm.dmass, self.cp, self.tracers.Mgas, self.tracers.qarray,
-                idx_vap, idx_cond, thermo_parameters,
-                self.settings['evap_coeff'], self.settings['qvap_deep'], verbose = verbose)
-
-        return H_rain
-
 
     def setup_radiative_model(self, k_database=None, k_database_stellar=None,
             cia_database=None, cia_database_stellar=None, gas_vmr=None, **kwargs):
@@ -311,6 +272,7 @@ class Atm_evolution(object):
                 self.H_diff = self.molecular_diffusion(self.timestep,
                     self.H_tot, self.atm, self.cp)
                 self.H_tot += self.H_diff
+            qarray_before_condensation = np.copy(self.tracers.qarray)
             if self.settings['moist_convection']:
                 self.H_madj = self.moist_convective_adjustment(self.timestep, self.H_tot,
                                     moist_inhibition=self.settings['moist_inhibition'], verbose = verbose)                
@@ -327,6 +289,8 @@ class Atm_evolution(object):
                 self.H_tot += self.H_rain
             else:
                 self.H_rain = np.zeros(self.Nlay)
+            if self.settings['mass_redistribution']:
+                self.mass_redistribution(qarray_before_condensation)
             if self.settings['surface_reservoir']:
                 self.tracers.update_surface_reservoir(condensing_pairs_idx = self.condensing_pairs_idx,
                     surf_layer_mass = self.atm.dmass[-1])
@@ -492,6 +456,139 @@ class Atm_evolution(object):
                 verbose = verbose)
         return H_cond
 
+    def rainout(self, timestep, Htot, verbose = False):
+        """This method computes rainout.
+
+        Condensates are carried down and reevaporated whenever there is
+        "room" in an unsaturated layer. 
+
+        The option `evap_coeff` acts has an efficiency factor. `evap_coeff=1`
+        is the efficient evaporation limit. When `evap_coeff<1` the maximum amount of
+        condensates that can be reevaporated in a single layer is multiplied by
+        `evap_coeff`
+
+        All condensates are finaly evaporated in the last layer or when T > Tboil.
+
+        The tracer array is modified in place.
+
+        Parameters
+        ----------
+            timestep: float
+                physical timestep of the current step (in s/cp).
+            Htot: array
+                Total heating rate (in W/kg) of all physical processes
+                already computed
+
+        Return
+        ------
+            H_rain: array
+                Heating rate due to re evaporation (W/kg)
+        """
+        new_t = self.atm.tlay + timestep * Htot
+        H_rain=np.zeros(self.Nlay)
+        for i_cond in range(self.Ncond):
+            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
+            thermo_parameters = self.condensing_species_thermo[i_cond].th_params
+            H_rain += compute_rainout_numba(timestep, self.Nlay, new_t, self.atm.play,
+                self.atm.dmass, self.cp, self.tracers.Mgas, self.tracers.qarray,
+                idx_vap, idx_cond, thermo_parameters,
+                self.settings['evap_coeff'], self.settings['qvap_deep'], verbose = verbose)
+
+        return H_rain
+
+    def compute_hybrid_coordinates(self):
+        """Compute hybrid coordinates as in GCM.
+
+        This will be used when surface pressure changes.
+        
+        Convention : sigma = (p-ptop)/(psurf-ptop)
+        For each layer/level, the pressure is p = sigma * psurf + gamma
+        """
+        psurf = self.atm.plev[-1]
+        ptop = self.atm.plev[0]
+        self.sigma_lay = (self.atm.play-ptop)/(psurf-ptop)
+        self.gamma_lay = (1.-self.sigma_lay)*ptop
+        self.sigma_lev = (self.atm.plev-ptop)/(psurf-ptop)
+        self.gamma_lev = (1.-self.sigma_lev)*ptop
+        self.dsigma_lev = np.diff(self.sigma_lev)
+
+    def compute_mass_flux(self, dvapor_mass, sum_dvapor_mass):
+        """Computes the mass flux through the hybrid coordinate interfaces (kg/s/m^2; positive upward).
+        (see Methods in Leconte et al. (2013))
+
+        W[k] is the mass flux between layer k-1 et k.
+
+        Parameters
+        ----------
+            sum_dvapor_mass: float
+                Total mass of vapor added to the atmosphere
+                in the last timestep.
+            dvapor_mass: array
+                mass of vapor added to each layer.
+
+        For the moment, W[0] = W[Nlay]
+        """
+        W = np.zeros(self.Nlay+1)
+        #W[0] = 0. #No mass flux between the top of the atm and space
+        W[1:] = np.cumsum(self.dsigma_lev * sum_dvapor_mass - dvapor_mass) 
+        W[-1] = 0. #No mass flux between the surface and the atm
+        return W
+
+    def mass_redistribution(self, qarray_before_condensation):
+        """Update new mass and new pressure of a layer due to the evaporation and condensation of a given species, 
+        for more details see Methods, Leconte et al., 2013 (Nature)
+     
+        Parameters
+        ----------
+
+        """
+        if self.Ncond > 1:
+            raise NotImplementedError('Mass redistribution limited to one condensing species')
+        #Pour juste l'eau 
+        for i_cond in range(self.Ncond):
+            idx_vap, idx_cond = self.condensing_pairs_idx[i_cond]
+ 
+        dq_mass_redist = np.zeros_like(qarray_before_condensation)
+
+        variation_qarray = self.tracers.qarray - qarray_before_condensation #Evolution of qarray before and after condensation/rain/moist_convection steps
+        
+        dvapor_mass = self.atm.dmass*variation_qarray[idx_vap] #Need to use idx_vap because dvapor_mass
+        sum_dvapor_mass = np.sum(dvapor_mass)
+        dcond_mass = self.atm.dmass*variation_qarray[idx_cond]
+        self.dpsurf = sum_dvapor_mass*self.atm.grav
+        dgas_mass = self.dsigma_lev*self.dpsurf/self.atm.grav
+            
+        if self.settings['compute_mass_fluxes']:
+            self.W = self.compute_mass_flux(dvapor_mass, sum_dvapor_mass)
+            for indice, q in enumerate(self.tracers.qarray):
+                if indice == idx_vap: #Condensible gas in vapor form
+                    epsilon = dvapor_mass
+                elif indice == idx_cond: #Condensible gas in condensed form
+                    epsilon = dcond_mass 
+                else: #Other tracers
+                    epsilon = 0.
+                qarray_lev = np.zeros(self.Nlay+1)
+                qarray_lev[1:-1] = (q[1:] + q[:-1]) / 2 #We choose the arithmetic mean value of the qarray as the value of the qarray at the middle of the levels ie q_(k+1/2)
+                qarray_transport_through_sigma_lev = (qarray_lev[1:]-qarray_before_condensation[indice])*self.W[1:] \
+                    - (qarray_lev[:-1]-qarray_before_condensation[indice])*self.W[:-1] #Attention si W à la surface est non nulnp.diff(self.qarray_lev*self.W)
+                dq_mass_redist[indice] = (1./(self.atm.dmass+dgas_mass))* \
+                    (qarray_transport_through_sigma_lev+epsilon-qarray_before_condensation[indice]*dvapor_mass)
+                self.tracers.qarray[indice] = np.abs(qarray_before_condensation[indice] + dq_mass_redist[indice]) # carefull abs should be removed
+        else:
+            self.W = np.zeros(self.Nlay+1)
+            for indice, q in enumerate(qarray_before_condensation):
+                if indice==idx_vap: #Condensible gas in vapor form
+                    epsilon = dvapor_mass
+                elif indice==idx_cond: #Condensible gas in condensed form
+                    epsilon = dcond_mass
+                else: #Other tracer
+                    epsilon = 0.
+                dq_mass_redist[indice] = (1./(self.atm.dmass+dgas_mass))*(epsilon-q*dgas_mass)
+                self.tracers.qarray[indice] = qarray_before_condensation[indice] + dq_mass_redist[indice]
+                
+        plev = self.sigma_lev*(self.atm.psurf+self.dpsurf)+self.gamma_lev
+        play = self.sigma_lay*(self.atm.psurf+self.dpsurf)+self.gamma_lay
+        self.atm.update_pressure_profile(play = play, plev = plev)
 
     def radiative_acceleration(self, timestep = 0., acceleration_mode = 0, verbose = False, **kwargs):
         """"Computes an acceleration factor and a new heating rate to speed up convergence

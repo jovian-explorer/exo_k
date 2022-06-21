@@ -91,6 +91,7 @@ class Atm_profile(object):
         self.set_aerosols(aerosols)
         self.rcp = rcp
         self.logplev = None
+        self.grav = None
         if logplay is None:
             self.Nlay = Nlay
             self.Nlev = Nlay+1
@@ -176,6 +177,25 @@ class Atm_profile(object):
         self.psurf=self.plev[-1]
         self.dp_lay=np.diff(self.plev) ### probably redundant with dmass
         self.exner=(self.play/self.psurf)**self.rcp
+        self.compute_layer_masses()
+
+    def update_pressure_profile(self, play = None, plev = None):
+        """Updates pressure levels without changing temperatures.
+        
+        To be used Atm_evolution class.
+        """
+        play = np.array(play, dtype=float)
+        if play.size != self.Nlay:
+            raise RuntimeError("You cannot change the number of layers in update_pressure_profile")
+        self.play = play
+        self.plev = np.array(plev, dtype=float)
+        self.logplay = np.log10(self.play)
+        self.logplev = np.log10(self.plev)
+        self.logp_opac = self.logplev[1:-1]
+        self.psurf = self.plev[-1]
+        self.dp_lay = np.diff(self.plev) ### probably redundant with dmass
+        self.exner = (self.play/self.psurf)**self.rcp
+        self.compute_layer_masses()
 
     def set_adiab_profile(self, Tsurf=None, Tstrat=None):
         """Initializes the logP-T atmospheric profile with an adiabat with index R/cp=rcp
@@ -204,8 +224,14 @@ class Atm_profile(object):
         """
         if grav is None: raise RuntimeError('A planet needs a gravity!')
         self.grav=grav
-        self.dmass=self.dp_lay/self.grav
-        self.inv_dmass=1./self.dmass
+        self.compute_layer_masses()
+
+    def compute_layer_masses(self):
+        """compute_layer_masses
+        """
+        if self.grav is not None:
+            self.dmass=self.dp_lay/self.grav
+            self.inv_dmass=1./self.dmass
     
     def set_gas(self, composition_dict, Mgas=None, compute_Mgas=True):
         """Sets the composition of the atmosphere.
