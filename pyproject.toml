@@ -1,0 +1,114 @@
+[tool.poetry]
+name = "Exo_k"
+version = "1.1.2"
+description = "Library to handle radiative opacities from various sources for atmospheric applications"
+authors = ["Jeremy Leconte <jeremy.leconte@u-bordeaux.fr>"]
+
+license = "GPLv3"
+readme = "README.md"
+homepage = "https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public"
+repository = "https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public"
+documentation = "http://perso.astrophy.u-bordeaux.fr/~jleconte/exo_k-doc/index.html"
+
+keywords = ["opacities", "cross sections", "correlated-k", "spectra",
+    "atmosphere", "atmospheric", "exoplanet", "radiative transfer"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: Jupyter",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Unix",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Software Development :: Libraries",
+]
+
+[tool.poetry-version-plugin]
+source = "git-tag"
+
+[tool.poetry.dependencies]
+python = ">=3.8, <=3.10"
+
+numpy = "^1.22.4"
+scipy = "^1.8.1"
+numba = "^0.55.2"
+llvmlite = "^0.38.1"
+
+astropy = "^5.1"
+h5py = "^3.7.0"
+matplotlib = "^3.5.2"
+pandas = "^1.4.2"
+
+[tool.poetry.group.doc.dependencies]
+papermill = "^2.3.4"
+
+Sphinx = "^5.0.2"
+nbsphinx = "^0.8.9"
+sphinx-autoapi = "^1.8.4"
+sphinx-rtd-theme = "^1.0.0"
+sphinx-autobuild = "^2021.3.14"
+
+[tool.poetry.group.dev.dependencies]
+poetryup = "^0.8.1"
+
+jupyter = "^1.0.0"
+
+nb-clean = "^2.1.0"
+pydocstyle = "^6.1.1"
+
+coverage = "^6.4.1"
+
+pytest = "^7.1.2"
+pytest-cov = "^3.0.0"
+pytest-clarity = "^1.0.1"
+pytest-colordots = "^1.1"
+pytest-parallel = "^0.1.1"
+pytest-regtest = "^1.4.6"
+pytest-regressions = "^2.3.1"
+pytest-xdist = { extras = ["psutil"], version = "^2.5.0" }
+
+Faker = "^13.14.0"
+
+tox = "^3.25.0"
+tox-poetry-installer = "^0.8.4"
+tox-pyenv = "^1.1.0"
+tox-venv = "^0.4.0"
+
+GitPython = "^3.1.27"
+
+types-decorator = "^5.1.7"
+
+
+[tool.pytest.ini_options]
+minversion = '7.0'
+addopts = '--quiet --capture=no -p no:warnings'
+testpaths = ['tests']
+
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    'if TYPE_CHECKING:',
+    'pragma: no cover',
+    "if __name__ == '__main__':",
+]
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+]
+
+
+[build-system]
+requires = ["poetry-core>=1.2.0b2"]
+build-backend = "poetry.core.masonry.api"

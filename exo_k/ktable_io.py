@@ -288,33 +288,33 @@ class Ktable_io(Data_table):
         if not filename.lower().endswith(('.kta')):
             fullfilename=filename+'.kta'
         with open(fullfilename,'wb') as o:
-            o.write(int_format(11+2*self.Ng+2+self.Np+self.Nt+self.Nw).tostring())
+            o.write(int_format(11+2*self.Ng+2+self.Np+self.Nt+self.Nw).tobytes())
             #int for irec0 (5221)
-            o.write(int_format(self.Nw).tostring()) #int
-            o.write(float_format(self.wls[-1]).tostring()) #float for VMIN (0.30015)
-            o.write(float_format(-1.).tostring()) #float
-            o.write(float_format(0.).tostring()) #float for FWHM
-            o.write(int_format(self.Np).tostring())
-            o.write(int_format(self.Nt).tostring())
-            o.write(int_format(self.Ng).tostring())
+            o.write(int_format(self.Nw).tobytes()) #int
+            o.write(float_format(self.wls[-1]).tobytes()) #float for VMIN (0.30015)
+            o.write(float_format(-1.).tobytes()) #float
+            o.write(float_format(0.).tobytes()) #float for FWHM
+            o.write(int_format(self.Np).tobytes())
+            o.write(int_format(self.Nt).tobytes())
+            o.write(int_format(self.Ng).tobytes())
             try:
                 mol_id=nemesis_hitran_id_numbers[self.mol]
             except:
                 mol_id=0
-            o.write(int_format(mol_id).tostring()) #IDGAS1 FROM HITRAN
-            o.write(int_format(self.isotopolog_id).tostring())
-            o.write(float_format(self.ggrid).tostring())
-            o.write(float_format(self.weights).tostring())
-            o.write(float_format(0.).tostring()) #float for 0
-            o.write(float_format(0.).tostring()) #float for 0
+            o.write(int_format(mol_id).tobytes()) #IDGAS1 FROM HITRAN
+            o.write(int_format(self.isotopolog_id).tobytes())
+            o.write(float_format(self.ggrid).tobytes())
+            o.write(float_format(self.weights).tobytes())
+            o.write(float_format(0.).tobytes()) #float for 0
+            o.write(float_format(0.).tobytes()) #float for 0
             conv_factor=u.Unit(self.p_unit).to(u.Unit('bar'))
-            o.write(float_format(self.pgrid).tostring())
-            o.write(float_format(self.tgrid).tostring())
-            o.write(float_format(self.wls[::-1]).tostring())
+            o.write(float_format(self.pgrid).tobytes())
+            o.write(float_format(self.tgrid).tobytes())
+            o.write(float_format(self.wls[::-1]).tobytes())
             data_to_write=self.kdata[:,:,::-1,:].transpose(2,0,1,3)
             conv_factor=u.Unit(rm_molec(self.kdata_unit)).to(u.Unit('cm^2'))*1.e20
             data_to_write=data_to_write*conv_factor
-            o.write(float_format(data_to_write).tostring())
+            o.write(float_format(data_to_write).tobytes())
     
     def read_exorem(self, filename, mol=None):
         """Reads data in an ExoREM .dat format
