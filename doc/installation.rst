@@ -6,21 +6,19 @@ relies on several other python libraries that will be installed
 automatically as well, it is strongly recommended
 that you use your own python environment (not the one used
 by your system), especially if you are
-working on a cluster. 
+working on a cluster.
 
 If you do not have such a python environment setup yet, the
 `Anaconda <https://www.anaconda.com/products/individual>`_ or
 `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ (lighter)
-distributions are good options. With any of these, you get access to
+distributions are good options. With any of these, you can create your
+own environment with a specific version of python and get access to
 the `pip` Python Packages manager and can directly install the library
-as shown below.
-
-
+as shown below. (See the documentation of `conda` on how to use it)
 
 
 Installation using `pip`
 ------------------------
-
 If the `pip` Python Packages manager is installed on your machine,
 getting `exo_k` is as simple as running::
 
@@ -42,6 +40,12 @@ Once you have downloaded it, you can move into the downloaded folder, and instal
 or::
 
     python setup.py install
+
+
+An alternative to `conda` or  and an easy way to install `exo_k` from source is `poetry <https://python-poetry.org>`_.
+This tool allow you to create a virtual environment, and manage the package inside it.
+When you have the source of `exo_k`, by using `poetry`, you will have all the dependencies installed.
+
 
 
 Using the module

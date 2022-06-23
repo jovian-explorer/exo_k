@@ -79,7 +79,7 @@ Doc Contents
    API reference <autoapi/index>
    genindex
    how_to_contribute
-   build_doc
+   dev_and_doc
 
 Other Links
 ===========
