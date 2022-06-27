@@ -1,3 +1,5 @@
+import random
+import uuid
 from typing import Optional
 
 import h5py
@@ -9,16 +11,16 @@ import exo_k as xk
 
 
 @fixture()
-def synthetic_table(faker, tmp_path, set_up_xk):
-    n_t = faker.random_int(min=5, max=10)
-    t = np.linspace(start=faker.random_int(min=100, max=1000),
-                    stop=faker.random_int(min=2000, max=4000),
+def synthetic_table(tmp_path, set_up_xk):
+    n_t = random.randint(a=5, b=10)
+    t = np.linspace(start=random.randint(a=100, b=1000),
+                    stop=random.randint(a=2000, b=4000),
                     num=n_t)
 
-    n_p = faker.random_int(min=5, max=10)
+    n_p = random.randint(a=5, b=10)
     p = 10. ** np.linspace(-5., 2., n_p)
 
-    mol_name = faker.random_element(['CO2', 'H2O'])
+    mol_name = random.choice(['CO2', 'H2O'])
 
     samples = [0.0034357, 0.01801404, 0.04388279, 0.08044151, 0.12683405, 0.18197316,
                0.2445665, 0.31314696, 0.38610707, 0.46173674, 0.53826326, 0.61389293,
@@ -38,7 +40,7 @@ def synthetic_table(faker, tmp_path, set_up_xk):
 
     kcoeff = np.ones((len(p), len(t), len(bin_centers), len(weights)))
 
-    filename = tmp_path / faker.file_name(extension='h5')
+    filename = tmp_path / f'{str(uuid.uuid4().hex)}.h5'
 
     with h5py.File(name=filename, mode='w') as f:
         f.create_dataset('mol_name', data=mol_name)

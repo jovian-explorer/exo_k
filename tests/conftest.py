@@ -18,12 +18,12 @@ def dataset_root_path(tmp_path) -> Path:
 
 
 @fixture(scope='function', autouse=True)
-def ensure_Settings_not_created():
+def ensure_settings_not_created():
     xk.Settings.reset_singleton()
 
 
 @fixture()
-def settings(ensure_Settings_not_created, dataset_root_path):
+def settings(ensure_settings_not_created, dataset_root_path):
     s = xk.Settings()
 
     data_corrk: Path = dataset_root_path / 'radiative_data' / 'corrk'

@@ -33,9 +33,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 
-[tool.poetry-version-plugin]
-source = "git-tag"
-
 [tool.poetry.dependencies]
 python = ">=3.8, <=3.10"
 
@@ -47,7 +44,7 @@ llvmlite = "^0.38.1"
 astropy = "^5.1"
 h5py = "^3.7.0"
 matplotlib = "^3.5.2"
-pandas = "^1.4.2"
+pandas = "^1.4.3"
 
 [tool.poetry.group.doc.dependencies]
 papermill = "^2.3.4"
@@ -76,8 +73,6 @@ pytest-parallel = "^0.1.1"
 pytest-regtest = "^1.4.6"
 pytest-regressions = "^2.3.1"
 pytest-xdist = { extras = ["psutil"], version = "^2.5.0" }
-
-Faker = "^13.14.0"
 
 tox = "^3.25.0"
 tox-poetry-installer = "^0.8.4"
