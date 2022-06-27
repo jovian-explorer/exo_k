@@ -42,9 +42,9 @@ or::
     python setup.py install
 
 
-An alternative to `conda` or  and an easy way to install `exo_k` from source is `poetry <https://python-poetry.org>`_.
-This tool allow you to create a virtual environment, and manage the package inside it.
-When you have the source of `exo_k`, by using `poetry`, you will have all the dependencies installed.
+As an alternative to `conda` you can also easily install `exo_k` from source with `poetry <https://python-poetry.org>`_.
+This tool allow you to create a virtual environment, and manage the packages inside it.
+This way, you can be sure that the dependencies installed use the exact version that have been tested.
 
 
 
@@ -56,4 +56,6 @@ you should now be able to import `exo_k` into your own python module using::
 
     import exo_k as xk
 
+Whether you are using this command in a jupyter notebook or a script, 
+you should however make sure that it is using the environment where you have installed the package.
 See the Getting Started section for a complete tutorial.

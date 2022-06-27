@@ -10,12 +10,15 @@ To do that you can use the following resources to quickly be able to do it.
 
 Quickly use the source
 ======================
-- If you just want to build the documentation, only using a virtual environment and the following should be enough, the documentation will be available at `doc/_build/html/index.html`::
+- If you want to build the documentation, 
+  only using a virtual environment and the following should be enough.
+  The documentation will be available at `doc/_build/html/index.html`::
 
     pip install nbsphinx sphinx-autoapi sphinx_rtd_theme
     cd doc && make html
 
-- If you just want to test `exo_k`, only using a virtual environment and the following should be enough::
+- If you want to test `exo_k`, only using a virtual environment
+  and the following should be enough::
 
     pip install pytest
     pytest
@@ -23,11 +26,14 @@ Quickly use the source
 Using Poetry
 ============
 
-Whether you want to contribute to exo_k, build the documentation for your local version or ensure that the tests passed,
-the easiest way is to use `poetry <https://python-poetry.org>`_ to setup your virtual environment.
-All requirements are listed inside `pyproject.toml` and `poetry.lock` ensure that everyone use the same dependencies.
+Whether you want to contribute to exo_k, build the documentation for your local version
+or ensure that the tests passed, another way is to use
+`poetry <https://python-poetry.org>`_ to setup your virtual environment.
+All requirements are listed inside `pyproject.toml` and `poetry.lock`.
+They ensure that everyone use the same dependencies.
 
-After cloning the repository, you only need to execute the following command to create your environment and install the dependencies::
+After cloning the repository, you only need to execute the following
+command to create your environment and install the dependencies::
 
     poetry install
 
@@ -49,7 +55,8 @@ You can easily run the tests with `pytest`::
 
     poetry run pytest
 
-You can enable a more verbose output with the flag `-vv`, `pytest-clarity` provide a better output in this verbose mode.
+You can enable a more verbose output with the flag `-vv`, `pytest-clarity`
+provide a better output in this verbose mode.
 
 To run a specific test, just add the path to the test file as an argument.
 
@@ -58,7 +65,7 @@ Poetry recap
 
 You can read the documentation of poetry at this `address <https://python-poetry.org>`_ .
 
-We use the latest version available at this day (`1.2.0.b2`) of `poetry`.
+We use the latest version available to this day (`1.2.0.b2`) of `poetry`.
 It's in preview, so if you installed it, you can use the following command to migrate to it::
 
     poetry self update --preview 1.2.0.b2
