@@ -64,8 +64,8 @@ class Data_table(Spectral_object):
         """
         if self.kdata is not None:
             if self._settings._convert_to_mks:
-                if p_unit is 'unspecified': p_unit='Pa'
-                if kdata_unit is 'unspecified': kdata_unit='m^2/molecule'
+                if p_unit == 'unspecified': p_unit='Pa'
+                if kdata_unit == 'unspecified': kdata_unit='m^2/molecule'
             self.convert_p_unit(p_unit=p_unit,file_p_unit=file_p_unit)
             self.convert_kdata_unit(kdata_unit=kdata_unit,file_kdata_unit=file_kdata_unit)
             if remove_zeros : self.remove_zeros(deltalog_min_value=10.)

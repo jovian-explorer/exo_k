@@ -408,7 +408,7 @@ class Ktable5d(Data_table):
             self.kdata_unit='m^2/molecule'
             # Accounts for the conversion of the abs_coeff to m^-1, so we know that
             #  self.kdata is now in m^2/molecule. Can now convert to the desired unit.
-        if self._settings._convert_to_mks and kdata_unit is 'unspecified':
+        if self._settings._convert_to_mks and kdata_unit == 'unspecified':
             kdata_unit='m^2/molecule'
         self.convert_kdata_unit(kdata_unit=kdata_unit)
         # converts from self.kdata_unit wich is either:
@@ -803,15 +803,16 @@ def read_Qdat(filename):
         xgrid: array
             grid of vmr for variable gas
     """
-    file = open(filename, "r")
-    Nmol=int(file.readline())
-    background_mol_names=[]
-    for ii in range(Nmol-1):
-        #print(file.readline().split()[0])
-        background_mol_names.append(file.readline().split()[0])
-    var_mol=file.readline().split()[0]
-    Nx=int(file.readline())
-    xgrid=np.zeros(Nx)
-    for ii in range(Nx):
-        xgrid[ii]=float(file.readline())
+    with open(filename, "r") as file:
+        Nmol=int(file.readline())
+        background_mol_names=[]
+        for ii in range(Nmol-1):
+            #print(file.readline().split()[0])
+            background_mol_names.append(file.readline().split()[0])
+        var_mol=file.readline().split()[0]
+        Nx=int(file.readline())
+        xgrid=np.zeros(Nx)
+        for ii in range(Nx):
+            xgrid[ii]=float(file.readline())
+
     return background_mol_names,var_mol,Nx,xgrid
