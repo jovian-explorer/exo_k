@@ -492,7 +492,7 @@ class Atm_evolution(object):
             H_rain += compute_rainout_numba(timestep, self.Nlay, new_t, self.atm.play,
                 self.atm.dmass, self.cp, self.tracers.Mgas, self.tracers.qarray,
                 idx_vap, idx_cond, thermo_parameters,
-                self.settings['evap_coeff'], self.settings['qvap_deep'], verbose = verbose)
+                self.settings['evap_coeff'], self.tracers.qdeep[idx_vap], verbose = verbose)
 
         return H_rain
 

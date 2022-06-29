@@ -38,6 +38,7 @@ class Tracers(object):
         self.idx = dict()
         self.qarray = np.empty((self.Ntrac, self.Nlay))
         self.qsurf = np.zeros(self.Ntrac)
+        self.qdeep = - np.ones(self.Ntrac)
         for ii, name in enumerate(self.namelist):
             self.idx[name]=ii
             if name in tracer_values.keys():
@@ -52,7 +53,9 @@ class Tracers(object):
                     self.var_gas_idx.append(ii)
                     self.var_gas_names.append(name)
                     self.gas_molar_masses.append(Molar_mass().fetch(name))
-            if 'surface_reservoir' in self.dico[name]:
+                if 'q_deep' in self.dico[name]:
+                    self.qdeep[ii] = np.copy(self.dico[name]['q_deep'])
+            if 'surface_reservoir' in self.dico[name]: # should be reserved to condensates
                 self.qsurf[ii] = np.copy(self.dico[name]['surface_reservoir'])
                 self.settings.set_parameters(surface_reservoir = True)
         self.var_gas_idx = np.array(self.var_gas_idx)
