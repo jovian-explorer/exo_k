@@ -163,7 +163,7 @@ lxml = ["lxml"]
 
 [[package]]
 name = "bleach"
-version = "5.0.0"
+version = "5.0.1"
 description = "An easy safelist-based HTML-sanitizing tool."
 category = "dev"
 optional = false
@@ -174,7 +174,8 @@ six = ">=1.9.0"
 webencodings = "*"
 
 [package.extras]
-dev = ["pip-tools (==6.5.1)", "pytest (==7.1.1)", "flake8 (==4.0.1)", "tox (==3.24.5)", "sphinx (==4.3.2)", "twine (==4.0.0)", "wheel (==0.37.1)", "hashin (==0.17.0)", "black (==22.3.0)", "mypy (==0.942)"]
+css = ["tinycss2 (>=1.1.0,<1.2)"]
+dev = ["build (==0.8.0)", "flake8 (==4.0.1)", "hashin (==0.17.0)", "pip-tools (==6.6.2)", "pytest (==7.1.2)", "Sphinx (==4.3.2)", "tox (==3.25.0)", "twine (==4.0.1)", "wheel (==0.37.1)", "black (==22.3.0)", "mypy (==0.961)"]
 
 [[package]]
 name = "certifi"
@@ -197,11 +198,11 @@ pycparser = "*"
 
 [[package]]
 name = "charset-normalizer"
-version = "2.0.12"
+version = "2.1.0"
 description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
 category = "dev"
 optional = false
-python-versions = ">=3.5.0"
+python-versions = ">=3.6.0"
 
 [package.extras]
 unicode_backport = ["unicodedata2"]
@@ -576,7 +577,7 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "jsonschema"
-version = "4.6.0"
+version = "4.6.1"
 description = "An implementation of JSON Schema validation for Python"
 category = "dev"
 optional = false
@@ -1060,7 +1061,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "poetryup"
-version = "0.8.1"
+version = "0.8.2"
 description = "Update dependencies and bump their version in the pyproject.toml file"
 category = "dev"
 optional = false
@@ -1441,7 +1442,7 @@ test = ["pytest (>=6,!=7.0.0,!=7.0.1)", "pytest-cov (>=3.0.0)", "pytest-qt"]
 
 [[package]]
 name = "requests"
-version = "2.28.0"
+version = "2.28.1"
 description = "Python HTTP for Humans."
 category = "dev"
 optional = false
@@ -1449,13 +1450,13 @@ python-versions = ">=3.7, <4"
 
 [package.dependencies]
 certifi = ">=2017.4.17"
-charset-normalizer = ">=2.0.0,<2.1.0"
+charset-normalizer = ">=2,<3"
 idna = ">=2.5,<4"
 urllib3 = ">=1.21.1,<1.27"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-use_chardet_on_py3 = ["chardet (>=3.0.2,<5)"]
+use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rich"
@@ -1512,7 +1513,7 @@ testing-integration = ["pytest", "pytest-xdist", "pytest-enabler", "virtualenv (
 
 [[package]]
 name = "setuptools-scm"
-version = "7.0.2"
+version = "7.0.3"
 description = "the blessed package to manage your versions by scm tags"
 category = "main"
 optional = false
@@ -1963,7 +1964,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
 name = "virtualenv"
-version = "20.15.0"
+version = "20.15.1"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
@@ -2029,7 +2030,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8, <=3.10"
-content-hash = "2557b87d9a6602dc4550c0c64a22d37b3e253e94c669290ee94d3530f35f4028"
+content-hash = "09dcf847bd1a6d24ef4c3c6290601111027754b118f64234410029ca4f629f65"
 
 [metadata.files]
 alabaster = [
@@ -2120,8 +2121,8 @@ beautifulsoup4 = [
     {file = "beautifulsoup4-4.11.1.tar.gz", hash = "sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693"},
 ]
 bleach = [
-    {file = "bleach-5.0.0-py3-none-any.whl", hash = "sha256:08a1fe86d253b5c88c92cc3d810fd8048a16d15762e1e5b74d502256e5926aa1"},
-    {file = "bleach-5.0.0.tar.gz", hash = "sha256:c6d6cc054bdc9c83b48b8083e236e5f00f238428666d2ce2e083eaa5fd568565"},
+    {file = "bleach-5.0.1-py3-none-any.whl", hash = "sha256:085f7f33c15bd408dd9b17a4ad77c577db66d76203e5984b1bd59baeee948b2a"},
+    {file = "bleach-5.0.1.tar.gz", hash = "sha256:0d03255c47eb9bd2f26aa9bb7f2107732e7e8fe195ca2f64709fcf3b0a4a085c"},
 ]
 certifi = [
     {file = "certifi-2022.6.15-py3-none-any.whl", hash = "sha256:fe86415d55e84719d75f8b69414f6438ac3547d2078ab91b67e779ef69378412"},
@@ -2180,8 +2181,8 @@ cffi = [
     {file = "cffi-1.15.0.tar.gz", hash = "sha256:920f0d66a896c2d99f0adbb391f990a84091179542c205fa53ce5787aff87954"},
 ]
 charset-normalizer = [
-    {file = "charset-normalizer-2.0.12.tar.gz", hash = "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597"},
-    {file = "charset_normalizer-2.0.12-py3-none-any.whl", hash = "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"},
+    {file = "charset-normalizer-2.1.0.tar.gz", hash = "sha256:575e708016ff3a5e3681541cb9d79312c416835686d054a23accb873b254f413"},
+    {file = "charset_normalizer-2.1.0-py3-none-any.whl", hash = "sha256:5189b6f22b01957427f35b6a08d9a0bc45b46d3788ef5a92e978433c7a35f8a5"},
 ]
 click = [
     {file = "click-8.1.3-py3-none-any.whl", hash = "sha256:bb4d8133cb15a609f44e8213d9b391b0809795062913b383c62be0ee95b1db48"},
@@ -2377,8 +2378,8 @@ jinja2 = [
     {file = "Jinja2-3.1.2.tar.gz", hash = "sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852"},
 ]
 jsonschema = [
-    {file = "jsonschema-4.6.0-py3-none-any.whl", hash = "sha256:1c92d2db1900b668201f1797887d66453ab1fbfea51df8e4b46236689c427baf"},
-    {file = "jsonschema-4.6.0.tar.gz", hash = "sha256:9d6397ba4a6c0bf0300736057f649e3e12ecbc07d3e81a0dacb72de4e9801957"},
+    {file = "jsonschema-4.6.1-py3-none-any.whl", hash = "sha256:5eb781753403847fb320f05e9ab2191725b58c5e7f97f1bed63285ca423159bc"},
+    {file = "jsonschema-4.6.1.tar.gz", hash = "sha256:ec2802e6a37517f09d47d9ba107947589ae1d25ff557b925d83a321fc2aa5d3b"},
 ]
 jupyter = [
     {file = "jupyter-1.0.0-py2.py3-none-any.whl", hash = "sha256:5b290f93b98ffbc21c0c7e749f054b3267782166d72fa5e3ed1ed4eaf34a2b78"},
@@ -2791,8 +2792,8 @@ poetry-core = [
     {file = "poetry_core-1.0.8-py2.py3-none-any.whl", hash = "sha256:54b0fab6f7b313886e547a52f8bf52b8cf43e65b2633c65117f8755289061924"},
 ]
 poetryup = [
-    {file = "poetryup-0.8.1-py3-none-any.whl", hash = "sha256:75c1805033b740dceea25cd4bcb69361da463696af69443322cc4c872efff7e9"},
-    {file = "poetryup-0.8.1.tar.gz", hash = "sha256:a016c1f13bb2e0bba3a75c4acd0ee7f2b22d16f3f265f30b24d75a4f4b4d8839"},
+    {file = "poetryup-0.8.2-py3-none-any.whl", hash = "sha256:ccad2d2ad4730b1af8bf0915e0ffe4818969f5de28b8754059e6497d4df61cfb"},
+    {file = "poetryup-0.8.2.tar.gz", hash = "sha256:e15f04dcb035a98be537801698e3bbc9cbd42d6677fae20a2c2fa9d2e41a6b60"},
 ]
 pprintpp = [
     {file = "pprintpp-0.4.0-py2.py3-none-any.whl", hash = "sha256:b6b4dcdd0c0c0d75e4d7b2f21a9e933e5b2ce62b26e1a54537f9651ae5a5c01d"},
@@ -3093,8 +3094,8 @@ qtpy = [
     {file = "QtPy-2.1.0.tar.gz", hash = "sha256:ca8cd4217175186344299ee4c0f7e7adcf362c70852ba35b255a534077025c06"},
 ]
 requests = [
-    {file = "requests-2.28.0-py3-none-any.whl", hash = "sha256:bc7861137fbce630f17b03d3ad02ad0bf978c844f3536d0edda6499dafce2b6f"},
-    {file = "requests-2.28.0.tar.gz", hash = "sha256:d568723a7ebd25875d8d1eaf5dfa068cd2fc8194b2e483d7b1f7c81918dbec6b"},
+    {file = "requests-2.28.1-py3-none-any.whl", hash = "sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349"},
+    {file = "requests-2.28.1.tar.gz", hash = "sha256:7c5599b102feddaa661c826c56ab4fee28bfd17f5abca1ebbe3e7f19d7c97983"},
 ]
 rich = [
     {file = "rich-12.4.4-py3-none-any.whl", hash = "sha256:d2bbd99c320a2532ac71ff6a3164867884357da3e3301f0240090c5d2fdac7ec"},
@@ -3134,8 +3135,8 @@ setuptools = [
     {file = "setuptools-62.6.0.tar.gz", hash = "sha256:990a4f7861b31532871ab72331e755b5f14efbe52d336ea7f6118144dd478741"},
 ]
 setuptools-scm = [
-    {file = "setuptools_scm-7.0.2-py3-none-any.whl", hash = "sha256:ec120c99027a785c7a349667480a5b2100dfc7d5063e545c93f3735508945aef"},
-    {file = "setuptools_scm-7.0.2.tar.gz", hash = "sha256:53afbaa882f43e5ec8e14f2d93b9c268dc62eb3f6cc8b2790f8cb97903e53c02"},
+    {file = "setuptools_scm-7.0.3-py3-none-any.whl", hash = "sha256:7934c856b042199eb44e1523b46abb881726b7d61b3c9b41a756e4ffb4adf73b"},
+    {file = "setuptools_scm-7.0.3.tar.gz", hash = "sha256:cf8ab8e235bed840cd4559b658af0d8e8a70896a191bbc510ee914ec5325332d"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
@@ -3317,8 +3318,8 @@ urllib3 = [
     {file = "urllib3-1.26.9.tar.gz", hash = "sha256:aabaf16477806a5e1dd19aa41f8c2b7950dd3c746362d7e3223dbe6de6ac448e"},
 ]
 virtualenv = [
-    {file = "virtualenv-20.15.0-py2.py3-none-any.whl", hash = "sha256:804cce4de5b8a322f099897e308eecc8f6e2951f1a8e7e2b3598dff865f01336"},
-    {file = "virtualenv-20.15.0.tar.gz", hash = "sha256:4c44b1d77ca81f8368e2d7414f9b20c428ad16b343ac6d226206c5b84e2b4fcc"},
+    {file = "virtualenv-20.15.1-py2.py3-none-any.whl", hash = "sha256:b30aefac647e86af6d82bfc944c556f8f1a9c90427b2fb4e3bfbf338cb82becf"},
+    {file = "virtualenv-20.15.1.tar.gz", hash = "sha256:288171134a2ff3bfb1a2f54f119e77cd1b81c29fc1265a2356f3e8d14c7d58c4"},
 ]
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},
