@@ -14,6 +14,7 @@ from .util.interp import rm_molec, gauss_legendre
 from .util.filenames import _read_array, _read_exorem_k_array
 from .util.cst import nemesis_hitran_id_numbers
 
+
 class Ktable_io(Data_table):
     """A class to handle the input-output methods of the :class:`~exo_k.ktable.Ktable` class.
     """
@@ -198,7 +199,7 @@ class Ktable_io(Data_table):
                 Fortran format for the corrk file. 
         """
         try:
-            os.mkdir(path)
+            os.makedirs(path, exist_ok=True)
         except FileExistsError:
             print('Directory was already there '+path)
         file = open(os.path.join(path,'p.dat'), "w")
