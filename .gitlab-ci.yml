@@ -14,6 +14,7 @@ include:
 .build_tutorial:
   stage: tutorials
   script:
+    - apt update && apt install git-lfs && git lfs install
     - git clone https://forge.oasu.u-bordeaux.fr/amechineau/pytmosph3r-data --depth=1 --branch minimal --single-branch data
     - mkdir ci_notebooks
     - cd tutorials
@@ -129,7 +130,7 @@ packages:
 doc:
   stage: build
   script:
-    - apt install pandoc
+    - apt update && apt install pandoc
     - cp ci_notebooks/*.ipynb tutorials/
     - cd doc && poetry run make && cd ..
     - mkdir site
