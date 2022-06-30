@@ -406,7 +406,7 @@ def moist_convective_adjustment_numba(timestep, Nlay, tlay, play, dmass, cp, Mga
     qvap = new_q[i_vap]
     mvap_sursat_array = (qvap-qsat) * dmass
     if moist_inhibition:
-        q_crit_criterion = qvap<q_crit # convection possible if True
+        q_crit_criterion = qvap/q_crit < 1. # convection possible if True. qcri can be negative.
     else:
         q_crit_criterion = qvap<2. #should always be true
     #print('dT:', dT_inter_lay)

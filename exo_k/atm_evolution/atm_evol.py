@@ -658,14 +658,22 @@ class Atm_evolution(object):
         return np.cumsum(self.timestep_hist) * self.cp
     
     def heating_rate(self, physical_process):
-        """return heating rates in W/kg per layer averaged over last call to evolve.
+        """Returns heating rates in W/kg per layer averaged over last call to evolve.
         Possible physical_processes are rad, cond, conv, rain, madj, tot"""
         return self.H_ave[self.header[physical_process]]
 
     def net_flux(self, physical_process):
-        """return net_flux in W/m^2 averaged over last call to evolve.
+        """Returns net_flux in W/m^2 averaged over last call to evolve.
         Possible physical_processes are rad, cond, conv, rain, madj, tot"""
         return self.Fnet[self.header[physical_process]]
+    
+    def qsat(self, mol):
+        """Returns the saturation specific concentration of molecule mol (kg/kg)"""
+        cond_species_param = self.condensing_species_params[self.condensing_species_idx[mol]]
+        psat = cond_species_param.Psat(self.atm.tlay)
+        qsat = cond_species_param.qsat(psat, self.atm.play,
+                            cond_species_param.Mvap/self.tracers.Mgas)
+        return qsat
 
     def write_pickle(self, filename, data_reduction_level = 1):
         """Saves the instance in a pickle file
