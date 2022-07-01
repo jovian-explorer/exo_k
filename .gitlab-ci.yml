@@ -1,3 +1,12 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+
 stages:
   - setup
   - tests
@@ -14,21 +23,18 @@ include:
 .build_tutorial:
   stage: tutorials
   script:
-    - apt update && apt install git-lfs && git lfs install
+    - apt-get update && apt-get install -y git-lfs && git lfs install
     - git clone https://forge.oasu.u-bordeaux.fr/amechineau/pytmosph3r-data --depth=1 --branch minimal --single-branch data
     - mkdir ci_notebooks
     - cd tutorials
     - poetry run papermill  --request-save-on-cell-execute
-      --progress-bar
-      $NB_FILENAME
-      ../ci_notebooks/$NB_FILENAME
+      --progress-bar $NB_FILENAME ../ci_notebooks/$NB_FILENAME
   rules:
     - if: $CI_COMMIT_TAG
   artifacts:
     paths:
-      - ci_notebooks/$NB_FILENAME
+      - ci_notebooks/*.ipynb
     expire_in: 1 days
-#    expose_as: $NB_FILENAME
 
 .publish_package:
   stage: deploy
@@ -86,7 +92,6 @@ warm-🐍:
       - requirements.txt
   rules:
     - changes:
-        - .gitlab-ci.yml
         - poetry.lock
 
 
@@ -118,7 +123,6 @@ tutorials:
 
 packages:
   stage: build
-  cache: [ ]
   script:
     - poetry build
   artifacts:
@@ -130,7 +134,7 @@ packages:
 doc:
   stage: build
   script:
-    - apt update && apt install pandoc
+    - apt-get update && apt-get install -y pandoc
     - cp ci_notebooks/*.ipynb tutorials/
     - cd doc && poetry run make && cd ..
     - mkdir site
@@ -145,16 +149,16 @@ doc:
 dependency_scanning:
   stage: dependencies
   before_script: [ ]
-  cache: [ ]
 
 requirements:
   stage: dependencies
-  before_script: [ ]
   script:
-    - pip freeze > requirements.txt
+    - poetry run pip freeze > requirements.txt
   artifacts:
     paths:
       - requirements.txt
+  rules:
+    - if: $CI_COMMIT_TAG != null
 
 
 Gitlab:
