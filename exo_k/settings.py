@@ -191,19 +191,19 @@ class Settings(Singleton):
 
     def set_delimiters(self, newdelimiters):
         """Sets the delimiter string used to separate molecule names in filenames.
-        If you want to include the '-' character, you must put a '\' before to avoid
+        If you want to include the '-' character, you must put a '\\' before to avoid
         it being interpreted as a special character by the `re` module.
 
         Parameters
         ----------
             newdelimiters: string
-                New delimiters to use. Default is '_.\-'.
+                New delimiters to use. Default is '_.\\-'.
         """
         self._delimiters = newdelimiters
         self._search_mol_template = Template('(?=^$mol['+self._delimiters+  \
                 ']|['+self._delimiters+']$mol['+self._delimiters+'])')
-        self._search_cia_template = Template('(?=^$mol1\-$mol2['+self._delimiters+  \
-                ']|^$mol2\-$mol1['+self._delimiters+'])')
+        self._search_cia_template = Template('(?=^$mol1\\-$mol2['+self._delimiters+  \
+                ']|^$mol2\\-$mol1['+self._delimiters+'])')
 
 
     def set_log_interp(self, log_interp):

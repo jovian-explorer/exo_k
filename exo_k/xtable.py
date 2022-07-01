@@ -268,7 +268,7 @@ class Xtable(Data_table):
             self.kdata_unit='m^2/molecule'
             # Accounts for the conversion of the abs_coeff to m^-1, so we know that
             #  self.kdata is now in m^2/molecule. Can now convert to the desired unit.
-        if self._settings._convert_to_mks and kdata_unit is 'unspecified':
+        if self._settings._convert_to_mks and kdata_unit == 'unspecified':
             kdata_unit='m^2/molecule'
         self.convert_kdata_unit(kdata_unit=kdata_unit)
         # converts from self.kdata_unit wich is either:

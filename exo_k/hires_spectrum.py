@@ -55,11 +55,11 @@ class Hires_spectrum(Spectral_object):
         if mult_factor is not None: self.kdata=self.kdata*mult_factor
 
         if self.data_type=='xsec':
-            if (Settings()._convert_to_mks) and (kdata_unit is 'unspecified'):
-                    kdata_unit='m^2/molecule'
+            if (Settings()._convert_to_mks) and (kdata_unit == 'unspecified'):
+                kdata_unit='m^2/molecule'
         elif self.data_type=='abs_coeff':
-            if (Settings()._convert_to_mks) and (kdata_unit is 'unspecified'):
-                    kdata_unit='m^-1'
+            if (Settings()._convert_to_mks) and (kdata_unit == 'unspecified'):
+                kdata_unit='m^-1'
         else:
             raise RuntimeError("""Data type (xsec or abs_coeff) not recognized.
                 You should specify it with the data_type keyword

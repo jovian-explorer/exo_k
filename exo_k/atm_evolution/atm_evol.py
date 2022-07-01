@@ -129,7 +129,7 @@ class Atm_evolution(object):
                         idx+=1
                     else: 
                         print("The thermodynamic parameters for:", name,'were not provided')
-                        print('through condensing_species = \{\}.')
+                        print('through condensing_species = {}.')
                         raise RuntimeError()
         self.Ncond=idx
 
