@@ -74,7 +74,7 @@ class Atm(Atm_profile):
         wn_range = None, wl_range = None, internal_flux = 0., rayleigh = False,
         flux_top_dw = 0., Tstar = 5570., albedo_surf = 0., wn_albedo_cutoff = 5000.,
         **kwargs):
-        """Initialization method that calls Atm_Profile().__init__() and links
+        """Initialization method that calls Atm_Profile().__init__(**kwargs) and links
         to Kdatabase and other radiative data. 
         """
         super().__init__(**kwargs)
@@ -168,10 +168,8 @@ class Atm(Atm_profile):
         channel.
 
         .. important::
-            If you are not using a stellar black body
-            and if your simulated range does not include the whole spectral range
-            where the star emits, the flux seen by the model will be smaller
-            than the input one. 
+            The normalization is such that the flux input is exactly
+            flux_top_dw whatever the spectral range used.
 
         Parameters
         ----------
@@ -207,7 +205,7 @@ class Atm(Atm_profile):
                 factor = self.flux_top_dw / (binned_spec.total)
             elif self.Tstar is not None:
                 self.flux_top_dw_nu = Bnu_integral_num(self.wnedges, self.Tstar)
-                factor = self.flux_top_dw * PI / (SIG_SB*self.Tstar**4 * self.dwnedges)
+                factor = self.flux_top_dw / (np.sum(self.flux_top_dw_nu) * self.dwnedges)
             else:
                 raise RuntimeError('Something went wrong, Tstar and stellar_spectrum cannot be both None')
             self.flux_top_dw_nu = self.flux_top_dw_nu * factor
