@@ -9,9 +9,14 @@ class Settings(object):
 
     def __init__(self):
         """Initializes all global parameters to default values
+
+        *Note for developers*: The initial self.parameters dictionary (the one below)
+        should not contain any item whose key is a keyword argument for Atm.__init__().
+        It should also contain every other possible option that does not require
+        re-initializing the radiative transfer model. This is necessary for
+        Atm_evolution.set_options() to know when to reset the radiative model. 
         """
         self.parameters={'rayleigh': True,
-                        'internal_flux': 0.,
                         'convection': False,
                         'convective_transport': True,
                         'diffusion': False,
@@ -33,6 +38,10 @@ class Settings(object):
                         'convective_acceleration_mode': 0,
                         'qcond_surf_layer': 0.1,
                         }
+            
+        self._forbidden_changes = ['logplay', 'play']
+
+        self._non_radiative_parameters = set(self.parameters.keys())
 
     def set_parameters(self, **kwargs):
         """Sets various global options
@@ -42,7 +51,17 @@ class Settings(object):
                 self.parameters[key]=val
         if 'logplay' in self.keys():
             self['Nlay']=self['logplay'].size
-    
+
+    def use_or_set(self, key, value):
+        """Returns the value stored in the parameters if available.
+        Stores the given value if not. 
+        """
+        if key in self.parameters.keys():
+            return self.parameters[key]
+        else:
+            self.parameters[key] = value
+            return value
+
     def __getitem__(self, param):
         return self.parameters[param]
 

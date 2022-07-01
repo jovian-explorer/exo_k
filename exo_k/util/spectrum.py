@@ -264,7 +264,7 @@ class Spectrum(Spectral_object):
             filename: str
                 Name of the file to be read
             spec_axis: str
-                Whether the secptral axis in the file is
+                Whether the spectral axis in the file is
                 wavenumber in cm^-1 ('wns') or wavelength in microns ('wls')
             skip_header: int
                 Number of lines to skip

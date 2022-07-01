@@ -7,8 +7,8 @@ from .molar_mass import Molar_mass
 from .cst import RGP
 
 class Molar_heat_capacity(Singleton):
-    """A class to compute the specific heat capacity at constant pressure
-    (in J/kg/K or J/mol/K) of regular molecules.
+    """A class to compute the molar heat capacity at constant pressure
+    (in J/mol/K) of regular molecules.
     This class can also store the molar mass of custom gases with arbitrary names
     (for example: My_gas, earth_background).
     """
@@ -55,7 +55,7 @@ class Molar_heat_capacity(Singleton):
         else: # if we do not know, assume monoatomic gas
             return 1.5*RGP
 
-# stnadard data at 300K
+# standard data at 300K
 _specific_cp_at_300k = { \
 'H2': 14310.,
 'CO2': 744.,

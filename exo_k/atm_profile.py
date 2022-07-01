@@ -25,9 +25,9 @@ class Atm_profile(object):
 
     """
     
-    def __init__(self, composition={}, psurf=None, ptop=None, logplay=None, tlay=None,
-            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=0.28, Nlay=20,
-            logplev=None, aerosols={},
+    def __init__(self, composition=None, psurf=None, ptop=None, logplay=None, tlay=None,
+            Tsurf=None, Tstrat=None, grav=None, Rp=None, Mgas=None, rcp=None, Nlay=20,
+            logplev=None, aerosols=None,
             ## old parameters that should be None. THey are left here to catch
             ## exceptions and warn the user that their use is obsolete
             Nlev=None, tlev=None,
@@ -85,10 +85,11 @@ class Atm_profile(object):
                 """)
             raise RuntimeError('Unknown keyword argument in __init__')
         self.gas_mix = None
+        if composition is None: composition = dict()
         self.set_gas(composition, compute_Mgas=False)
         self.aerosols = None
         self.set_aerosols(aerosols)
-        self.rcp = rcp
+        self.set_rcp(rcp=rcp)
         self.logplev = None
         self.grav = None
         if logplay is None:
@@ -290,7 +291,7 @@ class Atm_profile(object):
         if not isinstance(self.Mgas_rad, np.ndarray):
             self.Mgas_rad=self.Mgas_rad*np.ones(self.Nlay-1, dtype=float)
 
-    def set_rcp(self,rcp):
+    def set_rcp(self, rcp = None):
         """Sets the adiabatic index of the atmosphere
 
         Parameters
@@ -298,7 +299,12 @@ class Atm_profile(object):
             rcp: float
                 R/c_p
         """
-        self.rcp=rcp
+        if rcp is None:
+            raise RuntimeError('rcp should not be None.')
+        elif not isinstance(rcp, float):
+            raise RuntimeError('rcp should be a float (not an array).')
+        else:
+            self.rcp=rcp
 
     def set_aerosols(self, aerosols):
         """Sets the aerosols dictionary
@@ -306,6 +312,8 @@ class Atm_profile(object):
         performs the interlayer averaging so that we only have properties at
         the middle of radiative layers
         """
+        if aerosols is None:
+            aerosols = dict()
         for aer, [reff, densities] in aerosols.items():
             if isinstance(reff,(np.ndarray, list)):
                 tmp_reff=np.array(reff)

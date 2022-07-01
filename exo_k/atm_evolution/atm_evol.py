@@ -35,19 +35,22 @@ class Atm_evolution(object):
         self.settings.set_parameters(**kwargs)
         self.header={'rad':0,'conv':1,'cond':2,'madj':3,'rain':4,'tot':5}
 
+        # setup background gas and thermodynamical properties
         self.bg_gas = Gas_mix(bg_vmr)
         self.M_bg = self.bg_gas.molar_mass()
-        if 'M_bg' in self.settings.keys():
-            self.M_bg = self.settings['M_bg']
-        else:
-            self.settings['M_bg'] = self.M_bg
+        self.M_bg = self.settings.use_or_set('M_bg', self.M_bg)
         self.cp = self.bg_gas.cp()
-        self.cp = self.settings.get('cp', self.cp)
+        self.cp = self.settings.pop('cp', self.cp)
         self.rcp = RGP/(self.M_bg*self.cp)
-        self.rcp = self.settings.get('rcp', self.rcp)
+        self.rcp = self.settings.use_or_set('rcp', self.rcp)
+        if (not isinstance(self.rcp, float)) or (not isinstance(self.cp, float)):
+            print('None of rcp or cp should be arrays. If you provided arrays')
+            print('for the background gas composition, you should also')
+            print('provide the effective cp and rcp for your atmosphere.')
+            raise RuntimeError('None of rcp or cp should be arrays.')
         if verbose: print('cp, M_bg, rcp:', self.cp, self.M_bg, self.rcp)
 
-
+        # setup tracers
         self.tracers = Tracers(self.settings, bg_vmr = self.bg_gas.composition,
             **self.settings.parameters)
         self.initialize_condensation(**self.settings.parameters)
@@ -61,27 +64,40 @@ class Atm_evolution(object):
         if verbose: print(self.settings.parameters)
         self.evol_tau = 0.
 
-    def set_options(self, reset_rad_model=False, **kwargs):
+    def set_options(self, reset_rad_model = False, check_keys = True,
+            Kzz = None, cp = None, verbose = False, **kwargs):
         """This method is used to store the global options
         in the `Settings` object.
 
         Arguments are all passed through **kwargs.
 
         Sometimes, one needs to reset the radiative model to take into
-        account some modifications (like the databases). when such options are changed,
-        one should set `reset_rad_model=True`
+        account some modifications (like the databases). Normally, this should
+        be automatic, but you can force it with `reset_rad_model=True`
         """
+        if check_keys:
+            for key in kwargs.keys():
+                if key in self.settings._forbidden_changes:
+                    print('Warning!!! ', key, ' cannot be changed by set_options.')
+                    print('You should probably initialize a new Atm_evolution instance.')
+                    print('Use check_keys = False to remove this warning.')
         if 'tlay' not in kwargs.keys():
             self.settings.set_parameters(tlay=self.tlay, logplay=self.atm.logplay, **kwargs)
         else:
             self.settings.set_parameters(**kwargs)
-        if 'Kzz' in kwargs.keys():
-            self.tracers.Kzz = np.ones(self.Nlay)*kwargs['Kzz']
+        if Kzz is not None:
+            self.tracers.Kzz = np.ones(self.Nlay) * Kzz
+        if cp is not None:
+            self.cp = cp
         if 'radiative_acceleration' in kwargs.keys():
-            print("'radiative_acceleration' is deprecated. Please use accleration_mode instead.")
+            print("'radiative_acceleration' is deprecated. Please use acceleration_mode instead.")
             print("acceleration_mode = 1 will emulate the previous behavior but other modes exist.")
             print("In particular acceleration_mode = 4 will also accelerate convergence in convective zones")
             raise DeprecationWarning('radiative_acceleration is deprecated. Remove radiative_acceleration from the options to get rid of this message')
+        
+        if not set(kwargs.keys()).issubset(self.settings._non_radiative_parameters):
+            reset_rad_model = True
+            if verbose: print('Radiative model will be reset.')
         if reset_rad_model: self.setup_radiative_model(gas_vmr = self.tracers.gas_vmr,
                 **self.settings.parameters)
 
@@ -219,7 +235,7 @@ class Atm_evolution(object):
         """
         if self.atm.k_database is None:
             print('This Atm_evolution instance is not linked to any k_database')
-            print('Use self.set_options(k_database=, ..., reset_rad_model=True)')
+            print('Use self.set_options(k_database=, ...)')
             raise RuntimeError('No k_database provided.')
         self.H_ave = np.zeros((6, self.Nlay))
 
