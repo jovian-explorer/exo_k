@@ -15,7 +15,6 @@ from .gas_mix import Gas_mix
 from .aerosols import Aerosols
 from .util.cst import N_A, PI, RGP, KBOLTZ
 
-warnings.filterwarnings("error")
 
 class Atm_profile(object):
     """A class defining an atmospheric PT profile with some global data
@@ -260,12 +259,13 @@ class Atm_profile(object):
         for mol, vmr in composition_dict.items():
             if isinstance(vmr,(np.ndarray, list)):
                 tmp_vmr=np.array(vmr)
-                #geometrical average:
-                try:
-                    vmr_midlevel_dict[mol] = np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
-                except RuntimeWarning:
-                    print('inset_gas, mol, tmp_vmr=',mol,tmp_vmr)
-                    vmr_midlevel_dict[mol] = tmp_vmr[1:]
+                # geometrical average:
+                with np.errstate(invalid='raise'):
+                    try:
+                        vmr_midlevel_dict[mol] = np.sqrt(tmp_vmr[1:]*tmp_vmr[:-1])
+                    except FloatingPointError:
+                        print('inset_gas, mol, tmp_vmr=',mol,tmp_vmr)
+                        vmr_midlevel_dict[mol] = tmp_vmr[1:]
             else:
                 vmr_midlevel_dict[mol] = vmr
         if self.gas_mix is None:

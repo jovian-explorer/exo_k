@@ -63,7 +63,6 @@ from .two_stream import two_stream_lmdz as lmdz
 from .util.interp import gauss_legendre
 from .util.spectrum import Spectrum
 
-warnings.filterwarnings("error")
 
 class Atm(Atm_profile):
     """Class based on Atm_profile that handles radiative trasnfer calculations.
