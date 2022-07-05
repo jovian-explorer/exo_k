@@ -33,8 +33,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 
-[tool.poetry-version-plugin]
-source = "git-tag"
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
 
 [tool.poetry.dependencies]
 python = ">=3.8, <=3.10"
@@ -109,5 +111,5 @@ omit = [
 
 
 [build-system]
-requires = ["poetry-core>=1.1.0b2", "numpy>=1.22.0"]
+requires = ["poetry-core>=1.1.0b2", "poetry-dynamic-versioning"]
 build-backend = "poetry.core.masonry.api"
