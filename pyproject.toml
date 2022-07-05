@@ -36,7 +36,9 @@ classifiers = [
 [tool.poetry-dynamic-versioning]
 enable = true
 vcs = "git"
-style = "semver"
+style = "pep440"
+bump = true
+pattern = "default-unprefixed"
 
 [tool.poetry.dependencies]
 python = ">=3.8, <=3.10"

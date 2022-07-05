@@ -28,10 +28,12 @@ default:
       policy: pull
   interruptible: true
   before_script:
+    - git fetch --tags
     - pip install poetry==1.2.0b2
     - poetry config virtualenvs.in-project true
-    - if [ -z ${CI_COMMIT_TAG+x} ]; then echo ""; else poetry self add poetry-dynamic-versioning-plugin; fi
-    - poetry install -vv
+#    - if [ -z ${CI_COMMIT_TAG+x} ]; then echo ""; else poetry self add poetry-dynamic-versioning-plugin; fi
+    - poetry self add poetry-dynamic-versioning-plugin
+    - poetry install
 
 
 include:
@@ -66,8 +68,11 @@ include:
     - if: $CI_COMMIT_BRANCH == 'public' && $CI_COMMIT_TAG != null
 
 
+
 variables:
   PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/pip"
+  GIT_STRATEGY: "clone"
+  TRANSFER_METER_FREQUENCY: "1s"
 
 
 # CI
