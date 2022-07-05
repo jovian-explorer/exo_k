@@ -18,11 +18,15 @@ It enables you to:
 * Create your own tables from high-resolution spectra (for example from K-spectrum, Helios-K, etc.).
 * Use your data in an integrated radiative transfer framework to simulate planetary atmospheres.
   
-On this website, you'll find a 'Getting Started' section that will show you how to do all that
-with concrete examples that you can run on your own machine through the 
-`tutorial jupyter notebook <https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorial-exo_k.ipynb>`_
+On this website, you'll find a *Getting Started* section that will show you how to deal
+with radiative data with concrete examples that you can run on your own machine through the 
+`tutorial jupyter notebook <https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorials/tutorial-exo_k.ipynb>`_
 provided in the repository. Many important concepts and options are
 presented along the way.
+
+The atmospheric modeling module is presented in the *Pratical guide to atmospheric
+modeling* section that is also based on a
+`tutorial jupyter notebook <https://forge.oasu.u-bordeaux.fr/jleconte/exo_k-public/-/blob/public/tutorials/tutorial-atm.ipynb>`_
 
 The API reference section also lists systematically all the classes
 and methods available in the library and details the necessary inputs
