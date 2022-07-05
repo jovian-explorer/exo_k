@@ -41,6 +41,11 @@ Enjoy!
 Recent releases
 ===============
 
+v1.2.0 (July 2022): The model for atmospheric evolution is finally stable and documented.
+The atm module has also seen several note worthy additions: surface albedo, oceans. 
+We also added a framework for an automatic test suite. In particular, we can test several python versions. Additional tests should rapidly come along.
+Rosseland and Planck mean opacities can now be computed from radiative tables. 
+
 v1.1.0 (August 2021): New scheme for the computation of atmospheric emission/transmission
 to ensure an improved numerical accuracy. The variable names to instantiate atm objects have
 changed accordingly (see tutorial). 
@@ -74,7 +79,7 @@ Doc Contents
    getting_started
    where_to_find_data
    practical_guide_to_atm
-   exo_k_evol
+   work_in_progress_evol
    neat_examples
    API reference <autoapi/index>
    genindex
@@ -97,4 +102,4 @@ under the European Union's Horizon 2020 research and innovation programme
 (grant agreement n° 679030/WHIPLASH).
 
 The framework for this documentation has been developped by Aurelien Falco using Sphinx. 
-
+The Framework for automatic testing has been developped by Alexandre Mechineau. 

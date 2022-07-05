@@ -38,14 +38,15 @@ This project has received funding from the European Research Council (ERC)
 under the European Union's Horizon 2020 research and innovation programme
 (grant agreement n° 679030/WHIPLASH).
 
-The framework for this documentation has been developped by Aurelien Falco using Sphinx. 
+The framework for this documentation has been developped by Aurelien Falco using Sphinx.
+The Framework for automatic testing has been developped by Alexandre Mechineau. 
 
 # last release (see past releases below)
 
-v1.0.2 (June 2021): Adds a few missing dependencies. Enables computation of thermal
-emission spectra with scattering through the two-stream method (full documentation pending). 
-Enables creating Xtables for a mix of gases (CIA can be added as well). Solves some issues
-with the 2018 Hitran CIA format.
+v1.2.0 (July 2022): The model for atmospheric evolution is finally stable and documented.
+The atm module has also seen several note worthy additions: surface albedo, oceans. 
+We also added a framework for an automatic test suite. In particular, we can test several python versions. Additional tests should rapidly come along.
+Rosseland and Planck mean opacities can now be computed from radiative tables. 
 
 # Installation
 
@@ -74,6 +75,15 @@ Have fun!
 
 
 # past releases
+
+v1.1.0 (August 2021): New scheme for the computation of atmospheric emission/transmission
+to ensure an improved numerical accuracy. The variable names to instantiate atm objects have
+changed accordingly (see tutorial). 
+
+v1.0.2 (June 2021): Adds a few missing dependencies. Enables computation of thermal
+emission spectra with scattering through the two-stream method (full documentation pending). 
+Enables creating Xtables for a mix of gases (CIA can be added as well). Solves some issues
+with the 2018 Hitran CIA format.
 
 v1.0.1 (Jan 2021): Solves a binary/string conversion issue introduced by version 3 of h5py.
 Enables linear interpolation in pressure (default is log). Enables creation of

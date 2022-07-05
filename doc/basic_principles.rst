@@ -91,6 +91,15 @@ use the following objects that are, literally, dictionaries of individual tables
    (P, T, composition) atmospheric profile along with data about the planet (Radius, gravity, etc.).
    This object can use the database of your
    choice to compute directly the :func:`~exo_k.atm.Atm.emission_spectrum()` or the
-   :func:`~exo_k.atm.Atm.transmission_spectrum()` of your planet. 
+   :func:`~exo_k.atm.Atm.transmission_spectrum()` of your planet.
+   One can also compte the radiative heating rates with :func:`~exo_k.atm.Atm.heating_rate()`.
    This class can be used to test the sensitivity of your final spectrum
    to your initial data (resolution, etc.), but also as a full fledged planetary spectrum generator.
+
+* :class:`~exo_k.atm_evolution.atm_evolution.Atm_evolution`:
+   An extension of the `Atm` class, this object now allows you to model the evolution
+   of your atmosphere in time or simply to find the equilibrium thermal profile for a given
+   planet knowing its composition and insolation. The atmospheric model
+   includes the effect of dry convection, turbulent diffusion, and moist
+   processes (condensation, moist convection, and precipitations) for any
+   number of species
