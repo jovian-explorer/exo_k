@@ -96,7 +96,7 @@ use the following objects that are, literally, dictionaries of individual tables
    This class can be used to test the sensitivity of your final spectrum
    to your initial data (resolution, etc.), but also as a full fledged planetary spectrum generator.
 
-* :class:`~exo_k.atm_evolution.atm_evolution.Atm_evolution`:
+* :class:`~exo_k.atm_evolution.atm_evol.Atm_evolution`:
    An extension of the `Atm` class, this object now allows you to model the evolution
    of your atmosphere in time or simply to find the equilibrium thermal profile for a given
    planet knowing its composition and insolation. The atmospheric model
