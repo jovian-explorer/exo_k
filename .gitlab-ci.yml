@@ -65,7 +65,7 @@ include:
     - poetry config http-basic.gitlab "$PYPI_REPO_USER" "$PYPI_REPO_TOKEN"
     - poetry publish --repository "$PYPI_REPO_NAME"
   rules:
-    - if: CI_PROJECT_PATH == 'jleconte/exo_k-public' && $CI_COMMIT_TAG != null
+    - if: $CI_PROJECT_PATH == 'jleconte/exo_k-public' && $CI_COMMIT_TAG != null
 
 
 variables:
