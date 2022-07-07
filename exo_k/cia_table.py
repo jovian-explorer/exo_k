@@ -186,20 +186,20 @@ class Cia_table(Spectral_object):
             filename: str
                 Name of the file to be read.
         """
-        f = h5py.File(filename, 'r')
-        self.wns=f['bin_centers'][...]
-        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
-        iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
-        self.abs_coeff=f['abs_coeff'][..., iw_min:iw_max]
-        self.abs_coeff_unit=f['abs_coeff'].attrs['units']
-        self.tgrid=f['t'][...]
-        if 'cia_pair' in f:
-            tmp=f['cia_pair'][()]
-            if isinstance(tmp, bytes): tmp=tmp.decode('UTF-8')
-            self.mol1,self.mol2=tmp.split('-')
-        elif 'cia_pair' in f.attrs:
-            self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
-        f.close()
+        with h5py.File(filename, 'r') as f:
+            self.wns=f['bin_centers'][...]
+            self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+            iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
+            self.abs_coeff=f['abs_coeff'][..., iw_min:iw_max]
+            self.abs_coeff_unit=f['abs_coeff'].attrs['units']
+            self.tgrid=f['t'][...]
+            if 'cia_pair' in f:
+                tmp=f['cia_pair'][()]
+                if isinstance(tmp, bytes): tmp=tmp.decode('UTF-8')
+                self.mol1,self.mol2=tmp.split('-')
+            elif 'cia_pair' in f.attrs:
+                self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
+
         self.Nt=self.tgrid.size
 
     def write_hdf5(self, filename):
@@ -212,13 +212,13 @@ class Cia_table(Spectral_object):
         """
         if not filename.lower().endswith(('.hdf5', '.h5')):
             filename=filename+'.h5'
-        f = h5py.File(filename, 'w')
-        f.create_dataset("bin_centers", data=self.wns,compression="gzip")
-        f.create_dataset("t", data=self.tgrid,compression="gzip")
-        f.create_dataset("abs_coeff", data=self.abs_coeff,compression="gzip")
-        f["abs_coeff"].attrs["units"] = self.abs_coeff_unit
-        f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
-        f.close()
+        with h5py.File(filename, 'w') as f:
+            f.create_dataset("bin_centers", data=self.wns,compression="gzip")
+            f.create_dataset("t", data=self.tgrid,compression="gzip")
+            f.create_dataset("abs_coeff", data=self.abs_coeff,compression="gzip")
+            f["abs_coeff"].attrs["units"] = self.abs_coeff_unit
+            f.create_dataset("cia_pair", data=self.mol1+'-'+self.mol2)
+
 
     def write_cia(self, filename):
         """Writes simplified .cia files.

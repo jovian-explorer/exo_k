@@ -152,24 +152,24 @@ class Atable(Spectral_object):
             filename: str
                 Name of the file to be read.
         """
-        f = h5py.File(filename, 'r')
-        if aerosol_name:
-            self.aerosol_name=aerosol_name
-        else:
-            self.aerosol_name=f['aerosol_name'][()]
-        if isinstance(self.aerosol_name, bytes):
-            self.aerosol_name=self.aerosol_name.decode('UTF-8')
-        self.wns=f['bin_centers'][...]
-        self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
-        iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
-        if 'units' in f['bin_centers'].attrs:
-            self.wn_unit=f['bin_centers'].attrs['units']
-        self.ext_coeff=f['ext_coeff'][..., iw_min:iw_max]
-        self.single_scat_alb=f['single_scat_alb'][..., iw_min:iw_max]
-        self.asymmetry_factor=f['asymmetry_factor'][..., iw_min:iw_max]
-        self.r_eff_grid=f['r_eff'][...]
-        self.r_eff_unit=f['r_eff'].attrs['units']
-        f.close()
+        with h5py.File(filename, 'r') as f:
+            if aerosol_name:
+                self.aerosol_name=aerosol_name
+            else:
+                self.aerosol_name=f['aerosol_name'][()]
+            if isinstance(self.aerosol_name, bytes):
+                self.aerosol_name=self.aerosol_name.decode('UTF-8')
+            self.wns=f['bin_centers'][...]
+            self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
+            iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
+            if 'units' in f['bin_centers'].attrs:
+                self.wn_unit=f['bin_centers'].attrs['units']
+            self.ext_coeff=f['ext_coeff'][..., iw_min:iw_max]
+            self.single_scat_alb=f['single_scat_alb'][..., iw_min:iw_max]
+            self.asymmetry_factor=f['asymmetry_factor'][..., iw_min:iw_max]
+            self.r_eff_grid=f['r_eff'][...]
+            self.r_eff_unit=f['r_eff'].attrs['units']
+
         self.Nr=self.r_eff_grid.size
 
     def write_hdf5(self, filename):
@@ -182,17 +182,16 @@ class Atable(Spectral_object):
         """
         if not filename.lower().endswith(('.hdf5', '.h5')):
             filename=filename+'.h5'
-        f = h5py.File(filename, 'w')
-        compression="gzip"
-        f.create_dataset("aerosol_name", data=self.aerosol_name)
-        f.create_dataset("bin_centers", data=self.wns, compression=compression)
-        f.create_dataset("r_eff", data=self.r_eff_grid, compression=compression)
-        f.create_dataset("ext_coeff", data=self.ext_coeff, compression=compression)
-        f.create_dataset("single_scat_alb", data=self.single_scat_alb, compression=compression)
-        f.create_dataset("asymmetry_factor", data=self.asymmetry_factor, compression=compression)
-        f["bin_centers"].attrs["units"] = self.wn_unit
-        f["r_eff"].attrs["units"] = self.r_eff_unit
-        f.close()
+        with h5py.File(filename, 'w') as f:
+            compression="gzip"
+            f.create_dataset("aerosol_name", data=self.aerosol_name)
+            f.create_dataset("bin_centers", data=self.wns, compression=compression)
+            f.create_dataset("r_eff", data=self.r_eff_grid, compression=compression)
+            f.create_dataset("ext_coeff", data=self.ext_coeff, compression=compression)
+            f.create_dataset("single_scat_alb", data=self.single_scat_alb, compression=compression)
+            f.create_dataset("asymmetry_factor", data=self.asymmetry_factor, compression=compression)
+            f["bin_centers"].attrs["units"] = self.wn_unit
+            f["r_eff"].attrs["units"] = self.r_eff_unit
 
     def sample(self, wngrid, remove_zeros=False, use_grid_filter=False,
             sample_all_vars=True, **kwargs):

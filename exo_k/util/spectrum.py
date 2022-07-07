@@ -225,16 +225,15 @@ class Spectrum(Spectral_object):
         """
         if (filename is None or not filename.lower().endswith(('.hdf5', '.h5'))):
             raise RuntimeError("You should provide an input hdf5 file")
-        f = h5py.File(filename, 'r')
-        self.wns=f['bin_centers'][...]
-        self.wnedges=f['bin_edges'][...]
-        if 'units' in f['bin_edges'].attrs:
-            self.spec_unit=f['bin_edges'].attrs['units']
-        else:
-            if 'units' in f['bin_centers'].attrs:
-                self.spec_unit=f['bin_centers'].attrs['units']
-        self.value=f['spectrum'][...]
-        f.close()  
+        with h5py.File(filename, 'r') as f:
+            self.wns=f['bin_centers'][...]
+            self.wnedges=f['bin_edges'][...]
+            if 'units' in f['bin_edges'].attrs:
+                self.spec_unit=f['bin_edges'].attrs['units']
+            else:
+                if 'units' in f['bin_centers'].attrs:
+                    self.spec_unit=f['bin_centers'].attrs['units']
+            self.value=f['spectrum'][...]
 
     def write_hdf5(self, filename):
         """Saves data in a hdf5 format
@@ -248,13 +247,12 @@ class Spectrum(Spectral_object):
         if not filename.lower().endswith(('.hdf5', '.h5')):
             fullfilename=filename+'.h5'
         compression="gzip"
-        f = h5py.File(fullfilename, 'w')
-        f.create_dataset("spectrum", data=self.value, compression=compression)
-        f.create_dataset("bin_edges", data=self.wnedges, compression=compression)
-        f["bin_edges"].attrs["units"] = 'cm^-1'
-        f.create_dataset("bin_centers", data=self.wns, compression=compression)
-        f["bin_centers"].attrs["units"] = 'cm^-1'
-        f.close()
+        with h5py.File(fullfilename, 'w') as f:
+            f.create_dataset("spectrum", data=self.value, compression=compression)
+            f.create_dataset("bin_edges", data=self.wnedges, compression=compression)
+            f["bin_edges"].attrs["units"] = 'cm^-1'
+            f.create_dataset("bin_centers", data=self.wns, compression=compression)
+            f["bin_centers"].attrs["units"] = 'cm^-1'
 
     def read_ascii(self, filename, usecols = (0,1), skip_header=0):
         """Saves data in a ascii format
@@ -305,10 +303,10 @@ class Spectrum(Spectral_object):
             dataset: str
                 Name of the hdf5 dataset to load
         """
-        f = h5py.File(filename, 'r')
-        self.wns = f['Output/Spectra/native_wngrid'][...]
-        self.value = f['Output/Spectra/'+dataset][...]
-        f.close()
+        with h5py.File(filename, 'r') as f:
+            self.wns = f['Output/Spectra/native_wngrid'][...]
+            self.value = f['Output/Spectra/'+dataset][...]
+
         self.wnedges=np.concatenate(([self.wns[0]],(self.wns[:-1]+self.wns[1:])*0.5,[self.wns[-1]]))
 
 

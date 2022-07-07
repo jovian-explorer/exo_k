@@ -148,15 +148,14 @@ def convert_exo_transmit_to_hdf5(file_in, file_out, mol='unspecified'):
     else:
         fullfilename=file_out
     compression="gzip"
-    f = h5py.File(fullfilename, 'w')
-    f.attrs["mol_name"] = mol
-    f.create_dataset("p", data=pgrid,compression=compression)
-    f["p"].attrs["units"] = 'Pa'
-    f.create_dataset("t", data=tgrid,compression=compression)
-    f.create_dataset("xsecarr", data=kdata,compression=compression)
-    f["xsecarr"].attrs["units"] = 'm^2'
-    f.create_dataset("bin_edges", data=wns,compression=compression)
-    f.close()    
+    with h5py.File(fullfilename, 'w') as f:
+        f.attrs["mol_name"] = mol
+        f.create_dataset("p", data=pgrid,compression=compression)
+        f["p"].attrs["units"] = 'Pa'
+        f.create_dataset("t", data=tgrid,compression=compression)
+        f.create_dataset("xsecarr", data=kdata,compression=compression)
+        f["xsecarr"].attrs["units"] = 'm^2'
+        f.create_dataset("bin_edges", data=wns,compression=compression)
 
 def _read_array(file, Nvalue, N_per_line=5, Nline=None, revert=False):
     """Reads an array in a .dat filestream. 
@@ -243,7 +242,6 @@ def convert_old_kspectrum_to_hdf5(file_in, file_out, skiprows=0):
             Name of the final hdf5 file to be created.
     """
     wn_hr,k_hr=np.loadtxt(file_in,skiprows=skiprows,unpack=True) 
-    f = h5py.File(file_out, 'w')
-    f.create_dataset("wns", data=wn_hr,compression="gzip")
-    f.create_dataset("k", data=k_hr,compression="gzip")
-    f.close()   
+    with h5py.File(file_out, 'w') as f:
+        f.create_dataset("wns", data=wn_hr,compression="gzip")
+        f.create_dataset("k", data=k_hr,compression="gzip")

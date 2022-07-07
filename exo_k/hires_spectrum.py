@@ -112,26 +112,24 @@ class Hires_spectrum(Spectral_object):
         """
         if not filename.lower().endswith(('.hdf5', '.h5')):
             filename=filename+'.h5'
-        f = h5py.File(filename, 'w')
-        f.attrs["data_type"] = self.data_type
-        f.create_dataset("wns", data=self.wns,compression="gzip")
-        f["wns"].attrs["units"]=self.wn_unit
-        f.create_dataset("kdata", data=self.kdata,compression="gzip")
-        f["kdata"].attrs["units"]=self.kdata_unit
-        f.close()    
+        with h5py.File(filename, 'w') as f:
+            f.attrs["data_type"] = self.data_type
+            f.create_dataset("wns", data=self.wns,compression="gzip")
+            f["wns"].attrs["units"]=self.wn_unit
+            f.create_dataset("kdata", data=self.kdata,compression="gzip")
+            f["kdata"].attrs["units"]=self.kdata_unit
 
     def read_hdf5(self, filename):
         """Reads kspectrum file from hdf5
         """
         self.filename=filename
-        f = h5py.File(filename, 'r')
-        self.data_type=f.attrs['data_type']
-        self.wns=f['wns'][...]
-        if 'units' in f['wns'].attrs.keys():
-            self.wn_unit=f['wns'].attrs['units']
-        self.kdata=f['kdata'][...]
-        self.kdata_unit=f['kdata'].attrs['units']
-        f.close()
+        with h5py.File(filename, 'r') as f:
+            self.data_type=f.attrs['data_type']
+            self.wns=f['wns'][...]
+            if 'units' in f['wns'].attrs.keys():
+                self.wn_unit=f['wns'].attrs['units']
+            self.kdata=f['kdata'][...]
+            self.kdata_unit=f['kdata'].attrs['units']
 
     def read_binary(self, filename, mass_amu=None):
         """Reads spectra file in binary format (petitRADTRANS style)
