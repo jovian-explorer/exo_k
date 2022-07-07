@@ -420,10 +420,9 @@ class Xtable(Data_table):
                 Overrides the name of the molecule to be put in the :class:`Xtable` object.
         """
         if filename is None: raise TypeError("You should provide an input pickle filename")
-        pickle_file=open(filename,'rb')
-        raw=pickle.load(pickle_file, encoding='latin1')
-        pickle_file.close()
-
+        with open(filename,'rb') as pickle_file:
+            raw=pickle.load(pickle_file, encoding='latin1')
+        
         self.mol=raw['name']
         if self.mol=='H2OP': self.mol='H2O'
 
@@ -462,15 +461,14 @@ class Xtable(Data_table):
         """
         fullfilename=filename
         if not filename.lower().endswith('.pickle'): fullfilename=filename+'.pickle'
-        pickle_file=open(fullfilename,'wb')
-        dictout={'name':self.mol,
-                 'p':self.pgrid,
-                 'p_unit':self.p_unit,
-                 't':self.tgrid,
-                 'wno':self.wns,
-                 'wn_unit':self.wn_unit,
-                 'xsecarr':self.kdata,
-                 'kdata_unit':self.kdata_unit}
-        #print(dictout)
-        pickle.dump(dictout,pickle_file,protocol=-1)
-        pickle_file.close()
+        with open(fullfilename,'wb') as pickle_file:
+            dictout={'name':self.mol,
+                     'p':self.pgrid,
+                     'p_unit':self.p_unit,
+                     't':self.tgrid,
+                     'wno':self.wns,
+                     'wn_unit':self.wn_unit,
+                     'xsecarr':self.kdata,
+                     'kdata_unit':self.kdata_unit}
+            #print(dictout)
+            pickle.dump(dictout,pickle_file,protocol=-1)

@@ -259,25 +259,22 @@ class Ktable5d(Data_table):
             os.mkdir(path)
         except FileExistsError:
             print('Directory was already there: '+path)
-        file = open(os.path.join(path,'p.dat'), "w")
-        file.write(str(self.Np)+'\n')
-        lp_to_write=self.logpgrid+np.log10(u.Unit(self.p_unit).to(u.Unit('mbar')))
-        for lp in lp_to_write:
-            file.write(str(lp)+'\n')
-        file.close()
+        with open(os.path.join(path,'p.dat'), "w") as file:
+            file.write(str(self.Np)+'\n')
+            lp_to_write=self.logpgrid+np.log10(u.Unit(self.p_unit).to(u.Unit('mbar')))
+            for lp in lp_to_write:
+                file.write(str(lp)+'\n')
 
-        file = open(os.path.join(path,'T.dat'), "w")
-        file.write(str(self.Nt)+'\n')
-        for t in self.tgrid:
-            file.write(str(t)+'\n')
-        file.close()
+        with open(os.path.join(path,'T.dat'), "w") as file:
+            file.write(str(self.Nt)+'\n')
+            for t in self.tgrid:
+                file.write(str(t)+'\n')
 
-        file = open(os.path.join(path,'g.dat'), "w")
-        file.write(str(self.Ng+1)+'\n')
-        for g in self.weights:
-            file.write(str(g)+'\n')
-        file.write(str(0.)+'\n')
-        file.close()
+        with open(os.path.join(path,'g.dat'), "w") as file:
+            file.write(str(self.Ng+1)+'\n')
+            for g in self.weights:
+                file.write(str(g)+'\n')
+            file.write(str(0.)+'\n')
 
         dirname=os.path.join(path,band+str(self.Nw))
         try:
@@ -285,11 +282,10 @@ class Ktable5d(Data_table):
         except FileExistsError:
             print('Directory was already there: '+dirname)
 
-        file = open(os.path.join(dirname,'narrowbands_'+band+'.in'), "w")
-        file.write(str(self.Nw)+'\n')
-        for iw in range(self.Nw):
-            file.write(str(self.wnedges[iw])+' '+str(self.wnedges[iw+1])+'\n')
-        file.close()
+        with open(os.path.join(dirname,'narrowbands_'+band+'.in'), "w") as file:
+            file.write(str(self.Nw)+'\n')
+            for iw in range(self.Nw):
+                file.write(str(self.wnedges[iw])+' '+str(self.wnedges[iw+1])+'\n')
 
         if not write_only_metadata:
             #file = open(dirname+'/corrk_gcm_IR.in', "w")

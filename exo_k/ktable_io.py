@@ -203,25 +203,22 @@ class Ktable_io(Data_table):
             os.makedirs(path, exist_ok=True)
         except FileExistsError:
             print('Directory was already there '+path)
-        file = open(os.path.join(path,'p.dat'), "w")
-        file.write(str(self.Np)+'\n')
-        lp_to_write=self.logpgrid+np.log10(u.Unit(self.p_unit).to(u.Unit('mbar')))
-        for lp in lp_to_write:
-            file.write(str(lp)+'\n')
-        file.close()
+        with open(os.path.join(path,'p.dat'), "w") as file:
+            file.write(str(self.Np)+'\n')
+            lp_to_write=self.logpgrid+np.log10(u.Unit(self.p_unit).to(u.Unit('mbar')))
+            for lp in lp_to_write:
+                file.write(str(lp)+'\n')
 
-        file = open(os.path.join(path,'T.dat'), "w")
-        file.write(str(self.Nt)+'\n')
-        for t in self.tgrid:
-            file.write(str(t)+'\n')
-        file.close()
+        with open(os.path.join(path,'T.dat'), "w") as file:
+            file.write(str(self.Nt)+'\n')
+            for t in self.tgrid:
+                file.write(str(t)+'\n')
 
-        file = open(os.path.join(path,'g.dat'), "w")
-        file.write(str(self.Ng+1)+'\n')
-        for g in self.weights:
-            file.write(str(g)+'\n')
-        file.write(str(0.)+'\n')
-        file.close()
+        with open(os.path.join(path,'g.dat'), "w") as file:
+            file.write(str(self.Ng+1)+'\n')
+            for g in self.weights:
+                file.write(str(g)+'\n')
+            file.write(str(0.)+'\n')
 
         dirname=os.path.join(path,band+str(self.Nw))
         try:
@@ -229,11 +226,10 @@ class Ktable_io(Data_table):
         except FileExistsError:
             print('Directory was already there: '+dirname)
 
-        file = open(os.path.join(dirname,'narrowbands_'+band+'.in'), "w")
-        file.write(str(self.Nw)+'\n')
-        for iw in range(self.Nw):
-            file.write(str(self.wnedges[iw])+' '+str(self.wnedges[iw+1])+'\n')
-        file.close()
+        with open(os.path.join(dirname,'narrowbands_'+band+'.in'), "w") as file:
+            file.write(str(self.Nw)+'\n')
+            for iw in range(self.Nw):
+                file.write(str(self.wnedges[iw])+' '+str(self.wnedges[iw+1])+'\n')
 
         if not write_only_metadata:
             #file = open(dirname+'/corrk_gcm_IR.in', "w")
@@ -441,10 +437,9 @@ class Ktable_io(Data_table):
                 Force the name of the molecule
         """
         if filename is None: raise RuntimeError("You should provide an input pickle filename")
-        pickle_file=open(filename,'rb')
-        raw=pickle.load(pickle_file, encoding='latin1')
-        pickle_file.close()
-
+        with open(filename,'rb') as pickle_file:
+            raw=pickle.load(pickle_file, encoding='latin1')
+        
         self.mol=raw['name']
         if self.mol=='H2OP': self.mol='H2O'
 
@@ -485,21 +480,20 @@ class Ktable_io(Data_table):
         """
         fullfilename=filename
         if not filename.lower().endswith('.pickle'): fullfilename=filename+'.pickle'
-        pickle_file=open(fullfilename,'wb')
-        dictout={'name':self.mol,
-                 'p':self.pgrid,
-                 'p_unit':self.p_unit,
-                 't':self.tgrid,
-                 'bin_centers':self.wns,
-                 'bin_edges':self.wnedges,
-                 'wn_unit':self.wn_unit,
-                 'weights':self.weights,
-                 'samples':self.ggrid,
-                 'kcoeff':self.kdata,
-                 'kdata_unit':self.kdata_unit}
-        #print(dictout)
-        pickle.dump(dictout,pickle_file,protocol=-1)
-        pickle_file.close()
+        with open(fullfilename,'wb') as pickle_file:
+            dictout={'name':self.mol,
+                     'p':self.pgrid,
+                     'p_unit':self.p_unit,
+                     't':self.tgrid,
+                     'bin_centers':self.wns,
+                     'bin_edges':self.wnedges,
+                     'wn_unit':self.wn_unit,
+                     'weights':self.weights,
+                     'samples':self.ggrid,
+                     'kcoeff':self.kdata,
+                     'kdata_unit':self.kdata_unit}
+            #print(dictout)
+            pickle.dump(dictout,pickle_file,protocol=-1)
 
     def spectrum_to_plot(self, p=1.e-5, t=200., x=1., g=None):
         """Dummy function to be defined in inheriting classes
@@ -509,42 +503,42 @@ class Ktable_io(Data_table):
 def read_nemesis_binary(filename):
     """reads a nemesis binary file.
     """
-    f = open(filename, mode='rb')
-    int_array = array.array('i')
-    float_array = array.array('f')
-    int_array.fromfile(f, 2)
-    irec0, Nw=int_array[-2:]
-    float_array.fromfile(f, 3)
-    wl_min, dwl, FWHM = float_array[-3:]
-    int_array.fromfile(f, 5)
-    Np, Nt, Ng, mol_id, isotopolog_id = int_array[-5:]
-    try:
-        mol_name=list(nemesis_hitran_id_numbers.keys())[ \
-            list(nemesis_hitran_id_numbers.values()).index(mol_id)]
-    except:
-        mol_name=None
-    float_array.fromfile(f, Ng)
-    ggrid = np.array(float_array[-Ng:])
-    float_array.fromfile(f, Ng)
-    weights = np.array(float_array[-Ng:])
-    float_array.fromfile(f, 2)
-    float_array.fromfile(f, Np)
-    pgrid = np.array(float_array[-Np:])
-    float_array.fromfile(f, Nt)
-    tgrid = np.array(float_array[-Nt:])
-    ntot=Nw*Np*Nt*Ng
-    if dwl>=0.: #regular grid
-        wls=wl_min+np.arange(Nw)*dwl
-    else:
-        float_array.fromfile(f, Nw)
-        wls = np.array(float_array[-Nw:])
-    wns=10000./wls[::-1]
-    f.close()
-    f = open(filename, mode='rb') # restart to start reading kdata at record number irec0
-    kdata=array.array('f')
-    kdata.fromfile(f, irec0-1+ntot)
-    kdata=np.reshape(kdata[-ntot:],(Nw,Np,Nt,Ng))[::-1]*1.e-20
-    kdata=kdata.transpose(1,2,0,3)
-    f.close()
+    with open(filename, mode='rb') as f:
+        int_array = array.array('i')
+        float_array = array.array('f')
+        int_array.fromfile(f, 2)
+        irec0, Nw=int_array[-2:]
+        float_array.fromfile(f, 3)
+        wl_min, dwl, FWHM = float_array[-3:]
+        int_array.fromfile(f, 5)
+        Np, Nt, Ng, mol_id, isotopolog_id = int_array[-5:]
+        try:
+            mol_name=list(nemesis_hitran_id_numbers.keys())[ \
+                list(nemesis_hitran_id_numbers.values()).index(mol_id)]
+        except:
+            mol_name=None
+        float_array.fromfile(f, Ng)
+        ggrid = np.array(float_array[-Ng:])
+        float_array.fromfile(f, Ng)
+        weights = np.array(float_array[-Ng:])
+        float_array.fromfile(f, 2)
+        float_array.fromfile(f, Np)
+        pgrid = np.array(float_array[-Np:])
+        float_array.fromfile(f, Nt)
+        tgrid = np.array(float_array[-Nt:])
+        ntot=Nw*Np*Nt*Ng
+        if dwl>=0.: #regular grid
+            wls=wl_min+np.arange(Nw)*dwl
+        else:
+            float_array.fromfile(f, Nw)
+            wls = np.array(float_array[-Nw:])
+        wns=10000./wls[::-1]
+
+    with open(filename, mode='rb') as f:# restart to start reading kdata at record number irec0
+        kdata=array.array('f')
+        kdata.fromfile(f, irec0-1+ntot)
+        kdata=np.reshape(kdata[-ntot:],(Nw,Np,Nt,Ng))[::-1]*1.e-20
+        kdata=kdata.transpose(1,2,0,3)
+
     return Np, Nt, Nw, Ng, pgrid, tgrid, wns, ggrid, weights, \
         kdata, mol_name, isotopolog_id
