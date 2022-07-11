@@ -8,13 +8,13 @@ A class to handle continuum absorption (CIA)
 import os.path
 import h5py
 import numpy as np
-from exo_k.data_table import Data_table
 from exo_k.util.filenames import EndOfFile
 from .util.interp import linear_interpolation, interp_ind_weights, unit_convert
 from .util.cst import KBOLTZ
 from .settings import Settings
+from exo_k.util.spectral_object import Spectral_object
 
-class Cia_table(Data_table):
+class Cia_table(Spectral_object):
     """A class to handle CIA opacity data tables.
 
     .. important::
