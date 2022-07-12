@@ -1,0 +1,8 @@
+name: exo-k-dev-3.7
+dependencies:
+  - python=3.7
+  - git
+  - tomli
+  - pytest
+  - pytest-cov
+  - netcdf4

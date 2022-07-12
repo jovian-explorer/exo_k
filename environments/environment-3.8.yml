@@ -1,0 +1,8 @@
+name: exo-k-dev-3.8
+dependencies:
+  - python=3.8
+  - git
+  - tomli
+  - pytest
+  - pytest-cov
+  - netcdf4
