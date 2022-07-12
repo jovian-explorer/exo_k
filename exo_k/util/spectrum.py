@@ -86,7 +86,7 @@ class Spectrum(Spectral_object):
     def copy(self):
         """Deep copy of the spectrum.
         """
-        return Spectrum(self.value,self.wns,self.wnedges,
+        return Spectrum(self.value.copy(),self.wns.copy(),self.wnedges.copy(),
             input_spectral_unit = self.spec_unit, spectral_unit = self.spec_unit)
 
     def plot_spectrum(self, ax, per_wavenumber = True, x_axis = 'wls',
@@ -148,6 +148,12 @@ class Spectrum(Spectral_object):
         res=self.copy()
         res.bin_down(wnedges)
         return res
+
+    def randomize(self, uncertainty = 0.):
+        """Adds random noise with a given uncertainty.
+        """
+        self.noise = uncertainty * np.random.randn((self.value.size))
+        self.value += self.noise
 
     def __add__(self,other):
         """Defines addition
