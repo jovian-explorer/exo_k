@@ -71,8 +71,7 @@ class Spectral_object(object):
             _wn_range=np.sort(10000./np.array(wl_range))
         else:
             _wn_range=np.sort(np.array(wn_range))
-        iw_min, iw_max=np.searchsorted(self.wnedges, _wn_range, side='left')
-        iw_max-=1
+        iw_min, iw_max=np.searchsorted(self.wns, _wn_range, side='left')
         self.wnedges=self.wnedges[iw_min:iw_max+1]
         self.wns=self.wns[iw_min:iw_max]
         self.Nw=self.wns.size

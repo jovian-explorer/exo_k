@@ -84,6 +84,14 @@ def table_from_regex(table_molecule) -> xk.Ktable:
 def table_from_filename(table_from_molecule) -> xk.Ktable:
     yield xk.Ktable(filename=table_from_molecule.filename)
 
+@fixture(scope='session', params=[[8,15], [13,18], [12.5, 13.5], [10,20]])
+def wn_range(request) -> str:
+    synthetic_table
+    yield request.param
+
+@fixture()
+def table_from_range(synthetic_table, wn_range) -> xk.Ktable:
+    yield xk.Ktable(filename=synthetic_table.filename, wn_range=wn_range)
 
 # noinspection PyPep8Naming
 def assert_same_ktable(K: xk.Ktable, L: xk.Ktable, same_source: bool = True,
@@ -148,3 +156,10 @@ class TestKTable:
     @staticmethod
     def test_read_synthetic(synthetic_table):
         assert table_from_filename is not None
+
+    @staticmethod
+    def test_read_wn_range(table_from_range, wn_range):
+        table = table_from_range
+        assert table is not None
+        assert table.wns.min() >= wn_range[0]
+        assert table.wns.max() <= wn_range[1]
