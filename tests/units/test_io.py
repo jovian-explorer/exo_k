@@ -84,7 +84,7 @@ def table_from_regex(table_molecule) -> xk.Ktable:
 def table_from_filename(table_from_molecule) -> xk.Ktable:
     yield xk.Ktable(filename=table_from_molecule.filename)
 
-@fixture(scope='session', params=[[8,15], [13,18], [12.5, 13.5], [10,20]])
+@fixture(scope='session', params=[[8,15], [13,18], [10,20]])
 def wn_range(request) -> str:
     synthetic_table
     yield request.param
@@ -161,5 +161,7 @@ class TestKTable:
     def test_read_wn_range(table_from_range, wn_range):
         table = table_from_range
         assert table is not None
+        assert table.wnedges.min() >= wn_range[0]
+        assert table.wnedges.max() <= wn_range[1]
         assert table.wns.min() >= wn_range[0]
         assert table.wns.max() <= wn_range[1]

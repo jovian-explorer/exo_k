@@ -50,7 +50,7 @@ class Spectral_object(object):
             return np.sort(10000./self.wnrange)
 
     def select_spectral_range(self, wn_range=None, wl_range=None):
-        """Select spectral range, without restricting the data. Should use either wn_range OR wl_range, not both.
+        """Select spectral range, without restricting the data. Should use either wn_range OR wl_range, not both. To be selected, the whole bin should be inside the range.
 
         Parameters
         ----------
@@ -71,7 +71,11 @@ class Spectral_object(object):
             _wn_range=np.sort(10000./np.array(wl_range))
         else:
             _wn_range=np.sort(np.array(wn_range))
-        iw_min, iw_max=np.searchsorted(self.wns, _wn_range, side='left')
+        iw_min=np.searchsorted(self.wnedges, _wn_range[0], side='left')
+        iw_max=np.searchsorted(self.wnedges, _wn_range[1], side='right')
+        iw_max-=1
+        if iw_max <= iw_min:
+            raise RuntimeError(f"Spectral range {wn_range} does not contain any point.")
         self.wnedges=self.wnedges[iw_min:iw_max+1]
         self.wns=self.wns[iw_min:iw_max]
         self.Nw=self.wns.size
