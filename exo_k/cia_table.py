@@ -26,7 +26,7 @@ class Cia_table(Spectral_object):
     """
 
     def __init__(self, *filename_filters, filename=None, molecule_pair=None, search_path=None,
-            mks=False, remove_zeros=False, old_cia_unit='cm^5',
+            mks=False, remove_zeros=False, old_cia_unit='cm^5', deltalog_min_value=0.,
             wn_range=None, wl_range=None):
         """Initialization for Cia_tables.
 
@@ -190,6 +190,7 @@ class Cia_table(Spectral_object):
             self.wns=f['bin_centers'][...]
             self.wnedges=np.concatenate(([self.wns[0]],0.5*(self.wns[1:]+self.wns[:-1]),[self.wns[-1]]))
             iw_min, iw_max = self.select_spectral_range(wn_range, wl_range)
+            self.Nw=self.wns.size
             self.abs_coeff=f['abs_coeff'][..., iw_min:iw_max]
             self.abs_coeff_unit=f['abs_coeff'].attrs['units']
             self.tgrid=f['t'][...]
@@ -199,7 +200,6 @@ class Cia_table(Spectral_object):
                 self.mol1,self.mol2=tmp.split('-')
             elif 'cia_pair' in f.attrs:
                 self.mol1,self.mol2=f.attrs['cia_pair'].split('-')
-
         self.Nt=self.tgrid.size
 
     def write_hdf5(self, filename):
