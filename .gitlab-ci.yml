@@ -6,7 +6,6 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 
-
 stages:
   - setup
   - tests
@@ -40,15 +39,16 @@ include:
 # Template
 .build_tutorial:
   stage: tutorials
+  dependencies: [ ]
   script:
     - apt-get update && apt-get install -y git-lfs && git lfs install
     - git clone https://forge.oasu.u-bordeaux.fr/amechineau/pytmosph3r-data --depth=1 --branch minimal --single-branch data
     - mkdir ci_notebooks
     - cd tutorials
-    - poetry run papermill  --request-save-on-cell-execute
-      --progress-bar $NB_FILENAME ../ci_notebooks/$NB_FILENAME
+    - poetry run papermill  --request-save-on-cell-execute --progress-bar $NB_FILENAME ../ci_notebooks/$NB_FILENAME
   rules:
     - if: $CI_COMMIT_TAG
+    - if: $DEBUG_NOTEBOOK != null || $DEBUG_DOC != null
   artifacts:
     paths:
       - ci_notebooks/*.ipynb
@@ -99,6 +99,7 @@ warm-🐍:
 
 python-test:
   stage: tests
+  dependencies: [ ]
   script:
     - poetry run pytest -vv --cov --cov-report=xml --cov-branch --junitxml=report.xml
   artifacts:
@@ -144,9 +145,9 @@ tutorials:
           - examples-exo_k.ipynb
           - tutorial-atm.ipynb
 
-
 packages:
   stage: build
+  dependencies: [ ]
   script:
     - poetry build
   artifacts:
@@ -171,6 +172,7 @@ doc:
       - site/
   rules:
     - if: $CI_COMMIT_TAG != null
+    - if: $DEBUG_DOC != null
 
 
 dependency_scanning:
@@ -179,6 +181,7 @@ dependency_scanning:
 
 requirements:
   stage: dependencies
+  dependencies: [ ]
   script:
     - poetry run pip freeze > requirements.txt
   artifacts:
